@@ -1,4 +1,4 @@
-import type { GameState } from "./types";
+import type { GameState, GoodId, Rumor } from "./types";
 import { GOODS, LEVY_GOODS } from "./types";
 
 const KEY = "westmark-save-v1";
@@ -38,6 +38,16 @@ export function getServerGameSnapshot() {
   return emptySnapshot;
 }
 
+function legalRumor(rumor: Rumor | null | undefined): Rumor | null {
+  if (!rumor || typeof rumor !== "object") return null;
+  const good = rumor.good as GoodId;
+  if (!GOODS.includes(good)) return null;
+  if (rumor.side !== "buy" && rumor.side !== "sell") return null;
+  if (rumor.delta !== 1 && rumor.delta !== -1) return null;
+  if (typeof rumor.day !== "number" || !Number.isFinite(rumor.day)) return null;
+  return { good, side: rumor.side, delta: rumor.delta, day: rumor.day, text: typeof rumor.text === "string" ? rumor.text : "" };
+}
+
 export function parseSave(raw: string): GameState | null {
   try {
     const value = JSON.parse(raw) as GameState;
@@ -57,6 +67,10 @@ export function parseSave(raw: string): GameState | null {
     if (!value.omen) value.omen = null;
     if (!Array.isArray(value.omensSeen)) value.omensSeen = [];
     if (!Array.isArray(value.oathsKept)) value.oathsKept = [];
+    if (typeof value.seed !== "number" || !Number.isFinite(value.seed)) value.seed = 0;
+    else value.seed = value.seed >>> 0;
+    value.rumor = legalRumor(value.rumor);
+    value.surprisesSeen = Array.isArray(value.surprisesSeen) ? value.surprisesSeen.filter((item) => typeof item === "string") : [];
     return value;
   } catch {
     return null;

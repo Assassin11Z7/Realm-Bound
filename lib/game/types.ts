@@ -105,7 +105,7 @@ export interface OmenChoice {
   detail: string;
 }
 
-export type OmenArt = "drake" | "nix" | "wing" | "antler" | "serpent" | "speaks";
+export type OmenArt = "drake" | "nix" | "wing" | "antler" | "serpent" | "speaks" | "road" | "weather" | "saint" | "kin";
 
 export interface Omen {
   id: string;
@@ -114,6 +114,15 @@ export interface Omen {
   body: string;
   art: OmenArt;
   choices: OmenChoice[];
+  passText?: string;
+}
+
+export interface Rumor {
+  good: GoodId;
+  side: "buy" | "sell";
+  delta: 1 | -1;
+  day: number;
+  text: string;
 }
 
 export type Outcome = "held" | "held-late" | "lost";
@@ -165,6 +174,9 @@ export interface GameState {
   omen: Omen | null;
   omensSeen: string[];
   oathsKept: string[];
+  seed: number;
+  rumor: Rumor | null;
+  surprisesSeen: string[];
 }
 
 export interface NewGameSetup {

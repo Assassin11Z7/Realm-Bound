@@ -23,6 +23,7 @@ import {
   raiseUndercroft,
   sealDay,
   sell,
+  sellPrice,
   setReserve,
   withdraw,
 } from "./engine";
@@ -363,4 +364,144 @@ test("Vell and the mine-drake stay optional until you answer", () => {
   assert.equal(tribute.state.player.stash.iron, 0);
   assert.ok(tribute.state.wyrm.ire < rich.wyrm.ire);
   assert.equal(tribute.state.player.gold, rich.player.gold + 2);
+});
+
+function sealed(times: number, state = createGame(setup())) {
+  let next = state;
+  for (let step = 0; step < times; step += 1) next = sealDay(next).state;
+  return next;
+}
+
+test("quiet dawns can send a stranger, and letting them pass spends nothing", () => {
+  const start = createGame(setup());
+  assert.equal(start.seed, 208279680);
+  assert.equal(createGame(setup({ name: "  Iseult  " })).seed, start.seed);
+  assert.notEqual(createGame(setup({ holdId: "woolford" })).seed, start.seed);
+  assert.equal(start.rumor, null);
+
+  const day2 = sealed(1);
+  assert.equal(day2.day, 2);
+  assert.equal(day2.omen?.id, "drake");
+  assert.equal(day2.player.gold, 22);
+
+  const day3 = sealed(2);
+  assert.equal(day3.day, 3);
+  assert.equal(day3.omen, null);
+
+  const day5 = sealed(4);
+  assert.equal(day5.day, 5);
+  assert.equal(day5.omen?.id, "bell-carter");
+  assert.deepEqual(day5.surprisesSeen, ["bell-carter"]);
+  assert.equal(day5.player.gold, 22);
+  assert.equal(day5.compact.levy.iron, 0);
+  assert.equal(day5.wyrm.ire, 38);
+
+  const passed = dismissOmen(day5);
+  assert.equal(passed.error, undefined);
+  assert.equal(passed.state.omen, null);
+  assert.equal(passed.state.player.gold, 22);
+  assert.equal(passed.state.wyrm.ire, 38);
+  assert.ok(passed.state.chronicle.some((entry) => entry.text.includes("let the bell pass")));
+
+  const ignored = sealDay(day5).state;
+  const quiet = structuredClone(day5);
+  quiet.omen = null;
+  const without = sealDay(quiet).state;
+  assert.equal(ignored.player.gold, without.player.gold);
+  assert.deepEqual(ignored.player.stash, without.player.stash);
+  assert.deepEqual(ignored.compact.hall, without.compact.hall);
+  assert.deepEqual(ignored.compact.levy, without.compact.levy);
+  assert.ok(ignored.chronicle.some((entry) => entry.text.includes("The bell-carter went unanswered.")));
+  assert.equal(ignored.day, 6);
+  assert.equal(ignored.omen?.id, "wing");
+});
+
+test("the bell-carter's night load can pay, and a short purse cannot", () => {
+  const day5 = sealed(4);
+  const night = chooseOmen(day5, "night");
+  assert.equal(night.error, undefined);
+  assert.equal(night.state.player.gold, 24);
+  assert.equal(night.state.player.stash.iron, 2);
+  assert.equal(night.state.player.renown, 2);
+  assert.equal(night.state.wyrm.ire, 38);
+  assert.equal(night.state.omen, null);
+  assert.ok(night.state.chronicle.some((entry) => entry.text.includes("ran the night load")));
+
+  const poor = structuredClone(day5);
+  poor.player.gold = 3;
+  const refused = chooseOmen(poor, "night");
+  assert.equal(refused.error, "You need 4 gold.");
+  assert.equal(refused.state.player.gold, 3);
+  assert.equal(refused.state.omen?.id, "bell-carter");
+
+  const wool = structuredClone(day5);
+  wool.player.stash.wool = 2;
+  const toll = chooseOmen(wool, "toll");
+  assert.equal(toll.error, undefined);
+  assert.equal(toll.state.player.stash.wool, 0);
+  assert.equal(toll.state.player.gold, 26);
+  assert.equal(toll.state.player.renown, 1);
+  assert.equal(toll.state.omen, null);
+});
+
+test("a road rumor moves one price beside the fixed omens", () => {
+  const day9 = sealed(8);
+  assert.equal(day9.day, 9);
+  assert.equal(day9.omen?.id, "seam-knock");
+  assert.equal(day9.rumor?.good, "wool");
+  assert.equal(day9.rumor?.side, "buy");
+  assert.equal(day9.rumor?.delta, 1);
+  const bare = structuredClone(day9);
+  bare.rumor = null;
+  assert.equal(buyPrice(day9, "wool"), buyPrice(bare, "wool") + 1);
+  assert.equal(buyPrice(day9, "grain"), buyPrice(bare, "grain"));
+  assert.equal(sellPrice(day9, "wool"), sellPrice(bare, "wool"));
+
+  const day10 = sealed(9);
+  assert.equal(day10.omen?.id, "serpent");
+  assert.equal(day10.rumor?.good, "iron");
+  assert.equal(day10.rumor?.side, "sell");
+  assert.equal(day10.rumor?.delta, -1);
+  const bareWool = structuredClone(day10);
+  bareWool.rumor = null;
+  assert.equal(sellPrice(day10, "iron"), sellPrice(bareWool, "iron") - 1);
+  assert.equal(buyPrice(day10, "iron"), buyPrice(bareWool, "iron"));
+
+  const day12 = sealed(11);
+  assert.equal(day12.day, 12);
+  assert.equal(day12.omen?.id, "speaks");
+  assert.equal(day12.rumor, null);
+
+  const fresh = createGame(setup());
+  const other = createGame(setup({ holdId: "woolford" }));
+  assert.equal(fresh.rumor, null);
+  assert.equal(buyPrice(fresh, "iron"), buyPrice(other, "iron"));
+});
+
+test("old charters grow a seed and an empty rumor", () => {
+  const bare = parseSave(
+    JSON.stringify({
+      version: 1,
+      day: 3,
+      player: { stash: { grain: 1, timber: 0, iron: 0, salt: 0, wool: 0, relics: 0 } },
+      compact: {
+        members: [],
+        hall: { grain: 0, timber: 0, iron: 0, salt: 0, wool: 0, relics: 0 },
+        levy: { grain: 0, iron: 0, salt: 0 },
+        reserve: { grain: 0, iron: 0, salt: 0 },
+      },
+      chronicle: [],
+      rumor: { good: "nope" },
+      seed: Number.NaN,
+    }),
+  );
+  assert.equal(bare?.seed, 0);
+  assert.equal(bare?.rumor, null);
+  assert.deepEqual(bare?.surprisesSeen, []);
+
+  const day9 = sealed(8);
+  const round = parseSave(JSON.stringify(day9));
+  assert.equal(round?.seed, day9.seed);
+  assert.deepEqual(round?.rumor, day9.rumor);
+  assert.deepEqual(round?.surprisesSeen, day9.surprisesSeen);
 });

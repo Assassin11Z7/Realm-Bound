@@ -16,8 +16,10 @@ import {
   NEED_START,
   NEED_TARGET,
   NPC_YIELD,
+  GOOD_LABEL,
   OMEN_ON_DAY,
   PLAYER_YIELD,
+  ROAD_SURPRISES,
   SCORCH_AT,
   SEASON_DAYS,
   SELL_PRICE,
@@ -36,7 +38,7 @@ import {
   seasonOf,
   stashCount,
 } from "./content";
-import { LEVY_GOODS } from "./types";
+import { GOODS, LEVY_GOODS } from "./types";
 import type {
   BarterOffer,
   Caravan,
@@ -111,12 +113,18 @@ export function buyPrice(state: GameState, good: GoodId): number {
     if (good === "iron" || good === "salt") price += 1;
   }
   if (state.player.factionId === "copper") price -= 1;
+  if (state.rumor && state.rumor.day === state.day && state.rumor.good === good && state.rumor.side === "buy") {
+    price += state.rumor.delta;
+  }
   return Math.max(1, price);
 }
 
 export function sellPrice(state: GameState, good: GoodId): number {
   let price = SELL_PRICE[good];
   if (state.player.factionId === "copper") price += 1;
+  if (state.rumor && state.rumor.day === state.day && state.rumor.good === good && state.rumor.side === "sell") {
+    price += state.rumor.delta;
+  }
   return Math.max(1, price);
 }
 
@@ -217,6 +225,105 @@ function mulberry32(seed: number) {
   };
 }
 
+function seasonSeed(name: string, holdId: string, factionId: string): number {
+  const text = `${name}|${holdId}|${factionId}`;
+  let hash = 2166136261;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+type Shift = {
+  goods?: Partial<Record<GoodId, number>>;
+  gold?: number;
+  ire?: number;
+  renown?: number;
+  contentment?: number;
+  note: string;
+};
+
+type SurprisePlay = {
+  cautious: Shift;
+  bold: { salt: number; stake: Shift; win: Shift; lose: Shift };
+};
+
+const SURPRISE: Record<string, SurprisePlay> = {
+  "ford-fog": {
+    cautious: { goods: { timber: -1 }, contentment: 4, renown: 1, note: "You staked the ford with timber. The oathbound crossed without losing the path." },
+    bold: {
+      salt: 11,
+      stake: { goods: { grain: -3 }, note: "" },
+      win: { goods: { salt: 4 }, gold: 3, note: "You drove through the ford fog and came out with salt and a little coin." },
+      lose: { ire: 5, contentment: -6, note: "The ford fog ate the grain and turned you around. Vell's weather took the insult." },
+    },
+  },
+  "candle-saint": {
+    cautious: { goods: { relics: -1 }, contentment: 8, renown: 2, ire: -6, note: "The candle-saint blessed the storehouse. Your oathbound slept, and Vell looked elsewhere." },
+    bold: {
+      salt: 5,
+      stake: { gold: -6, note: "" },
+      win: { goods: { relics: 1 }, gold: 10, renown: 1, note: "You snuffed the candle. A relic lay in the wax, and the saint's purse was heavier than it looked." },
+      lose: { ire: 8, note: "The candle went out and took your coin with it. The gold eye in the mountain opened a little." },
+    },
+  },
+  "cousin-banner": {
+    cautious: { goods: { grain: -2, iron: 2 }, renown: 1, note: "Your cousin took two grain and left two iron, and called it kinship." },
+    bold: {
+      salt: 7,
+      stake: { gold: -8, note: "" },
+      win: { goods: { iron: 3, salt: 2 }, renown: 2, note: "Your cousin came back from the hills with iron and salt, and nobody asked which road." },
+      lose: { contentment: -8, note: "Your cousin took the purse and told the compact you had paid them to leave. The hall went quiet." },
+    },
+  },
+  "bell-carter": {
+    cautious: { goods: { wool: -2 }, gold: 4, renown: 1, note: "You paid the bell-carter in wool. Four gold came back, and the road stayed marked." },
+    bold: {
+      salt: 4,
+      stake: { gold: -4, note: "" },
+      win: { goods: { iron: 2 }, gold: 6, renown: 2, note: "The bell-carter ran the night load. Two iron and six gold came back with the bell." },
+      lose: { ire: 6, note: "The bell-carter took your coin into the frost and did not return. Vell heard the bell." },
+    },
+  },
+  "snow-bells": {
+    cautious: { goods: { salt: -2 }, ire: -8, renown: 1, note: "You salted the snow-bells. They went quiet, and the wyrm's ire eased." },
+    bold: {
+      salt: 13,
+      stake: { goods: { timber: -2 }, note: "" },
+      win: { goods: { relics: 1 }, renown: 3, note: "Under the snow-bell you found a relic still warm. The pass kept your secret." },
+      lose: { ire: 7, contentment: -5, note: "The snow broke under the bell. Vell turned an ear toward the pass, and the compact heard it too." },
+    },
+  },
+  "seam-knock": {
+    cautious: { goods: { iron: -2 }, gold: 5, ire: -4, note: "You left iron on the rung. In the morning a carter had left five gold and the knocking had stopped." },
+    bold: {
+      salt: 2,
+      stake: { goods: { iron: -1 }, note: "" },
+      win: { goods: { iron: 4 }, renown: 2, note: "You went down at the third knock and came up with a richer fist of iron." },
+      lose: { ire: 5, note: "The seam answered the knock. You climbed out poorer in nerve, and Vell knows the shaft." },
+    },
+  },
+  "tide-bell": {
+    cautious: { goods: { grain: -3, salt: 2 }, contentment: 3, renown: 1, note: "You gave the tide-bell its grain. The pans stayed level, and the salters slept." },
+    bold: {
+      salt: 1,
+      stake: { gold: -5, note: "" },
+      win: { goods: { salt: 4 }, gold: 8, renown: 2, note: "You hauled the tide-bell. Salt and coin spilled out of it onto the pans." },
+      lose: { ire: 6, contentment: -4, note: "The tide-bell sank and took your coin. The slate serpent will mention it to Vell." },
+    },
+  },
+  "white-hart": {
+    cautious: { goods: { wool: -2 }, contentment: 6, renown: 1, note: "You left wool for the white hart. By dusk a lost flock had found the fold." },
+    bold: {
+      salt: 3,
+      stake: { goods: { timber: -1 }, note: "" },
+      win: { goods: { wool: 4 }, gold: 4, renown: 2, note: "You chased the white hart and came back with wool, coin, and no witness." },
+      lose: { contentment: -7, ire: 4, note: "The white hart vanished between trunks. The compact heard the chase, and so did the mountain." },
+    },
+  },
+};
+
 function rollStock(visit: number): Stash {
   const rng = mulberry32(visit * 997 + 13);
   const roll = (min: number, span: number) => min + Math.floor(rng() * span);
@@ -228,6 +335,77 @@ function rollStock(visit: number): Stash {
     iron: roll(5, 3),
     relics: 1,
   };
+}
+
+function pickSurprise(seed: number, day: number, seen: string[]) {
+  if (OMEN_ON_DAY[day]) return null;
+  if (day < 3 || day > 11) return null;
+  const rng = mulberry32((seed ^ Math.imul(day, 0xa5a5a5a5)) >>> 0);
+  if (rng() >= 0.5) return null;
+  const start = Math.floor(rng() * ROAD_SURPRISES.length);
+  for (let step = 0; step < ROAD_SURPRISES.length; step += 1) {
+    const event = ROAD_SURPRISES[(start + step) % ROAD_SURPRISES.length];
+    if (!seen.includes(event.id)) return event;
+  }
+  return null;
+}
+
+function rumorText(good: GoodId, side: "buy" | "sell", delta: 1 | -1): string {
+  const name = GOOD_LABEL[good];
+  if (side === "buy" && delta === 1) return `${name} is dear on the road today. Buying costs 1 more.`;
+  if (side === "buy") return `${name} is plentiful on the road today. Buying costs 1 less.`;
+  const lower = name.toLowerCase();
+  if (delta === 1) return `Carters are hungry for ${lower}. Selling pays 1 more.`;
+  return `The wagons are glutted with ${lower}. Selling pays 1 less.`;
+}
+
+function rumorFor(seed: number, day: number) {
+  if (day < 2 || visitKey(day) === null) return null;
+  const rng = mulberry32((seed ^ Math.imul(day, 0x85ebca6b)) >>> 0);
+  if (rng() >= 0.45) return null;
+  const good = GOODS[Math.floor(rng() * 6)];
+  const side: "buy" | "sell" = rng() < 0.5 ? "buy" : "sell";
+  const delta: 1 | -1 = rng() < 0.5 ? -1 : 1;
+  if (side === "sell" && good === "grain" && delta === -1) return null;
+  return { good, side, delta, day, text: rumorText(good, side, delta) };
+}
+
+function payError(state: GameState, shift: Shift): string | null {
+  if (shift.goods) {
+    for (const good of GOODS) {
+      const qty = shift.goods[good] ?? 0;
+      if (qty < 0 && state.player.stash[good] < -qty) return `You don't have ${-qty} ${good}.`;
+    }
+  }
+  if ((shift.gold ?? 0) < 0 && state.player.gold < -(shift.gold ?? 0)) return `You need ${-(shift.gold ?? 0)} gold.`;
+  return null;
+}
+
+function goodNet(shifts: Shift[]): number {
+  let net = 0;
+  for (const shift of shifts) {
+    if (!shift.goods) continue;
+    for (const qty of Object.values(shift.goods)) net += qty ?? 0;
+  }
+  return net;
+}
+
+function applyShift(state: GameState, shift: Shift) {
+  if (shift.goods) {
+    for (const good of GOODS) {
+      const qty = shift.goods[good] ?? 0;
+      if (qty) state.player.stash[good] += qty;
+    }
+  }
+  if (shift.gold) state.player.gold += shift.gold;
+  if (shift.ire) state.wyrm.ire = Math.max(0, Math.min(100, state.wyrm.ire + shift.ire));
+  if (shift.renown) state.player.renown += shift.renown;
+  if (shift.contentment) {
+    for (const member of state.compact.members) {
+      if (!member.inCompact) continue;
+      member.contentment = Math.max(0, Math.min(100, member.contentment + (shift.contentment ?? 0)));
+    }
+  }
 }
 
 export function visitKey(day: number): number | null {
@@ -436,6 +614,9 @@ export function createGame(setup: NewGameSetup): GameState {
     omen: null,
     omensSeen: [],
     oathsKept: [],
+    seed: seasonSeed(name || "Ash", setup.holdId, setup.factionId),
+    rumor: null,
+    surprisesSeen: [],
   };
 
   const yieldQty = playerYieldQty(setup.factionId, setup.holdId, 1);
@@ -753,11 +934,19 @@ export function sealDay(state: GameState): Result {
   }
 
   next.day = nextDay;
+  next.rumor = rumorFor(next.seed ?? 0, next.day);
   const omenId = OMEN_ON_DAY[next.day];
   if (omenId && !next.omensSeen.includes(omenId)) {
     next.omen = structuredClone(omenById(omenId));
     next.omensSeen.push(omenId);
     lines.push(`${next.omen.creature} is at the gate.`);
+  } else if (!omenId) {
+    const surprise = pickSurprise(next.seed ?? 0, next.day, next.surprisesSeen ?? []);
+    if (surprise) {
+      next.omen = structuredClone(surprise);
+      next.surprisesSeen.push(surprise.id);
+      lines.push(`${surprise.creature} is at the gate.`);
+    }
   }
 
   for (const line of lines) note(next, line);
@@ -861,11 +1050,11 @@ export function fulfillOath(state: GameState, memberId: string): Result {
 
 export function dismissOmen(state: GameState): Result {
   if (!state.omen) return fail(state, "Nothing is at the gate.");
-  const creature = state.omen.creature;
+  const line = state.omen.passText ?? `${state.omen.creature} went unanswered.`;
   const next = draft(state);
   next.omen = null;
-  note(next, `${creature} went unanswered.`);
-  return ok(next, `${creature} went unanswered.`);
+  note(next, line);
+  return ok(next, line);
 }
 
 export function chooseOmen(state: GameState, choiceId: string): Result {
@@ -873,6 +1062,31 @@ export function chooseOmen(state: GameState, choiceId: string): Result {
   const omen = state.omen;
   if (!omen.choices.some((choice) => choice.id === choiceId)) return fail(state, "That is not an answer they will hear.");
   const next = draft(state);
+  const play = SURPRISE[omen.id];
+  if (play) {
+    const cautiousIds = new Set(["mark", "bless", "trade", "toll", "quiet", "rung", "bed", "wool"]);
+    if (cautiousIds.has(choiceId)) {
+      const error = payError(next, play.cautious);
+      if (error) return fail(state, error);
+      const net = goodNet([play.cautious]);
+      if (net > 0 && !canFit(next, net)) return fail(state, "The undercroft is full.");
+      applyShift(next, play.cautious);
+      note(next, play.cautious.note);
+    } else {
+      const error = payError(next, play.bold.stake);
+      if (error) return fail(state, error);
+      const roll = mulberry32((next.seed ^ Math.imul(next.day, 0xc2b2ae35) ^ play.bold.salt) >>> 0)();
+      const outcome = roll < 0.5 ? play.bold.win : play.bold.lose;
+      const net = goodNet([play.bold.stake, outcome]);
+      if (net > 0 && !canFit(next, net)) return fail(state, "The undercroft is full.");
+      applyShift(next, play.bold.stake);
+      applyShift(next, outcome);
+      note(next, outcome.note);
+    }
+    next.omen = null;
+    next.compactActed = true;
+    return ok(next, next.chronicle[next.chronicle.length - 1]?.text ?? "The road is answered.");
+  }
   const key = `${omen.id}:${choiceId}`;
 
   const lack = (good: GoodId, qty: number) => next.player.stash[good] < qty;

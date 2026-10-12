@@ -34,6 +34,10 @@ export const OMEN_ART: Record<OmenArt, string> = {
   antler: "/art/antler.jpg",
   serpent: "/art/serpent.jpg",
   speaks: "/art/wyrm-speaks.jpg",
+  road: "/art/caravan.jpg",
+  weather: "/art/title-valley.jpg",
+  saint: "/art/hold-vesper.jpg",
+  kin: "/art/portrait-nell.jpg",
 };
 
 export function GoodThumb({ good, className = "size-10" }: { good: GoodId; className?: string }) {

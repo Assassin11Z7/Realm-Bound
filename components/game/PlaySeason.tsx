@@ -96,6 +96,7 @@ export function PlaySeason({
   const [menu, setMenu] = useState(false);
   const [confirmAbandon, setConfirmAbandon] = useState(false);
   const [giftFor, setGiftFor] = useState<string | null>(null);
+  const [dawn, setDawn] = useState<{ day: number } | null>(null);
 
   useEffect(() => {
     if (!toast) return;
@@ -136,12 +137,20 @@ export function PlaySeason({
 
   function onSeal() {
     if (sealing.current) return;
+    const result = sealDay(state);
+    if (result.error) {
+      setToast({ tone: "bad", text: result.error });
+      return;
+    }
     sealing.current = true;
     navigator.vibrate?.(12);
-    act(sealDay(state));
+    setDawn({ day: result.state.day });
+    onPlayed(result.state);
+    if (result.message) setToast({ tone: "good", text: result.message });
     window.setTimeout(() => {
+      setDawn(null);
       sealing.current = false;
-    }, 450);
+    }, 700);
   }
 
   const trouble = state.compact.members.some((member) => !member.inCompact || member.contentment < 25);
@@ -151,7 +160,7 @@ export function PlaySeason({
   const verdictOpen = Boolean(state.outcome && !state.outcomeDismissed);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="relative flex min-h-0 flex-1 flex-col">
       <header className="relative text-[#f4ead7]">
         <img src={`/art/hold-${hold.id}.jpg`} alt="" className="absolute inset-0 h-full w-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-b from-[#1c1612]/50 via-[#1c1612]/45 to-[#1c1612]" />
@@ -201,7 +210,7 @@ export function PlaySeason({
             })}
           </button>
           <button type="button" className="mt-2 flex w-full items-center gap-2 text-left" onClick={() => setTab("realm")}>
-            <img src="/art/wyrm-vell.jpg" alt="" className="size-8 rounded-full object-cover ring-1 ring-[#e6c56e]" />
+            <img src="/art/wyrm-vell.jpg" alt="" className={`size-8 rounded-full object-cover ring-1 ring-[#e6c56e] wm-ire${state.wyrm.ire >= 60 ? " wm-ire-hot" : ""}`} />
             <span className="min-w-0 flex-1">
               <span className="flex justify-between text-[11px]">
                 <span>{WYRM_NAME}</span>
@@ -215,7 +224,7 @@ export function PlaySeason({
 
       <div aria-live="polite" className="px-4">
         {toast && (
-          <p className={`mt-2 rounded-xl px-3 py-2 text-sm leading-snug ${toast.tone === "bad" ? "bg-primary text-primary-foreground" : "bg-moss text-[#f3eadb]"}`}>
+          <p key={toast.text} className={`wm-toast mt-2 rounded-xl px-3 py-2 text-sm leading-snug ${toast.tone === "bad" ? "bg-primary text-primary-foreground" : "bg-moss text-[#f3eadb]"}`}>
             {toast.text}
           </p>
         )}
@@ -223,7 +232,7 @@ export function PlaySeason({
 
       <div ref={mainRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
         {tab === "realm" && (
-          <div className="flex flex-col gap-3">
+          <div className="wm-tab flex flex-col gap-3">
             <RealmMap state={state} selected={holdId} onSelect={setHoldId} />
             <HoldBrief state={state} holdId={holdId} />
             <WyrmCard state={state} act={act} />
@@ -239,7 +248,7 @@ export function PlaySeason({
         )}
 
         {tab === "hold" && (
-          <div className="flex flex-col gap-3">
+          <div className="wm-tab flex flex-col gap-3">
             <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/10">
               <div className="relative h-32">
                 <img src={`/art/hold-${hold.id}.jpg`} alt="" className="h-full w-full object-cover" />
@@ -508,6 +517,14 @@ export function PlaySeason({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {dawn && (
+        <>
+          <div className="wm-dawn" aria-hidden="true" />
+          <p className="wm-stamp" aria-hidden="true">
+            Dawn · Day {dawn.day}
+          </p>
+        </>
+      )}
     </div>
   );
 }
@@ -531,7 +548,7 @@ function CompactPanel({
   const drawRoom = FOUNDER_WITHDRAW_CAP - state.player.withdrawnToday;
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="wm-tab flex flex-col gap-3">
       <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
         <p className="text-sm leading-relaxed">
           Leave what your kin are likely to draw tonight. Send the rest to the road. The reserve binds them, not you.
@@ -660,7 +677,7 @@ function RoadPanel({ state, act }: { state: GameState; act: (result: Result) => 
   const market = nextMarketDay(state.day);
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="wm-tab flex flex-col gap-3">
       <p className="text-sm text-muted-foreground">{seasonNote(state.day)}</p>
       {state.caravan ? (
         <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/10">
@@ -673,6 +690,7 @@ function RoadPanel({ state, act }: { state: GameState; act: (result: Result) => 
           <p className="text-sm text-muted-foreground">
             {visitKey(state.day + 1) !== null ? "It stays through tomorrow, then the road goes quiet." : "It leaves at dusk."}
           </p>
+          {state.rumor && state.rumor.day === state.day && <p className="mt-2 text-sm leading-relaxed">{state.rumor.text}</p>}
           <ul className="mt-3 flex flex-col gap-3">
             {GOODS.map((item) => (
               <li key={item} className="flex items-center gap-2">
@@ -681,6 +699,7 @@ function RoadPanel({ state, act }: { state: GameState; act: (result: Result) => 
                   <span className="block text-sm">{GOOD_LABEL[item]}</span>
                   <span className="block text-[11px] text-muted-foreground">
                     {state.caravan?.stock[item]} in the wagon · buy {buyPrice(state, item)}g · sell {sellPrice(state, item)}g
+                    {state.rumor?.day === state.day && state.rumor.good === item ? " · rumor" : ""}
                   </span>
                 </span>
                 <Button type="button" variant="outline" className="h-11 px-3" onClick={() => act(buy(state, item, 1))}>

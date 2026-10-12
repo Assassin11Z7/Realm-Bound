@@ -37,7 +37,7 @@ export function RealmMap({
             style={{ left: `${mark.x}%`, top: `${mark.y}%` }}
           >
             <span
-              className={`flex size-8 items-center justify-center rounded-full text-[10px] font-semibold text-[#f8f1e4] shadow-lg ${active ? "ring-2 ring-white" : "ring-1 ring-black/40"} ${mine ? "bg-[#6e1e22]" : "bg-[#1c1612]/80"}`}
+              className={`flex size-8 items-center justify-center rounded-full text-[10px] font-semibold text-[#f8f1e4] shadow-lg ${active ? "ring-2 ring-white" : "ring-1 ring-black/40"} ${mine ? "wm-hold bg-[#6e1e22]" : "bg-[#1c1612]/80"}`}
             >
               {mine ? "You" : hold.name.slice(0, 1)}
             </span>

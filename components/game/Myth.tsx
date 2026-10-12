@@ -149,8 +149,10 @@ export function OmenDialog({ state, act }: { state: GameState; act: (result: Res
       <DialogContent container={frame} className="max-h-[88%] overflow-y-auto p-0" showCloseButton={false}>
         {omen && (
           <>
-            <img src={OMEN_ART[omen.art]} alt="" className="h-40 w-full object-cover" />
-            <div className="px-4 pt-4">
+            <div className="h-40 overflow-hidden">
+              <img src={OMEN_ART[omen.art] ?? "/art/caravan.jpg"} alt="" className="wm-drift wm-drift-omen h-full w-full object-cover" />
+            </div>
+            <div className="wm-rise px-4 pt-4">
               <DialogHeader>
                 <DialogTitle className="font-display text-2xl">{omen.title}</DialogTitle>
                 <DialogDescription>{omen.creature}</DialogDescription>

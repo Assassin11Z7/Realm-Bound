@@ -158,3 +158,92 @@
   background: #e7d3a1;
   color: #231910;
 }
+
+@keyframes wm-drift {
+  0% { transform: scale(1.08) translate3d(0, 0, 0); }
+  100% { transform: scale(1.18) translate3d(-2.2%, -1.4%, 0); }
+}
+@keyframes wm-breathe {
+  0%, 100% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(1.045); filter: brightness(1.08); }
+}
+@keyframes wm-press {
+  0% { transform: scale(1); filter: brightness(1); }
+  45% { transform: scale(0.97) translateY(1px); filter: brightness(0.96); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+@keyframes wm-dawn {
+  0% { opacity: 0; }
+  16% { opacity: 1; }
+  68% { opacity: 0.72; }
+  100% { opacity: 0; }
+}
+@keyframes wm-stamp {
+  0% { opacity: 0; transform: scale(1.28); filter: blur(1.5px); }
+  24% { opacity: 1; transform: scale(1); filter: blur(0); }
+  70% { opacity: 1; transform: scale(1); filter: blur(0); }
+  100% { opacity: 0; transform: scale(0.98); filter: blur(0); }
+}
+@keyframes wm-rise {
+  0% { opacity: 0; transform: translateY(22px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes wm-ire {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(230, 197, 110, 0.15)); }
+  50% { transform: scale(1.07); filter: drop-shadow(0 0 6px rgba(230, 197, 110, 0.9)); }
+}
+@keyframes wm-hold {
+  0%, 100% { transform: scale(1); opacity: 1; filter: drop-shadow(0 0 0 rgba(230, 197, 110, 0)); }
+  50% { transform: scale(1.12); opacity: 0.88; filter: drop-shadow(0 0 5px rgba(230, 197, 110, 0.65)); }
+}
+@keyframes wm-toast {
+  0% { opacity: 0; transform: translateY(-8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes wm-tab {
+  0% { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.wm-drift { animation: wm-drift 28s ease-in-out infinite alternate; transform-origin: 48% 62%; }
+.wm-drift-omen { animation-duration: 16s; transform-origin: 50% 32%; }
+.wm-breathe { animation: wm-breathe 4.8s ease-in-out infinite; }
+.wm-press:active { animation: wm-press 160ms ease-out both; }
+.wm-dawn {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255, 236, 196, 0.94), transparent 58%),
+    rgba(230, 197, 110, 0.34);
+  animation: wm-dawn 700ms ease-out forwards;
+}
+.wm-stamp {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 41;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-fraunces), Georgia, serif;
+  font-size: 1.35rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #7c2a24;
+  text-shadow: 0 1px 0 rgba(248, 241, 228, 0.85);
+  animation: wm-stamp 700ms cubic-bezier(0.16, 0.84, 0.32, 1) forwards;
+}
+.wm-rise { animation: wm-rise 420ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.wm-ire { animation: wm-ire 2.8s ease-in-out infinite; }
+.wm-ire-hot { animation-duration: 0.9s; }
+.wm-hold { animation: wm-hold 2.6s ease-in-out infinite; }
+.wm-toast { animation: wm-toast 220ms ease-out both; }
+.wm-tab { animation: wm-tab 280ms ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .wm-drift, .wm-breathe, .wm-ire, .wm-hold, .wm-rise, .wm-toast, .wm-tab, .wm-stamp, .wm-press:active {
+    animation: none !important;
+  }
+  .wm-dawn { display: none; }
+}

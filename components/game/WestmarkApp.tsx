@@ -74,11 +74,11 @@ function SeasonShell() {
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-      <img src="/art/title-valley.jpg" alt="" className="absolute inset-0 h-full w-full object-cover" />
+      <img src="/art/title-valley.jpg" alt="" className="wm-drift absolute inset-0 h-full w-full object-cover" />
       <div className="absolute inset-0 bg-gradient-to-b from-[#14110e]/40 via-[#14110e]/20 to-[#14110e]/92" />
       <div className="relative flex min-h-0 flex-1 flex-col px-5 pt-8 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
       <div className="flex flex-1 flex-col items-center justify-end pb-6 text-center text-[#f4ead7]">
-        <img src="/art/wyrm-vell.jpg" alt="" className="size-24 rounded-full object-cover ring-2 ring-[#e6c56e] shadow-[0_12px_40px_rgba(0,0,0,0.45)]" />
+        <img src="/art/wyrm-vell.jpg" alt="" className="wm-breathe size-24 rounded-full object-cover ring-2 ring-[#e6c56e] shadow-[0_12px_40px_rgba(0,0,0,0.45)]" />
         <p className="mt-5 text-xs tracking-[0.28em] text-[#e6c56e] uppercase">A pocket realm</p>
         <h1 className="mt-2 font-display text-5xl leading-none">Westmark</h1>
         <p className="mt-3 max-w-xs text-base leading-relaxed text-[#f4ead7]/90">
