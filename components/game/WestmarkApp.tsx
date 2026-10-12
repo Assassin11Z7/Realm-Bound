@@ -87,7 +87,7 @@ function SeasonShell() {
       </div>
       {loaded.corrupt && (
         <p className="mb-3 rounded-xl bg-primary px-3 py-2 text-sm text-primary-foreground">
-          The old charter could not be read. Begin a new season.
+          The old save could not be read. Begin a new season.
         </p>
       )}
       <div className="flex flex-col gap-2">

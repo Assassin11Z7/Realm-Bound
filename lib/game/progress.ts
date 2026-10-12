@@ -20,10 +20,10 @@ export const SKILLS: Record<SkillId, { name: string; blurb: string }> = {
   stores: { name: "Deep stores", blurb: "The hold yields one more at every dawn." },
   step: { name: "Quiet step", blurb: "Luck on the road rises by one." },
   coin: { name: "Oath coin", blurb: "Each pledge you make yourself pays 1 extra gold." },
-  truce: { name: "Wyrm-truce", blurb: "Vell's ire climbs more slowly each dusk." },
+  truce: { name: "Dragon-truce", blurb: "Vell's anger climbs more slowly each dusk." },
   bargain: { name: "Keen bargain", blurb: "You buy for less and sell for more." },
   eye: { name: "Captain's eye", blurb: "Marches and hunts come home more often." },
-  wright: { name: "Hallwright", blurb: "Raising a work costs 3 gold less." },
+  wright: { name: "Hall builder", blurb: "Raising a work costs 3 gold less." },
   scholar: { name: "Road scholar", blurb: "Walking a hold teaches more." },
 };
 
@@ -34,14 +34,14 @@ export const BUILDINGS: { id: BuildingId; name: string; good: "timber" | "grain"
   { id: "market", name: "Market row", good: "wool", blurb: "At levels 2 and 4 the caravan treats you better." },
   { id: "watch", name: "Watch", good: "iron", blurb: "Marches come home richer. Each level also adds 15 to what you can carry." },
   { id: "forge", name: "Forge", good: "iron", blurb: "Smith arms and rings. Higher levels take relics into the fire." },
-  { id: "still", name: "Still", good: "salt", blurb: "Brew draughts for luck, calm, purse, vigor, and haste." },
-  { id: "loom", name: "Loom", good: "wool", blurb: "Weave cloaks and charms. The third level can take a wyrm hide." },
+  { id: "still", name: "Brew house", good: "salt", blurb: "Brew drinks for luck, calm, coin, vigor, and haste." },
+  { id: "loom", name: "Loom", good: "wool", blurb: "Weave cloaks and charms. The third level can take a dragon hide." },
   { id: "strongroom", name: "Strongroom", good: "timber", blurb: "Each level adds 160 weight to the hold's storeroom." },
 ];
 
 export const CHAPTERS = [
   { id: 1, name: "The Northern Levy", aim: "Feed the wagons before the twelfth dusk." },
-  { id: 2, name: "The Open Marches", aim: "Raise the hold, answer the road, and give the people a law." },
+  { id: 2, name: "The Open Country", aim: "Raise the hold, answer the road, and give the people a law." },
   { id: 3, name: "The Old Powers", aim: "Live with what you chose, and keep the people through another winter." },
   { id: 4, name: "The Realm Compact", aim: "Last long enough that the holds answer the banner." },
 ];
@@ -59,8 +59,8 @@ const THREATS: Omit<Threat, "id">[] = [
     art: "/art/caravan.jpg",
   },
   {
-    title: "The barrow hound's pack",
-    detail: "Hounds are working the mounds, and they are not Vell's. Pay them off, send a march, or let the hold take the quarrel.",
+    title: "The grave hound's pack",
+    detail: "Hounds are working the grave mounds, and they are not Vell's. Pay them off, send a march, or let the hold take the quarrel.",
     art: "/art/drake-mine.jpg",
   },
   {
@@ -75,7 +75,7 @@ const THREATS: Omit<Threat, "id">[] = [
   },
   {
     title: "Copper weights",
-    detail: "The guild is retaring every sack on the coast. A fee, a captain, or a quarrel.",
+    detail: "The guild is reweighing every sack on the coast. A fee, a captain, or a quarrel.",
     art: "/art/hold-saltmere.jpg",
   },
   {
@@ -84,13 +84,13 @@ const THREATS: Omit<Threat, "id">[] = [
     art: "/art/hold-ashfold.jpg",
   },
   {
-    title: "The drowned choir at the pans",
+    title: "The drowned choir at the salt pools",
     detail: "Voices under the salt are pulling carts off the track. Pay, ride, or endure them.",
     art: "/art/serpent.jpg",
   },
   {
-    title: "A column of the unsworn",
-    detail: "People without a banner are camping on the wool road. Coin, a captain, or a closed gate.",
+    title: "A column with no banner",
+    detail: "People with no banner are camping on the wool road. Coin, a captain, or a closed gate.",
     art: "/art/caravan.jpg",
   },
   {
@@ -140,12 +140,12 @@ function missionList(): Mission[] {
     { id: "day20", chapter: 2, title: "See the second thaw", detail: "Still be sealing dawns on day 20.", need: 20, progress: 1, status: "open", rewardGold: 14, rewardXp: 8 },
     { id: "hunt", chapter: 2, title: "A successful hunt", detail: "A captain's hunt that finds its mark.", need: 1, progress: 0, status: "open", rewardGold: 10, rewardXp: 6 },
     { id: "creature", chapter: 2, title: "Answer the road", detail: "Strike a bargain with a creature. Letting them pass does not count.", need: 1, progress: 0, status: "open", rewardGold: 8, rewardXp: 6 },
-    { id: "law", chapter: 2, title: "Set a law", detail: "Change one settlement off the old custom.", need: 1, progress: 0, status: "open", rewardGold: 8, rewardXp: 4 },
+    { id: "law", chapter: 2, title: "Set a law", detail: "Set a law other than leaving the people as they are.", need: 1, progress: 0, status: "open", rewardGold: 8, rewardXp: 4 },
     { id: "level6", chapter: 3, title: "A name on the road", detail: "Reach level 6.", need: 6, progress: 1, status: "open", rewardGold: 16, rewardXp: 0 },
     { id: "high", chapter: 3, title: "Build to the ridge", detail: "Any work at level 3.", need: 3, progress: 0, status: "open", rewardGold: 18, rewardXp: 8 },
     { id: "skills", chapter: 3, title: "Three disciplines", detail: "Keep three skills.", need: 3, progress: 0, status: "open", rewardGold: 12, rewardXp: 6 },
     { id: "kept", chapter: 3, title: "Hold the oaths", detail: "All three captains still sworn on day 24.", need: 1, progress: 0, status: "open", rewardGold: 20, rewardXp: 8 },
-    { id: "level10", chapter: 4, title: "Warden's level", detail: "Reach level 10.", need: 10, progress: 1, status: "open", rewardGold: 24, rewardXp: 0 },
+    { id: "level10", chapter: 4, title: "Level ten", detail: "Reach level 10.", need: 10, progress: 1, status: "open", rewardGold: 24, rewardXp: 0 },
     { id: "day40", chapter: 4, title: "A long banner", detail: "Seal through day 40.", need: 40, progress: 1, status: "open", rewardGold: 24, rewardXp: 10 },
     { id: "relic", chapter: 4, title: "Something old", detail: "Carry a relic in the pack.", need: 1, progress: 0, status: "open", rewardGold: 15, rewardXp: 8 },
     { id: "two-high", chapter: 4, title: "Two works above the town", detail: "Two buildings at level 3 or higher.", need: 2, progress: 0, status: "open", rewardGold: 22, rewardXp: 10 },
@@ -419,8 +419,8 @@ export function resolveCaptains(state: GameState): string[] {
         const trophy = bringTrophy(state, roll);
         lines.push(
           trophy
-            ? `${member.name} turned a hunt aside and brought back ${trophy}. ${WYRM_NAME}'s ire eases.`
-            : `${member.name} turned a hunt aside. ${WYRM_NAME}'s ire eases.`,
+            ? `${member.name} turned a hunt aside and brought back ${trophy}. ${WYRM_NAME}'s anger eases.`
+            : `${member.name} turned a hunt aside. ${WYRM_NAME}'s anger eases.`,
         );
       } else {
         state.wyrm.ire = Math.min(100, state.wyrm.ire + 2);

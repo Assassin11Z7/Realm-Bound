@@ -331,7 +331,7 @@ const SURPRISE: Record<string, SurprisePlay> = {
     },
   },
   "snow-bells": {
-    cautious: { goods: { salt: -2 }, ire: -8, renown: 1, note: "You salted the snow-bells. They went quiet, and the wyrm's ire eased." },
+    cautious: { goods: { salt: -2 }, ire: -8, renown: 1, note: "You salted the snow-bells. They went quiet, and the dragon's anger eased." },
     bold: {
       salt: 13,
       stake: { goods: { timber: -2 }, note: "" },
@@ -340,30 +340,30 @@ const SURPRISE: Record<string, SurprisePlay> = {
     },
   },
   "seam-knock": {
-    cautious: { goods: { iron: -2 }, gold: 5, ire: -4, note: "You left iron on the rung. In the morning a carter had left five gold and the knocking had stopped." },
+    cautious: { goods: { iron: -2 }, gold: 5, ire: -4, note: "You left iron on the ladder. In the morning a carter had left five gold and the knocking had stopped." },
     bold: {
       salt: 2,
       stake: { goods: { iron: -1 }, note: "" },
       win: { goods: { iron: 4 }, renown: 2, note: "You went down at the third knock and came up with a richer fist of iron." },
-      lose: { ire: 5, note: "The seam answered the knock. You climbed out poorer in nerve, and Vell knows the shaft." },
+      lose: { ire: 5, note: "The mine answered the knock. You climbed out poorer in nerve, and Vell knows the shaft." },
     },
   },
   "tide-bell": {
-    cautious: { goods: { grain: -3, salt: 2 }, contentment: 3, renown: 1, note: "You gave the tide-bell its grain. The pans stayed level, and the salters slept." },
+    cautious: { goods: { grain: -3, salt: 2 }, contentment: 3, renown: 1, note: "You gave the tide-bell its grain. The salt pools stayed level, and the salt workers slept." },
     bold: {
       salt: 1,
       stake: { gold: -5, note: "" },
-      win: { goods: { salt: 4 }, gold: 8, renown: 2, note: "You hauled the tide-bell. Salt and coin spilled out of it onto the pans." },
+      win: { goods: { salt: 4 }, gold: 8, renown: 2, note: "You hauled the tide-bell. Salt and coin spilled out of it onto the salt pools." },
       lose: { ire: 6, contentment: -4, note: "The tide-bell sank and took your coin. The slate serpent will mention it to Vell." },
     },
   },
   "white-hart": {
-    cautious: { goods: { wool: -2 }, contentment: 6, renown: 1, note: "You left wool for the white hart. By dusk a lost flock had found the fold." },
+    cautious: { goods: { wool: -2 }, contentment: 6, renown: 1, note: "You left wool for the white deer. By dusk a lost flock had found the fold." },
     bold: {
       salt: 3,
       stake: { goods: { timber: -1 }, note: "" },
-      win: { goods: { wool: 4 }, gold: 4, renown: 2, note: "You chased the white hart and came back with wool, coin, and no witness." },
-      lose: { contentment: -7, ire: 4, note: "The white hart vanished between trunks. The compact heard the chase, and so did the mountain." },
+      win: { goods: { wool: 4 }, gold: 4, renown: 2, note: "You chased the white deer and came back with wool, coin, and no witness." },
+      lose: { contentment: -7, ire: 4, note: "The white deer vanished between trunks. The compact heard the chase, and so did the mountain." },
     },
   },
 };
@@ -607,7 +607,7 @@ function resolvePlayerOffer(state: GameState): string | null {
   });
   if (!buyer) return "No kin had the goods to take your offer.";
   if (!canFit(state, offer.want.qty - offer.give.qty)) {
-    return "No room in the undercroft to complete your offer.";
+    return "No room in the cellar to complete your offer.";
   }
   state.player.stash[offer.give.good] -= offer.give.qty;
   state.player.stash[offer.want.good] += offer.want.qty;
@@ -763,7 +763,7 @@ export function withdraw(state: GameState, good: GoodId, qty: number): Result {
     return fail(state, `You can draw ${FOUNDER_WITHDRAW_CAP} units from the hall each day.`);
   }
   if (!canFit(state, amount)) {
-    return fail(state, "The undercroft is full. Spend something down, or raise it.");
+    return fail(state, "The cellar is full. Spend something down, or raise it.");
   }
   const next = draft(state);
   next.compact.hall[good] -= amount;
@@ -883,7 +883,7 @@ export function buy(state: GameState, good: GoodId, qty: number): Result {
   if (state.caravan.stock[good] < amount) return fail(state, `The caravan doesn't have that much ${good}.`);
   const price = buyPrice(state, good) * amount;
   if (state.player.gold < price) return fail(state, `You need ${price} gold for that.`);
-  if (!canFit(state, amount)) return fail(state, "The undercroft is full. Spend something down, or raise it.");
+  if (!canFit(state, amount)) return fail(state, "The cellar is full. Spend something down, or raise it.");
   const next = draft(state);
   next.player.gold -= price;
   next.caravan!.stock[good] -= amount;
@@ -920,7 +920,7 @@ export function acceptOffer(state: GameState, offerId: string): Result {
     return fail(state, `You don't have ${offer.want.qty} ${offer.want.good} to trade.`);
   }
   const net = offer.give.qty - offer.want.qty;
-  if (!canFit(state, net)) return fail(state, "The undercroft can't hold what you'd receive.");
+  if (!canFit(state, net)) return fail(state, "The cellar can't hold what you'd receive.");
   const next = draft(state);
   const trader = next.compact.members.find((item) => item.id === offer.fromId)!;
   next.player.stash[offer.want.good] -= offer.want.qty;
@@ -958,15 +958,15 @@ export function cancelOffer(state: GameState): Result {
 }
 
 export function raiseUndercroft(state: GameState): Result {
-  if (state.player.undercroft) return fail(state, "The undercroft is already raised.");
+  if (state.player.undercroft) return fail(state, "The cellar is already raised.");
   if (state.player.gold < UNDERCROFT_COST) {
-    return fail(state, `Raising the undercroft costs ${UNDERCROFT_COST} gold.`);
+    return fail(state, `Raising the cellar costs ${UNDERCROFT_COST} gold.`);
   }
   const next = draft(state);
   next.player.gold -= UNDERCROFT_COST;
   next.player.undercroft = true;
-  note(next, "You raised the undercroft. The hold can keep a larger store.");
-  return ok(next, "The undercroft is raised.");
+  note(next, "You raised the cellar. The hold can keep a larger store.");
+  return ok(next, "The cellar is raised.");
 }
 
 export function dismissOutcome(state: GameState): Result {
@@ -992,7 +992,7 @@ export function sealDay(state: GameState): Result {
   const stored = Math.max(0, Math.min(yieldQty, room));
   const spoiled = yieldQty - stored;
   if (stored > 0) next.player.stash[produced] += stored;
-  if (spoiled > 0) lines.push(`${spoiled} ${produced} spoiled. The undercroft is full.`);
+  if (spoiled > 0) lines.push(`${spoiled} ${produced} spoiled. The cellar is full.`);
   else lines.push(`Your hold yielded ${stored} ${produced}.`);
 
   const nextDay = next.day + 1;
@@ -1058,7 +1058,7 @@ export function sealDay(state: GameState): Result {
   }
   if (next.tonics?.purse) {
     next.tonics.purse = false;
-    lines.push("The purse tincture fades with the dusk.");
+    lines.push("The coin drink fades with the dusk.");
   }
   lines.push(...applyDawnProgress(next));
 
@@ -1098,8 +1098,8 @@ export function offerTribute(state: GameState, kind: "iron" | "relic" | "salt"):
     next.wyrm.tribute += 2;
     next.player.gold += 2;
     bumpQuest(next, "tribute", "any", 1);
-    note(next, `You laid 2 iron in the snow for ${WYRM_NAME}. The wyrm's ire eased, and a carter left 2 gold.`);
-    return ok(next, `${WYRM_NAME} took the iron. Ire falls.`);
+    note(next, `You laid 2 iron in the snow for ${WYRM_NAME}. The dragon's anger eased, and a carter left 2 gold.`);
+    return ok(next, `${WYRM_NAME} took the iron. Anger falls.`);
   }
   if (kind === "relic") {
     const error = spendGood(next, "relics", 1);
@@ -1117,8 +1117,8 @@ export function offerTribute(state: GameState, kind: "iron" | "relic" | "salt"):
   next.wyrm.tribute += 3;
   next.player.gold += 3;
   bumpQuest(next, "tribute", "any", 1);
-  note(next, `You salted the high road for ${WYRM_NAME}. The wyrm licked the frost and left you 3 gold.`);
-  return ok(next, `${WYRM_NAME} tasted the salt. Ire falls.`);
+  note(next, `You salted the high road for ${WYRM_NAME}. The dragon licked the frost and left you 3 gold.`);
+  return ok(next, `${WYRM_NAME} tasted the salt. Anger falls.`);
 }
 
 export function raiseMill(state: GameState): Result {
@@ -1144,7 +1144,7 @@ export function raiseShrine(state: GameState): Result {
 }
 
 export function raiseStake(state: GameState): Result {
-  if (state.works.stake) return fail(state, "The wyrm-stake is already set.");
+  if (state.works.stake) return fail(state, "The iron stake is already set.");
   if (state.player.gold < STAKE_COST.gold) return fail(state, `The stake costs ${STAKE_COST.gold} gold.`);
   if (state.player.stash.iron < STAKE_COST.iron) return fail(state, `The stake needs ${STAKE_COST.iron} iron.`);
   const next = draft(state);
@@ -1152,7 +1152,7 @@ export function raiseStake(state: GameState): Result {
   next.player.stash.iron -= STAKE_COST.iron;
   next.works.stake = true;
   note(next, `You drove an iron stake at the gate and rang it once. ${WYRM_NAME} will wake more slowly.`);
-  return ok(next, "The wyrm-stake is set. Vell's ire climbs more slowly.");
+  return ok(next, "The iron stake is set. Vell's anger climbs more slowly.");
 }
 
 export function fulfillOath(state: GameState, memberId: string): Result {
@@ -1197,7 +1197,7 @@ export function chooseOmen(state: GameState, choiceId: string): Result {
       const error = payError(next, play.cautious);
       if (error) return fail(state, error);
       const net = goodNet([play.cautious]);
-      if (net > 0 && !canFit(next, net)) return fail(state, "The undercroft is full.");
+      if (net > 0 && !canFit(next, net)) return fail(state, "The cellar is full.");
       applyShift(next, play.cautious);
       note(next, play.cautious.note);
     } else {
@@ -1209,7 +1209,7 @@ export function chooseOmen(state: GameState, choiceId: string): Result {
       fate = { face, won };
       const outcome = won ? play.bold.win : play.bold.lose;
       const net = goodNet([play.bold.stake, outcome]);
-      if (net > 0 && !canFit(next, net)) return fail(state, "The undercroft is full.");
+      if (net > 0 && !canFit(next, net)) return fail(state, "The cellar is full.");
       applyShift(next, play.bold.stake);
       applyShift(next, outcome);
       note(next, outcome.note);
@@ -1225,30 +1225,30 @@ export function chooseOmen(state: GameState, choiceId: string): Result {
   const lack = (good: GoodId, qty: number) => next.player.stash[good] < qty;
 
   if (key === "drake:feed") {
-    if (lack("iron", 2)) return fail(state, "You don't have 2 iron to feed the drake.");
+    if (lack("iron", 2)) return fail(state, "You don't have 2 iron to feed the dragon.");
     next.player.stash.iron -= 2;
     if (canFit(next, 3)) next.player.stash.iron += 3;
     else next.player.stash.iron += 2;
     next.wyrm.ire = Math.max(0, next.wyrm.ire - 10);
-    note(next, "The mine-drake took your iron and coughed a richer seam back into your hands.");
+    note(next, "The mine dragon took your iron and coughed a richer vein back into your hands.");
   } else if (key === "drake:watch") {
     next.wyrm.ire = Math.min(100, next.wyrm.ire + 4);
-    note(next, "You let the mine-drake crawl back into the dark. It will mention you to Vell.");
+    note(next, "You let the mine dragon crawl back into the dark. It will mention you to Vell.");
   } else if (key === "nix:give") {
-    if (lack("grain", 3)) return fail(state, "You don't have 3 grain for the nix.");
+    if (lack("grain", 3)) return fail(state, "You don't have 3 grain for the river woman.");
     next.player.stash.grain -= 3;
     const room = capFor(next) - stashCount(next.player.stash);
     const gained = Math.min(4, Math.max(0, room));
-    if (gained === 0) return fail(state, "Your stores are full. The nix will not leave salt on the floor.");
+    if (gained === 0) return fail(state, "Your stores are full. The river woman will not leave salt on the floor.");
     next.player.stash.salt += gained;
-    note(next, `The nix took the grain and left ${gained} salt on the bank.`);
+    note(next, `The river woman took the grain and left ${gained} salt on the bank.`);
   } else if (key === "nix:watch") {
     const kin = next.compact.members.find((member) => member.inCompact);
     if (kin) {
       kin.contentment = Math.max(0, kin.contentment - 6);
-      kin.lastNote = "Slept badly after the nix was turned away.";
+      kin.lastNote = "Slept badly after the river woman was turned away.";
     }
-    note(next, "You told the nix to go. Someone in the compact dreamed of deep water.");
+    note(next, "You told the river woman to go. Someone in the compact dreamed of deep water.");
   } else if (key === "wing:tribute") {
     if (lack("iron", 2)) return fail(state, "You don't have 2 iron to offer the wing.");
     next.player.stash.iron -= 2;
@@ -1280,17 +1280,17 @@ export function chooseOmen(state: GameState, choiceId: string): Result {
     if (lack("salt", 3)) return fail(state, "You don't have 3 salt for the serpent.");
     next.player.stash.salt -= 3;
     next.player.gold += 8;
-    note(next, "You gave the slate serpent its rake of salt. Traders paid 8 gold for a quiet sea.");
+    note(next, "You gave the slate serpent its share of salt. Traders paid 8 gold for a quiet sea.");
   } else if (key === "serpent:watch") {
     next.wyrm.ire = Math.min(100, next.wyrm.ire + 6);
-    note(next, "You kept the salt. The serpent sank, and Vell will hear of the broken rake.");
+    note(next, "You kept the salt. The serpent sank, and Vell will hear of the broken bargain.");
   } else if (key === "speaks:relic") {
     if (lack("relics", 1)) return fail(state, "You have no relic to give Vell.");
     next.player.stash.relics -= 1;
     next.wyrm.ire = 10;
     next.wyrm.tribute += 1;
     next.player.renown += 4;
-    note(next, `${WYRM_NAME} took the relic between two ivory teeth. The snow went quiet.`);
+    note(next, `${WYRM_NAME} took the relic between two pale teeth. The snow went quiet.`);
   } else if (key === "speaks:road") {
     next.wyrm.ire = Math.min(100, next.wyrm.ire + 8);
     next.player.renown += 2;

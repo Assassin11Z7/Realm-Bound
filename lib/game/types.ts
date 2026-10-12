@@ -35,7 +35,7 @@ export type SigilId = (typeof SIGILS)[number];
 export const DIVISIONS = ["plain", "pale", "fess", "chevron"] as const;
 export type Division = (typeof DIVISIONS)[number];
 
-export const TITLES = ["Lord", "Lady", "Warden", "Factor", "Keeper", "Captain"] as const;
+export const TITLES = ["Lord", "Lady", "Ranger", "Trader", "Keeper", "Captain"] as const;
 export type Title = (typeof TITLES)[number];
 
 export type Stash = Record<GoodId, number>;

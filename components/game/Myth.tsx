@@ -24,13 +24,13 @@ export function WyrmCard({ state, act }: { state: GameState; act: (result: Resul
         <img src="/art/wyrm-vell.jpg" alt="" className="h-full w-full object-cover object-[center_20%]" />
         <div className="absolute inset-0 bg-gradient-to-t from-[#1c2430] via-[#1c2430]/20 to-transparent" />
         <div className="absolute right-3 bottom-3 left-3">
-          <p className="text-[11px] tracking-[0.2em] uppercase text-[#e6c56e]">Frost-wyrm</p>
+          <p className="text-[11px] tracking-[0.2em] uppercase text-[#e6c56e]">Frost dragon</p>
           <p className="font-display text-2xl leading-none">{WYRM_NAME}</p>
         </div>
       </div>
       <div className="px-4 pt-3 pb-4">
         <div className="flex items-center justify-between text-xs">
-          <span>Ire</span>
+          <span>Anger</span>
           <span>{ire}/100</span>
         </div>
         <Progress value={ire} className="mt-1 h-1.5 bg-white/10" />
@@ -73,7 +73,7 @@ export function WorksCard({ state, act }: { state: GameState; act: (result: Resu
         />
         <WorkRow
           done={state.works.stake}
-          title="Wyrm-stake"
+          title="Iron stake"
           detail={`${WYRM_NAME} wakes more slowly · ${STAKE_COST.gold} gold, ${STAKE_COST.iron} iron`}
           onBuild={() => act(raiseStake(state))}
         />

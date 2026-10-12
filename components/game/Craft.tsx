@@ -6,7 +6,7 @@ import type { GameState, Result } from "@/lib/game/types";
 
 const BENCH_NAME: Record<string, string> = {
   forge: "Forge",
-  still: "Still",
+  still: "Brew house",
   loom: "Loom",
 };
 
@@ -15,7 +15,7 @@ export function CraftBench({ state, act }: { state: GameState; act: (result: Res
     <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
       <p className="font-display text-xl">Benches</p>
       <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-        The forge smiths, the still brews, and the loom weaves. A bench only works once you have raised it.
+        The forge smiths, the brew house makes drinks, and the loom weaves. A bench only works once you have raised it.
       </p>
       <ul className="mt-3 flex flex-col gap-3">
         {RECIPES.map((recipe) => {

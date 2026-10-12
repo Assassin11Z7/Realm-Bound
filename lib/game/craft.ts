@@ -7,11 +7,11 @@ export function emptyBrew(): Record<PotionId, number> {
 }
 
 export const POTIONS: Record<PotionId, { name: string; line: string }> = {
-  luck: { name: "Luck draught", line: "The next three walks roll kinder." },
-  calm: { name: "Calm draught", line: "Vell's ire falls by eight." },
-  haste: { name: "Haste philter", line: "The work rising in the hold finishes now." },
-  purse: { name: "Purse tincture", line: "Until the next dawn, goods sell for 2 more." },
-  vigor: { name: "Vigor tonic", line: "A rush of experience." },
+  luck: { name: "Luck drink", line: "The next three walks roll kinder." },
+  calm: { name: "Calm drink", line: "Vell's anger falls by eight." },
+  haste: { name: "Haste drink", line: "The work rising in the hold finishes now." },
+  purse: { name: "Coin drink", line: "Until the next dawn, goods sell for 2 more." },
+  vigor: { name: "Vigor drink", line: "A rush of experience." },
 };
 
 export const RECIPES: {
@@ -26,25 +26,25 @@ export const RECIPES: {
   detail: string;
 }[] = [
   { id: "knife", building: "forge", level: 1, gold: 2, good: "iron", qty: 1, gear: "Road knife", detail: "A short blade from one iron." },
-  { id: "pick", building: "forge", level: 1, gold: 4, good: "iron", qty: 2, gear: "Mine pick", detail: "Two iron, and a head that remembers the seam." },
+  { id: "pick", building: "forge", level: 1, gold: 4, good: "iron", qty: 2, gear: "Mine pick", detail: "Two iron, and a head that remembers the mine." },
   { id: "thumb", building: "forge", level: 1, gold: 3, good: "iron", qty: 1, gear: "Iron thumb", detail: "A ring beaten from a nail." },
-  { id: "bill", building: "forge", level: 2, gold: 6, good: "iron", qty: 2, gear: "Ford bill", detail: "A watchman's bill. The forge must be level 2." },
+  { id: "bill", building: "forge", level: 2, gold: 6, good: "iron", qty: 2, gear: "Ford spear", detail: "A watchman's spear. The forge must be level 2." },
   { id: "hammer", building: "forge", level: 2, gold: 5, good: "iron", qty: 1, gear: "Bell hammer", detail: "Iron enough for a shrine bell." },
-  { id: "needle", building: "forge", level: 3, gold: 12, good: "relics", qty: 1, gear: "Wyrm needle", detail: "A relic drawn through the fire. Forge level 3." },
+  { id: "needle", building: "forge", level: 3, gold: 12, good: "relics", qty: 1, gear: "Dragon needle", detail: "A relic drawn through the fire. Forge level 3." },
   { id: "luck", building: "still", level: 1, gold: 2, good: "salt", qty: 1, potion: "luck", detail: "Salt boiled down to a kinder road." },
   { id: "calm", building: "still", level: 1, gold: 3, good: "salt", qty: 2, potion: "calm", detail: "Two salt. Vell drinks the quiet." },
-  { id: "purse", building: "still", level: 2, gold: 4, good: "salt", qty: 2, potion: "purse", detail: "A tincture that sweetens a sale until dawn." },
-  { id: "vigor", building: "still", level: 2, gold: 4, good: "grain", qty: 1, potion: "vigor", detail: "Grain and the still. It wakes the blood." },
-  { id: "haste", building: "still", level: 3, gold: 8, good: "relics", qty: 1, potion: "haste", detail: "A relic in the still. The rising work finishes at once." },
+  { id: "purse", building: "still", level: 2, gold: 4, good: "salt", qty: 2, potion: "purse", detail: "A drink that sweetens a sale until dawn." },
+  { id: "vigor", building: "still", level: 2, gold: 4, good: "grain", qty: 1, potion: "vigor", detail: "Grain in the brew house. It wakes the blood." },
+  { id: "haste", building: "still", level: 3, gold: 8, good: "relics", qty: 1, potion: "haste", detail: "A relic in the brew house. The rising work finishes at once." },
   { id: "wool", building: "loom", level: 1, gold: 3, good: "wool", qty: 2, gear: "Wool cloak", detail: "Two wool on the loom." },
   { id: "bead", building: "loom", level: 1, gold: 2, good: "wool", qty: 1, gear: "Crow bead", detail: "A bead wound from a single wool." },
-  { id: "weave", building: "loom", level: 2, gold: 5, good: "wool", qty: 2, gear: "Greenmere weave", detail: "A mead-colored cloak. Loom level 2." },
-  { id: "hide", building: "loom", level: 3, gold: 14, good: "relics", qty: 1, gear: "Wyrm hide", detail: "The loom takes a relic and gives back a scale-cloak." },
+  { id: "weave", building: "loom", level: 2, gold: 5, good: "wool", qty: 2, gear: "Greenmere weave", detail: "A grain-colored cloak. Loom level 2." },
+  { id: "hide", building: "loom", level: 3, gold: 14, good: "relics", qty: 1, gear: "Dragon hide", detail: "The loom takes a relic and gives back a scale-cloak." },
 ];
 
 const BENCH: Partial<Record<BuildingId, string>> = {
   forge: "forge",
-  still: "still",
+  still: "brew house",
   loom: "loom",
 };
 
@@ -95,28 +95,28 @@ export function craft(state: GameState, recipeId: string): Result {
 }
 
 export function drinkPotion(state: GameState, potionId: PotionId): Result {
-  if ((state.brew?.[potionId] ?? 0) < 1) return fail(state, "That draught is not in the bag.");
+  if ((state.brew?.[potionId] ?? 0) < 1) return fail(state, "That drink is not in the bag.");
   if (potionId === "haste" && !state.campaign?.project) return fail(state, "Nothing is rising. Start a work, then drink.");
   const next = structuredClone(state);
   next.brew[potionId] -= 1;
   if (potionId === "luck") {
     next.tonics.luck += 3;
-    note(next, "You drink a luck draught. The next three walks roll kinder.");
+    note(next, "You drink a luck drink. The next three walks roll kinder.");
     return ok(next, "Luck rises for three walks.");
   }
   if (potionId === "calm") {
     next.wyrm.ire = Math.max(0, next.wyrm.ire - 8);
-    note(next, "You drink a calm draught. Vell's ire falls.");
-    return ok(next, "Vell's ire falls by 8.");
+    note(next, "You drink a calm drink. Vell's anger falls.");
+    return ok(next, "Vell's anger falls by 8.");
   }
   if (potionId === "purse") {
     next.tonics.purse = true;
-    note(next, "You drink a purse tincture. Sales pay more until dawn.");
+    note(next, "You drink a coin drink. Sales pay more until dawn.");
     return ok(next, "Sales pay 2 more until you seal the day.");
   }
   if (potionId === "vigor") {
     const lines = grantXp(next, 4);
-    note(next, "You drink a vigor tonic.");
+    note(next, "You drink a vigor drink.");
     for (const line of lines) note(next, line);
     syncCampaign(next);
     return ok(next, "Vigor. Experience rises.");
@@ -155,7 +155,7 @@ export function takeGear(state: GameState, gearId: string): Result {
 }
 
 export function storePotion(state: GameState, potionId: PotionId): Result {
-  if ((state.brew?.[potionId] ?? 0) < 1) return fail(state, "That draught is not in the bag.");
+  if ((state.brew?.[potionId] ?? 0) < 1) return fail(state, "That drink is not in the bag.");
   if (storedWeight(state) + 1 > vaultCap(state)) return fail(state, "The strongroom cannot take the weight.");
   const next = structuredClone(state);
   next.brew[potionId] -= 1;
@@ -166,7 +166,7 @@ export function storePotion(state: GameState, potionId: PotionId): Result {
 }
 
 export function takePotion(state: GameState, potionId: PotionId): Result {
-  if ((state.cellar?.[potionId] ?? 0) < 1) return fail(state, "That draught is not stored.");
+  if ((state.cellar?.[potionId] ?? 0) < 1) return fail(state, "That drink is not stored.");
   if (carriedWeight(state) + 1 > carryCap(state)) return fail(state, "The bag cannot take the weight.");
   const next = structuredClone(state);
   next.cellar[potionId] -= 1;

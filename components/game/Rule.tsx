@@ -17,7 +17,7 @@ import type { EdictId, GameState, HoldId, Result } from "@/lib/game/types";
 import { useFrame } from "./frame";
 
 function lawName(id: EdictId | undefined): string {
-  return EDICTS.find((item) => item.id === id)?.name ?? "Old custom";
+  return EDICTS.find((item) => item.id === id)?.name ?? "Leave them be";
 }
 
 export function PeopleStrip({ state, onOpen }: { state: GameState; onOpen: () => void }) {
@@ -31,7 +31,7 @@ export function PeopleStrip({ state, onOpen }: { state: GameState; onOpen: () =>
         {home.souls} souls at {holdById(home.holdId).name}
       </p>
       <p className="mt-2 text-sm text-muted-foreground">
-        Mood {home.mood} · larder {home.bread} · hearth {home.hearth} · {lawName(home.edict)}
+        Mood {home.mood} · food {home.bread} · firewood {home.hearth} · {lawName(home.edict)}
       </p>
       {memory > 0 && (
         <p className="mt-2 text-sm">
@@ -76,7 +76,7 @@ export function PeoplePanel({ state, act }: { state: GameState; act: (result: Re
     <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
       <p className="font-display text-xl">The people</p>
       <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-        Laws last until you change them. Grain feeds a larder. Timber feeds a hearth. Old custom spends nothing from your stash.
+        Laws last until you change them. Grain feeds the food store. Timber feeds the fires. Leave them be, and nothing comes out of your stash.
       </p>
       {blurb && <p className="mt-2 text-sm leading-relaxed">{blurb}</p>}
       {state.petition && (
@@ -119,7 +119,7 @@ export function PeoplePanel({ state, act }: { state: GameState; act: (result: Re
               </div>
               <Progress value={settlement.mood} className="mt-1 h-1.5" />
               <p className="mt-2 text-xs text-muted-foreground">
-                Larder {settlement.bread} · hearth {settlement.hearth} · {lawName(settlement.edict)}
+                Food {settlement.bread} · firewood {settlement.hearth} · {lawName(settlement.edict)}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button type="button" variant="secondary" className="h-10" onClick={() => act(stockSettlement(state, settlement.holdId, "bread", 1))}>

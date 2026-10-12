@@ -180,7 +180,7 @@ export function PlaySeason({
   const faction = factionById(state.player.factionId);
   const hold = holdById(state.player.holdId);
   const homePeople = state.settlements?.find((item) => item.holdId === state.player.holdId);
-  const homeLaw = EDICTS.find((item) => item.id === homePeople?.edict)?.name ?? "Old custom";
+  const homeLaw = EDICTS.find((item) => item.id === homePeople?.edict)?.name ?? "Leave them be";
   const cap = state.player.undercroft ? UNDERCROFT_CAP : BASE_CAP;
   const verdictOpen = Boolean(state.outcome && !state.outcomeDismissed);
 
@@ -214,7 +214,7 @@ export function PlaySeason({
             <div className="text-right">
               <p className="font-display text-xl leading-none text-[#e6c56e]">{state.player.gold}g</p>
               <p className="mt-1 text-[11px] text-[#f4ead7]/70">
-                {renownTitle(state.player.renown)} · {state.player.renown}
+                {renownTitle(state.player.renown)} · fame {state.player.renown}
               </p>
             </div>
           </div>
@@ -254,7 +254,7 @@ export function PlaySeason({
             <span className="min-w-0 flex-1">
               <span className="flex justify-between text-[11px]">
                 <span>{WYRM_NAME}</span>
-                <span>ire {state.wyrm.ire}</span>
+                <span>anger {state.wyrm.ire}</span>
               </span>
               <Progress value={state.wyrm.ire} className="mt-1 h-1.5 bg-white/20" />
             </span>
@@ -307,12 +307,12 @@ export function PlaySeason({
                 </p>
                 <p className="mt-2 text-sm leading-relaxed text-[#3d4a62]">{hold.myth}</p>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Undercroft {stashCount(state.player.stash)}/{cap}
+                  Cellar {stashCount(state.player.stash)}/{cap}
                   {state.day > 12 ? " · Deep winter has thinned the yield." : ""}
                 </p>
                 {!state.player.undercroft && (
                   <Button type="button" variant="outline" className="mt-3 h-11" onClick={() => act(raiseUndercroft(state))}>
-                    Raise the undercroft · {UNDERCROFT_COST}g
+                    Raise the cellar · {UNDERCROFT_COST}g
                   </Button>
                 )}
               </div>
@@ -465,7 +465,7 @@ export function PlaySeason({
                 onStepAway();
               }}
             >
-              Step away, keep the charter
+              Step away, keep this save
             </Button>
             <Button
               type="button"
@@ -486,7 +486,7 @@ export function PlaySeason({
         <DialogContent container={frame}>
           <DialogHeader>
             <DialogTitle className="font-display text-2xl">Abandon the season?</DialogTitle>
-            <DialogDescription>The charter on this device will be erased.</DialogDescription>
+            <DialogDescription>The save on this device will be erased.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button type="button" variant="outline" className="h-11" onClick={() => setConfirmAbandon(false)}>

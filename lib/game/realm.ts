@@ -18,12 +18,12 @@ const HOLDS_OK = new Set<string>(HOLD_IDS);
 const EDICT_SET = new Set<EdictId>(["custom", "dole", "tithe", "close-rolls", "open-rolls", "hearth-rite"]);
 
 export const EDICTS: { id: EdictId; name: string; detail: string }[] = [
-  { id: "custom", name: "Old custom", detail: "Stores fall by one each dawn. While bread and hearth last, the people stay as they are." },
-  { id: "dole", name: "Bread dole", detail: "The larder empties faster. Mood rises while bread remains, and falls hard when it does not." },
-  { id: "tithe", name: "Granary tithe", detail: "While the larder is above 10, one grain comes to your stash each dawn and the people like you less." },
-  { id: "close-rolls", name: "Closed rolls", detail: "Mood rises. New souls do not arrive from this law." },
-  { id: "open-rolls", name: "Open rolls", detail: "Souls arrive while the larder holds. Bread falls faster, and an empty larder drives people out." },
-  { id: "hearth-rite", name: "Hearth rite", detail: "The hearth burns faster. Mood rises, and more so in frost." },
+  { id: "custom", name: "Leave them be", detail: "Food and firewood fall by one each dawn. While both last, the people stay as they are." },
+  { id: "dole", name: "Free bread", detail: "The food store empties faster. Mood rises while bread remains, and falls hard when it does not." },
+  { id: "tithe", name: "Grain tax", detail: "While the food store is above 10, one grain comes to your stash each dawn and the people like you less." },
+  { id: "close-rolls", name: "Shut the gates", detail: "Mood rises. New people do not arrive from this law." },
+  { id: "open-rolls", name: "Open the gates", detail: "People arrive while the food store holds. Bread falls faster, and an empty store drives people out." },
+  { id: "hearth-rite", name: "Feed the fires", detail: "Firewood burns faster. Mood rises, and more so in frost." },
 ];
 
 interface Effect {
@@ -70,21 +70,21 @@ interface CreatureDef {
 const CREATURES: CreatureDef[] = [
   {
     id: "lantern-hart",
-    creature: "The lantern hart",
+    creature: "The lantern deer",
     title: "A light at the tree-line",
-    body: "A white hart stands where the road meets the wood, a lantern caught in its antlers. It is not the antlered one, and it is not Vell. Follow it, hunt it, or let the light go on.",
+    body: "A white deer stands where the road meets the wood, a lantern caught in its antlers. It is not the tall deer of the wood, and it is not Vell. Follow it, hunt it, or let the light go on.",
     art: "/art/antler.jpg",
     disposition: "kind",
     choices: [
       {
         id: "follow",
         label: "Follow the light",
-        detail: "The field paths stay lit. Your larder swells, and bread lasts longer for the rest of the game.",
+        detail: "The field paths stay lit. Your food store swells, and bread lasts longer for the rest of the game.",
         effect: {
           bread: 8,
           mood: 6,
           lasting: { breadDecay: -1, moodDawn: 1 },
-          summary: "You followed the lantern hart. The larders last longer, and the people sleep easier.",
+          summary: "You followed the lantern deer. Food lasts longer, and the people sleep easier.",
         },
       },
       {
@@ -95,28 +95,28 @@ const CREATURES: CreatureDef[] = [
           goods: { grain: 3 },
           mood: -8,
           lasting: { moodDawn: -1, soulDawn: -1 },
-          summary: "You brought the lantern hart down. Grain came home, and souls keep slipping away.",
+          summary: "You brought the lantern deer down. Grain came home, and souls keep slipping away.",
         },
       },
       {
         id: "spare",
         label: "Let the light go",
-        detail: "No goods spent. The hart leaves a blessing, and kinder things on the road will know it.",
+        detail: "No goods spent. The deer leaves a blessing, and kinder things on the road will know it.",
         effect: {
           mood: 5,
           renown: 1,
           contentment: 2,
           lasting: { moodDawn: 1 },
-          summary: "You spared the lantern hart. The people rest easier, and the wood remembers the mercy.",
+          summary: "You spared the lantern deer. The people rest easier, and the wood remembers the mercy.",
         },
       },
     ],
   },
   {
     id: "millwife",
-    creature: "The millwife",
-    title: "A woman in the race",
-    body: "Someone stands in the millrace up to her knees, flour on her sleeves, and asks to be housed or fed. She is older than the mill.",
+    creature: "The mill woman",
+    title: "A woman in the millstream",
+    body: "A woman stands in the millstream up to her knees, flour on her sleeves, and asks to be housed or fed. She is older than the mill.",
     art: "/art/nix.jpg",
     disposition: "kind",
     choices: [
@@ -129,28 +129,28 @@ const CREATURES: CreatureDef[] = [
           mood: 3,
           contentment: 3,
           lasting: { yield: 1 },
-          summary: "The millwife took the loaf. The hold yields one more at every dawn.",
+          summary: "The mill woman took the loaf. The hold yields one more at every dawn.",
         },
       },
       {
         id: "house",
         label: "House her in the mill",
-        detail: "She eats from the larder, and the yard is glad. Bread falls a little faster. Mood rises each dawn.",
+        detail: "She eats from the food store, and the yard is glad. Bread falls a little faster. Mood rises each dawn.",
         effect: {
           bread: -2,
           mood: 4,
           lasting: { breadDecay: 1, moodDawn: 2 },
-          summary: "The millwife lives in the mill. She eats, and the people are glad of her.",
+          summary: "The mill woman lives in the mill. She eats, and the people are glad of her.",
         },
       },
       {
         id: "send",
         label: "Send her downstream",
-        detail: "She goes. A little renown, a sourer yard, and no blessing.",
+        detail: "She goes. A little fame, a sourer yard, and no blessing.",
         effect: {
           renown: 1,
           mood: -4,
-          summary: "You sent the millwife downstream. The yard is quieter, and less kind.",
+          summary: "You sent the mill woman downstream. The yard is quieter, and less kind.",
         },
       },
     ],
@@ -158,8 +158,8 @@ const CREATURES: CreatureDef[] = [
   {
     id: "salt-saint",
     creature: "The salt saint",
-    title: "Bare feet on the pans",
-    body: "A saint walks the salt pans without flinching. She will bless every hearth, take a purse and leave a grudge, or hear a vow that closes your rolls.",
+    title: "Bare feet on the salt pools",
+    body: "A saint walks the salt pools without flinching. She will bless every fire, take a purse and leave a grudge, or hear a vow that shuts your gates.",
     art: "/art/hold-vesper.jpg",
     disposition: "kind",
     choices: [
@@ -173,7 +173,7 @@ const CREATURES: CreatureDef[] = [
           hearth: 6,
           mood: 3,
           lasting: { hearthDecay: -1 },
-          summary: "The salt saint blessed the hearths. Cold weather eats less timber.",
+          summary: "The salt saint blessed the fires. Cold weather eats less timber.",
         },
       },
       {
@@ -190,19 +190,19 @@ const CREATURES: CreatureDef[] = [
       {
         id: "vow",
         label: "Swear the coast",
-        detail: "Closed rolls become the law at your hold. Renown, and a quieter gate.",
+        detail: "Shut the gates becomes the law at your hold. Fame, and a quieter gate.",
         effect: {
           renown: 2,
           mood: 2,
           edict: "close-rolls",
-          summary: "You swore to the salt saint. The rolls at your hold are closed.",
+          summary: "You swore to the salt saint. The gates at your hold are shut.",
         },
       },
     ],
   },
   {
     id: "kindling-child",
-    creature: "The kindling child",
+    creature: "The coal child",
     title: "A child with a coal",
     body: "A child waits at the gate with a live coal in a clay cup. The coal does not smoke. Welcome, a trade of wool, or a shut door.",
     art: "/art/hall.jpg",
@@ -211,13 +211,13 @@ const CREATURES: CreatureDef[] = [
       {
         id: "welcome",
         label: "Bring the coal in",
-        detail: "Hearths surge, a few souls follow the warmth, and fires last longer.",
+        detail: "The woodpiles grow, a few souls follow the warmth, and firewood lasts longer.",
         effect: {
           hearth: 10,
           souls: 4,
           mood: 3,
           lasting: { hearthDecay: -1 },
-          summary: "The kindling child came in. Hearths last longer, and a few souls with them.",
+          summary: "The coal child came in. Firewood lasts longer, and a few souls with them.",
         },
       },
       {
@@ -229,7 +229,7 @@ const CREATURES: CreatureDef[] = [
           gold: 4,
           mood: 2,
           hearth: 4,
-          summary: "You traded wool for the kindling child's coal. The gate is warmer.",
+          summary: "You traded wool for the coal child's fire. The gate is warmer.",
         },
       },
       {
@@ -240,27 +240,27 @@ const CREATURES: CreatureDef[] = [
           mood: -6,
           ire: 2,
           lasting: { moodDawn: -1 },
-          summary: "You shut the door on the kindling child. The cold comes back a little each dawn.",
+          summary: "You shut the door on the coal child. The cold comes back a little each dawn.",
         },
       },
     ],
   },
   {
     id: "orchard-wight",
-    creature: "The orchard wight",
+    creature: "The twig man",
     title: "Branches over the wall",
-    body: "A wight of twigs and old blossom leans over the orchard wall. It can be grafted, robbed, or asked. It already knows what you did to the things that glow.",
+    body: "A man made of twigs and old blossom leans over the orchard wall. You can bind a branch for him, strip the trees, or ask and take nothing. He already knows what you did to the things that glow.",
     art: "/art/hold-greenmere.jpg",
     disposition: "kind",
     choices: [
       {
         id: "graft",
-        label: "Graft with 1 timber",
-        detail: "The hold yields one more each dawn. The wall keeps the graft.",
+        label: "Bind a branch with 1 timber",
+        detail: "The hold yields one more each dawn. The wall keeps the bound branch.",
         effect: {
           goods: { timber: -1, grain: 1 },
           lasting: { yield: 1 },
-          summary: "You grafted for the orchard wight. The hold yields one more at dawn.",
+          summary: "You bound a branch for the twig man. The hold yields one more at dawn.",
         },
       },
       {
@@ -271,26 +271,26 @@ const CREATURES: CreatureDef[] = [
           goods: { grain: 4 },
           mood: -5,
           lasting: { moodDawn: -1 },
-          summary: "You stripped the orchard wight's trees. Grain now, and a sourer hold after.",
+          summary: "You stripped the twig man's trees. Grain now, and a sourer hold after.",
         },
       },
       {
         id: "ask",
         label: "Ask, and take nothing",
-        detail: "A modest blessing on the larder. Mercy shown earlier makes it larger.",
-        altDetail: "The wight saw you spare the hart. It leans in with grain and a fuller larder.",
+        detail: "A modest blessing on the food store. Mercy shown earlier makes it larger.",
+        altDetail: "The twig man saw you spare the deer. He leans in with grain and a fuller food store.",
         altIf: ["lantern-hart:spare"],
         effect: {
           bread: 4,
           mood: 3,
-          summary: "You asked the orchard wight for nothing. The larder still gained.",
+          summary: "You asked the twig man for nothing. The food store still gained.",
         },
         alt: {
           goods: { grain: 2 },
           bread: 6,
           mood: 6,
           lasting: { moodDawn: 1 },
-          summary: "The orchard wight remembered the spared hart and filled your hands.",
+          summary: "The twig man remembered the spared deer and filled your hands.",
         },
       },
     ],
@@ -298,8 +298,8 @@ const CREATURES: CreatureDef[] = [
   {
     id: "drowned-choir",
     creature: "The drowned choir",
-    title: "Voices under the pans",
-    body: "A choir sings under the salt water, mouths full of tide. Sing with them, silence them, or ask them to teach the hall a rite.",
+    title: "Voices under the salt pools",
+    body: "A choir sings under the salt water, mouths full of the tide. Sing with them, silence them, or ask them to teach the hall how to feed the fires.",
     art: "/art/serpent.jpg",
     disposition: "kind",
     requires: ({ day }) => day >= 8,
@@ -337,19 +337,19 @@ const CREATURES: CreatureDef[] = [
       },
       {
         id: "learn",
-        label: "Ask for the rite",
-        detail: "If the hall is in good temper, they set the hearth rite and the fires last.",
-        altDetail: "The choir will not teach a sour hall. Mood slips, and no rite is given.",
+        label: "Ask them to teach",
+        detail: "If the hall is in good temper, they set the law to feed the fires, and the wood lasts.",
+        altDetail: "The choir will not teach a sour hall. Mood slips, and they teach nothing.",
         altIfHomeMoodBelow: 50,
         effect: {
           edict: "hearth-rite",
           mood: 3,
           lasting: { hearthDecay: -1 },
-          summary: "The drowned choir taught the hearth rite. Fires last longer at your hold.",
+          summary: "The drowned choir taught the hall to feed the fires. Firewood lasts longer at your hold.",
         },
         alt: {
           mood: -3,
-          summary: "The drowned choir refused a sour hall. No rite, and a colder mood.",
+          summary: "The drowned choir refused a sour hall. No teaching, and a colder mood.",
         },
       },
     ],
@@ -365,7 +365,7 @@ const CREATURES: CreatureDef[] = [
       {
         id: "welcome",
         label: "Take them in",
-        detail: "Twelve souls join your hold and the larder drops. More follow on later dawns.",
+        detail: "Twelve souls join your hold and the food store drops. More follow on later dawns.",
         altDetail: "The shepherd does not trust you. Only six will cross, and they come uneasy.",
         altIf: ["lantern-hart:hunt"],
         altIfPasses: 2,
@@ -398,21 +398,21 @@ const CREATURES: CreatureDef[] = [
       {
         id: "turn",
         label: "Turn the flock",
-        detail: "They go. Open rolls will not bring souls for the rest of the game.",
+        detail: "They go. Open gates will not bring souls for the rest of the game.",
         effect: {
           mood: -5,
           renown: 1,
           lasting: { blockGrowth: true },
-          summary: "You turned the ash shepherd away. The rolls will not open again.",
+          summary: "You turned the ash shepherd away. The gates will not open again.",
         },
       },
     ],
   },
   {
     id: "mirror-stag",
-    creature: "The mirror stag",
-    title: "A stag in still water",
-    body: "Where a ditch holds still water, a stag looks out of it wearing your face. It will show a feast, a winter, or nothing, if you look away.",
+    creature: "The mirror deer",
+    title: "A deer in still water",
+    body: "Where a ditch holds still water, a deer looks out of it wearing your face. It will show a feast, a winter, or nothing, if you look away.",
     art: "/art/title-valley.jpg",
     disposition: "kind",
     requires: ({ day, markIds }) => day >= 12 || markIds.length > 0,
@@ -420,41 +420,41 @@ const CREATURES: CreatureDef[] = [
       {
         id: "feast",
         label: "Look at the feast",
-        detail: "The larder jumps, and the people keep a share of that ease.",
+        detail: "The food store jumps, and the people keep a share of that ease.",
         effect: {
           bread: 6,
           mood: 4,
           lasting: { moodDawn: 1 },
-          summary: "The mirror stag showed a feast. The larder and the mood both kept it.",
+          summary: "The mirror deer showed a feast. The food store and the mood both kept it.",
         },
       },
       {
         id: "winter",
         label: "Look at the winter",
-        detail: "Hearths are stacked, and they burn slower afterward. The vision is cold.",
+        detail: "Firewood is stacked, and it burns slower afterward. The vision is cold.",
         effect: {
           hearth: 8,
           mood: -2,
           lasting: { hearthDecay: -1 },
-          summary: "The mirror stag showed the winter. Hearths last longer, and the mood knows why.",
+          summary: "The mirror deer showed the winter. Firewood lasts longer, and the mood knows why.",
         },
       },
       {
         id: "away",
         label: "Look away",
-        detail: "Renown for the nerve. The stag keeps the rest of the vision.",
+        detail: "Fame for the nerve. The deer keeps the rest of the vision.",
         effect: {
           renown: 1,
-          summary: "You looked away from the mirror stag. The vision stayed in the ditch.",
+          summary: "You looked away from the mirror deer. The vision stayed in the ditch.",
         },
       },
     ],
   },
   {
     id: "toll-hag",
-    creature: "The toll hag",
+    creature: "The old woman at the ford",
     title: "A hand on the ford",
-    body: "A hag sits the ford and counts the living who cross. She will take gold, take a curse for a refusal, or be tricked if the bones favor you. She is not Vell. She writes to things that are.",
+    body: "An old woman sits the ford and counts the living who cross. She will take gold, curse a refusal, or be tricked if the bones favor you. She is not Vell. She writes to things that are.",
     art: "/art/portrait-nell.jpg",
     disposition: "grim",
     choices: [
@@ -467,7 +467,7 @@ const CREATURES: CreatureDef[] = [
           mood: 4,
           renown: 1,
           lasting: { moodDawn: 1 },
-          summary: "You paid the toll hag. The ford is quiet, and the people unclench.",
+          summary: "You paid the old woman at the ford. The ford is quiet, and the people unclench.",
         },
       },
       {
@@ -479,25 +479,25 @@ const CREATURES: CreatureDef[] = [
           mood: -8,
           contentment: -4,
           lasting: { moodDawn: -2 },
-          summary: "You refused the toll hag. People left, and the hold keeps souring.",
+          summary: "You refused the old woman at the ford. People left, and the hold keeps souring.",
         },
       },
       {
         id: "trick",
         label: "Trick her",
         detail: "Stake 2 gold. Bones 1–6 leave iron. 7–12 leave a curse that stays.",
-        effect: { summary: "The toll hag waits on the bones." },
+        effect: { summary: "The old woman at the ford waits on the bones." },
         gamble: {
-          stake: { gold: -2, summary: "You staked 2 gold on the toll hag." },
+          stake: { gold: -2, summary: "You staked 2 gold on the old woman at the ford." },
           win: {
             goods: { iron: 2 },
             renown: 1,
-            summary: "You tricked the toll hag. She left iron in the mud and went.",
+            summary: "You tricked the old woman at the ford. She left iron in the mud and went.",
           },
           lose: {
             mood: -6,
             lasting: { moodDawn: -1 },
-            summary: "The toll hag saw the trick. The gold is gone, and the mood keeps falling.",
+            summary: "The old woman at the ford saw the trick. The gold is gone, and the mood keeps falling.",
           },
         },
       },
@@ -505,51 +505,51 @@ const CREATURES: CreatureDef[] = [
   },
   {
     id: "barrow-hound",
-    creature: "The barrow hound",
+    creature: "The grave hound",
     title: "Something at the mounds",
-    body: "A hound the size of a pony scratches at the barrow door. Feed it, kennel it at the gate, or hunt it and let the bones decide. It does not answer to the frost-wyrm.",
+    body: "A hound the size of a pony scratches at a grave-mound door. Feed it, kennel it at the gate, or hunt it and let the bones decide. It does not answer to Vell.",
     art: "/art/drake-mine.jpg",
     disposition: "grim",
     choices: [
       {
         id: "feed",
         label: "Feed it 2 grain",
-        detail: "It goes back into the mound. Vell's ire eases once. The people exhale.",
+        detail: "It goes back into the mound. Vell's anger eases once. The people exhale.",
         effect: {
           goods: { grain: -2 },
           ire: -4,
           mood: 2,
-          summary: "You fed the barrow hound. It slept, and the wyrm's ire eased.",
+          summary: "You fed the grave hound. It slept, and the dragon's anger eased.",
         },
       },
       {
         id: "kennel",
         label: "Kennel it",
-        detail: "The gate is safer and a little ashamed. Mood and the wyrm both ease over time.",
+        detail: "The gate is safer and a little ashamed. Mood eases, and the dragon's anger climbs slower.",
         effect: {
           mood: -2,
           lasting: { moodDawn: 1, ireDawn: -1 },
-          summary: "The barrow hound sleeps at your gate. Nights are safer, and the ire climbs slower.",
+          summary: "The grave hound sleeps at your gate. Nights are safer, and the anger climbs slower.",
         },
       },
       {
         id: "hunt",
         label: "Hunt the hound",
         detail: "No stake but pride. Bones 1–6 bring it down. 7–12 bloody the yard for good.",
-        effect: { summary: "The barrow hound is already running." },
+        effect: { summary: "The grave hound is already running." },
         gamble: {
           stake: { summary: "You loosed the hunt." },
           win: {
             renown: 2,
             mood: 2,
             ire: -3,
-            summary: "You brought the barrow hound down. The mounds are quiet.",
+            summary: "You brought the grave hound down. The mounds are quiet.",
           },
           lose: {
             mood: -8,
             ire: 4,
             lasting: { moodDawn: -1 },
-            summary: "The barrow hound bloodied the yard. The hurt stays in the mood.",
+            summary: "The grave hound bloodied the yard. The hurt stays in the mood.",
           },
         },
       },
@@ -559,37 +559,37 @@ const CREATURES: CreatureDef[] = [
     id: "frost-nun",
     creature: "The frost nun",
     title: "A nun collecting names",
-    body: "A woman in frost-white walks the rolls and asks for one name. She is not Vell. Give her someone, buy her off with salt, or bar the cloister door and live with a faster winter.",
+    body: "A woman in frost-white walks the count of people and asks for one name. She is not Vell. Give her someone, buy her off with salt, or bar the chapel door and live with a faster winter.",
     art: "/art/wyrm-wing.jpg",
     disposition: "grim",
     choices: [
       {
         id: "name",
         label: "Give a name",
-        detail: "Two souls leave the rolls. Vell's ire falls now, and climbs slower afterward.",
+        detail: "Two souls leave the count. Vell's anger falls now, and climbs slower afterward.",
         effect: {
           souls: -2,
           ire: -8,
           renown: 1,
           lasting: { ireDawn: -1 },
-          summary: "You gave the frost nun a name. Two souls are gone, and the wyrm wakes slower.",
+          summary: "You gave the frost nun a name. Two souls are gone, and the dragon wakes slower.",
         },
       },
       {
         id: "salt",
         label: "Offer 3 salt",
-        detail: "She leaves the rolls alone. Ire eases once. The people prefer this.",
+        detail: "She leaves the people alone. Anger eases once. The people prefer this.",
         effect: {
           goods: { salt: -3 },
           mood: 4,
           ire: -4,
-          summary: "You salted the frost nun's cup. The rolls stayed whole.",
+          summary: "You salted the frost nun's cup. The people stayed.",
         },
       },
       {
         id: "bar",
         label: "Bar the door",
-        detail: "Renown for the refusal. Ire climbs faster forever, and the coin wyrm will hear of it.",
+        detail: "Fame for the refusal. Anger climbs faster forever, and the little coin dragon will hear of it.",
         effect: {
           ire: 4,
           mood: -3,
@@ -602,31 +602,31 @@ const CREATURES: CreatureDef[] = [
   },
   {
     id: "root-colossus",
-    creature: "The root colossus",
+    creature: "The root giant",
     title: "The road has grown shut",
-    body: "A body of roots stands where the timber road should be. It wants a gift of wood, a parley, or a fire. It will still be in the ground tomorrow either way.",
+    body: "A giant made of roots stands where the timber road should be. It wants a gift of wood, a talk, or a fire. It will still be in the ground tomorrow either way.",
     art: "/art/hold-ashfold.jpg",
     disposition: "grim",
     choices: [
       {
         id: "timber",
         label: "Give 3 timber",
-        detail: "The road opens. Mood and the larder both rise.",
+        detail: "The road opens. Mood rises, and so does the food store.",
         effect: {
           goods: { timber: -3 },
           mood: 6,
           bread: 4,
-          summary: "You fed the root colossus. The road opened, and the larder with it.",
+          summary: "You fed the root giant. The road opened, and the food store with it.",
         },
       },
       {
         id: "parley",
-        label: "Parley",
-        detail: "No goods spent. It lets carts through, and larders last longer afterward.",
+        label: "Talk it through",
+        detail: "No goods spent. It lets carts through, and food lasts longer afterward.",
         effect: {
           mood: 5,
           lasting: { breadDecay: -1 },
-          summary: "You parleyed with the root colossus. Larders last longer from this day.",
+          summary: "You talked with the root giant. Food lasts longer from this day.",
         },
       },
       {
@@ -639,16 +639,16 @@ const CREATURES: CreatureDef[] = [
           ire: 5,
           souls: -2,
           lasting: { moodDawn: -1, hearthDecay: -1 },
-          summary: "You burned the root colossus. Timber and a lasting fear, and hearths that eat less.",
+          summary: "You burned the root giant. Timber and a lasting fear, and fires that eat less wood.",
         },
       },
     ],
   },
   {
     id: "coin-wyrm",
-    creature: "The coin wyrm",
-    title: "A wyrm the size of a dog",
-    body: "A small wyrm has nested in the toll chest. It is not Vell. It wants a bribe, a driving-off, or a job counting coin. If you barred the frost nun, it already knows.",
+    creature: "The little coin dragon",
+    title: "A dragon the size of a dog",
+    body: "A small dragon has nested in the toll chest. It is not Vell. It wants a bribe, a driving-off, or a job counting coin. If you barred the frost nun, it already knows.",
     art: "/art/wyrm-speaks.jpg",
     disposition: "grim",
     choices: [
@@ -662,24 +662,24 @@ const CREATURES: CreatureDef[] = [
           gold: -8,
           goods: { iron: 2 },
           mood: 1,
-          summary: "You bribed the coin wyrm out of the chest. Iron was under the coins.",
+          summary: "You bribed the little coin dragon out of the chest. Iron was under the coins.",
         },
         alt: {
           gold: -12,
           goods: { iron: 2 },
           mood: -2,
-          summary: "You paid the coin wyrm the nun's price. The iron was not worth the talk.",
+          summary: "You paid the little coin dragon the nun's price. The iron was not worth the talk.",
         },
       },
       {
         id: "drive",
         label: "Drive it off",
-        detail: "Renown. A little ire. It is a thief, not the mountain.",
+        detail: "Fame. A little anger. It is a thief, not the mountain.",
         effect: {
           renown: 2,
           ire: 2,
           mood: 1,
-          summary: "You drove the coin wyrm off. The chest is yours, and the mountain noticed the noise.",
+          summary: "You drove the little coin dragon off. The chest is yours, and the mountain noticed the noise.",
         },
       },
       {
@@ -690,7 +690,7 @@ const CREATURES: CreatureDef[] = [
           gold: -4,
           mood: -2,
           lasting: { goldDawn: 1 },
-          summary: "The coin wyrm counts your toll. One gold finds you each dawn.",
+          summary: "The little coin dragon counts your toll. One gold finds you each dawn.",
         },
       },
     ],
@@ -699,7 +699,7 @@ const CREATURES: CreatureDef[] = [
     id: "banner-widow",
     creature: "The banner widow",
     title: "A seat she says is hers",
-    body: "A widow in campaign black asks for a seat in the hall. Give it and the rolls close. Pension her. Or refuse, and live with the story she tells.",
+    body: "A widow in campaign black asks for a seat in the hall. Give it and the gates shut. Pay her to go. Or refuse, and live with the story she tells.",
     art: "/art/caravan.jpg",
     disposition: "grim",
     requires: ({ day }) => day >= 10,
@@ -707,30 +707,30 @@ const CREATURES: CreatureDef[] = [
       {
         id: "seat",
         label: "Give her the seat",
-        detail: "Closed rolls at your hold. Mood rises. A few restless souls are sent off.",
+        detail: "Shut the gates at your hold. Mood rises. A few restless souls are sent off.",
         effect: {
           edict: "close-rolls",
           mood: 6,
           souls: -2,
           lasting: { moodDawn: 1 },
-          summary: "The banner widow sits the hall. The rolls are closed, and the mood holds.",
+          summary: "The banner widow sits the hall. The gates are shut, and the mood holds.",
         },
       },
       {
         id: "pension",
-        label: "Pension her, 5 gold",
+        label: "Pay her 5 gold to go",
         detail: "She goes home paid. Mood jumps, and stays a little higher.",
         effect: {
           gold: -5,
           mood: 8,
           lasting: { moodDawn: 1 },
-          summary: "You pensioned the banner widow. The hall is lighter without her seat.",
+          summary: "You paid the banner widow to go. The hall is lighter without her seat.",
         },
       },
       {
         id: "refuse",
         label: "Refuse the seat",
-        detail: "Renown. The mood falls and keeps a grudge.",
+        detail: "Fame. The mood falls and keeps a grudge.",
         effect: {
           mood: -8,
           renown: 2,
@@ -744,7 +744,7 @@ const CREATURES: CreatureDef[] = [
     id: "pit-cricket",
     creature: "The pit cricket",
     title: "A cricket in the granary",
-    body: "A cricket the size of a fist sings in the granary wall. Listen, and it names the weak store. Feed it. Or crush it and close the rolls on the noise.",
+    body: "A cricket the size of a fist sings in the granary wall. Listen, and it names the weak store. Feed it. Or crush it and shut the gates on the noise.",
     art: "/art/hold-highbarrow.jpg",
     disposition: "grim",
     choices: [
@@ -762,31 +762,31 @@ const CREATURES: CreatureDef[] = [
       {
         id: "feed",
         label: "Feed it 1 grain",
-        detail: "Larders last longer afterward. A small, strange friendship.",
+        detail: "Food lasts longer afterward. A small, strange friendship.",
         effect: {
           goods: { grain: -1 },
           renown: 1,
           lasting: { breadDecay: -1 },
-          summary: "You fed the pit cricket. Larders last longer, and it still sings.",
+          summary: "You fed the pit cricket. Food lasts longer, and it still sings.",
         },
       },
       {
         id: "crush",
         label: "Crush it",
-        detail: "Closed rolls, fewer souls, a worse mood. The granary goes quiet forever.",
+        detail: "Shut the gates, fewer souls, a worse mood. The granary goes quiet forever.",
         effect: {
           edict: "close-rolls",
           souls: -4,
           mood: -4,
           lasting: { blockGrowth: true },
-          summary: "You crushed the pit cricket and closed the rolls. Growth is done.",
+          summary: "You crushed the pit cricket and shut the gates. Growth is done.",
         },
       },
     ],
   },
   {
     id: "starveling",
-    creature: "The starveling saint",
+    creature: "The hungry saint",
     title: "A saint with an empty bowl",
     body: "A saint sits the oven line with a bowl that shows the bottom. Share the grain, preach over the hunger, or drive the line off and take what they hid.",
     art: "/art/hold-woolford.jpg",
@@ -795,35 +795,35 @@ const CREATURES: CreatureDef[] = [
       {
         id: "share",
         label: "Share 3 grain",
-        detail: "Every settlement eases. Two souls join you. Larders last longer after.",
+        detail: "Every settlement eases. Two souls join you. Food lasts longer after.",
         effect: {
           goods: { grain: -3 },
           souls: 2,
           allMood: 5,
           lasting: { breadDecay: -1 },
-          summary: "You shared with the starveling saint. The realm eats slower, and two souls stayed.",
+          summary: "You shared with the hungry saint. The realm eats slower, and two souls stayed.",
         },
       },
       {
         id: "sermon",
         label: "Preach over the bowl",
-        detail: "Renown for the voice. The line does not eat, and the mood knows it.",
+        detail: "Fame for the voice. The line does not eat, and the mood knows it.",
         effect: {
           renown: 2,
           mood: -3,
-          summary: "You preached to the starveling saint's line. They left hungry, and you are talked about.",
+          summary: "You preached to the hungry saint's line. They left hungry, and you are talked about.",
         },
       },
       {
         id: "drive",
         label: "Drive them off",
-        detail: "Three gold they had hidden. Souls leave. Open rolls will not refill them.",
+        detail: "Three gold they had hidden. Souls leave. Open gates will not refill them.",
         effect: {
           gold: 3,
           souls: -6,
           mood: -8,
           lasting: { moodDawn: -1, blockGrowth: true },
-          summary: "You drove the starveling saint's line off. The coin stayed. The growth did not.",
+          summary: "You drove the hungry saint's line off. The coin stayed. The growth did not.",
         },
       },
     ],
@@ -865,7 +865,7 @@ const PETITIONS: {
       {
         id: "walk",
         label: "Let them walk",
-        detail: "Eight souls leave. Those who stay are calmer. The rolls will not open again.",
+        detail: "Eight souls leave. Those who stay are calmer. The gates will not open again.",
         effect: {
           souls: -8,
           mood: 4,
@@ -905,11 +905,11 @@ const PETITIONS: {
       {
         id: "axes",
         label: "Share the axes",
-        detail: "No coin. Hearths last longer from this day, and the yard agrees.",
+        detail: "No coin. Firewood lasts longer from this day, and the yard agrees.",
         effect: {
           mood: 3,
           lasting: { hearthDecay: -1 },
-          summary: "You shared the axes. Hearths last longer, and the argument is over.",
+          summary: "You shared the axes. Firewood lasts longer, and the argument is over.",
         },
       },
     ],
@@ -917,18 +917,18 @@ const PETITIONS: {
   {
     id: "column",
     title: "A column at the gate",
-    body: (place) => `Unsworn people are sitting outside ${place}. Take them in, send them to a weaker hold, or bar the gate for good.`,
+    body: (place) => `People with no banner are sitting outside ${place}. Take them in, send them to a weaker hold, or bar the gate for good.`,
     choices: [
       {
         id: "take",
         label: "Take them in",
-        detail: "Eight souls, a thinner larder, and more arrivals on later dawns.",
+        detail: "Eight souls, a thinner food store, and more arrivals on later dawns.",
         effect: {
           souls: 8,
           bread: -4,
           mood: -1,
           lasting: { soulDawn: 1 },
-          summary: "You took the column in. Souls keep arriving while the larder holds.",
+          summary: "You took the column in. Souls keep arriving while the food store holds.",
         },
       },
       {
@@ -946,12 +946,12 @@ const PETITIONS: {
       {
         id: "bar",
         label: "Bar the gate",
-        detail: "Mood rises once. Open rolls will bring no one for the rest of the game.",
+        detail: "Mood rises once. Open gates will bring no one for the rest of the game.",
         effect: {
           mood: 4,
           renown: 1,
           lasting: { blockGrowth: true },
-          summary: "You barred the column. The rolls will not open for the rest of the game.",
+          summary: "You barred the column. The gates will not open for the rest of the game.",
         },
       },
     ],
@@ -959,32 +959,32 @@ const PETITIONS: {
   {
     id: "three-voices",
     title: "Three voices in the hall",
-    body: (place) => `Bakers, the reeve, and the hearth-wardens each want the law at ${place}. One of them will still be the law tomorrow.`,
+    body: (place) => `Bakers, the steward, and the fire keepers each want the law at ${place}. One of them will still be the law tomorrow.`,
     choices: [
       {
         id: "bakers",
         label: "The bakers",
-        detail: "Bread dole becomes the law. Mood rises with the announcement.",
+        detail: "Free bread becomes the law. Mood rises with the announcement.",
         effect: {
           edict: "dole",
           mood: 5,
-          summary: "The bakers have the law. The bread dole stands until you change it.",
+          summary: "The bakers have the law. Free bread stands until you change it.",
         },
       },
       {
         id: "reeve",
-        label: "The reeve",
-        detail: "Granary tithe becomes the law. Grain will come in, and the people will feel it.",
+        label: "The steward",
+        detail: "Grain tax becomes the law. Grain will come in, and the people will feel it.",
         effect: {
           edict: "tithe",
           mood: -3,
-          summary: "The reeve has the law. The granary tithe will pay grain while the larder is deep.",
+          summary: "The steward has the law. The grain tax will pay grain while the food store is deep.",
         },
       },
       {
         id: "hearth",
-        label: "The hearth-wardens",
-        detail: "Hearth rite becomes the law.",
+        label: "The fire keepers",
+        detail: "Feed the fires becomes the law.",
         effect: {
           edict: "hearth-rite",
           mood: 3,
@@ -996,37 +996,37 @@ const PETITIONS: {
   {
     id: "watch-law",
     title: "The watch's law",
-    body: (place) => `The watch at ${place} wants the rolls settled before the next frost. Close them, open them, or leave the old custom and say so out loud.`,
+    body: (place) => `The watch at ${place} wants the gates settled before the next frost. Shut them, open them, or leave the people as they are and say so out loud.`,
     choices: [
       {
         id: "close",
-        label: "Close the rolls",
-        detail: "Closed rolls, and a calmer yard.",
+        label: "Shut the gates",
+        detail: "Shut the gates, and a calmer yard.",
         effect: {
           edict: "close-rolls",
           mood: 5,
-          summary: "You closed the rolls for the watch. The yard is orderly.",
+          summary: "You shut the gates for the watch. The yard is orderly.",
         },
       },
       {
         id: "open",
-        label: "Open the rolls",
-        detail: "Open rolls. Souls come now, and more will follow while you can feed them.",
+        label: "Open the gates",
+        detail: "Open the gates. Souls come now, and more will follow while you can feed them.",
         effect: {
           edict: "open-rolls",
           souls: 4,
           mood: -2,
-          summary: "You opened the rolls. Souls will come while the larder holds.",
+          summary: "You opened the gates. Souls will come while the food store holds.",
         },
       },
       {
         id: "custom",
-        label: "Keep the old custom",
-        detail: "The law stays as it is. A little renown for refusing the watch's script.",
+        label: "Leave them be",
+        detail: "The law stays as it is. A little fame for refusing the watch's script.",
         effect: {
           renown: 1,
           mood: 1,
-          summary: "You kept the old custom in front of the watch. They will not ask in these words again.",
+          summary: "You left the law as it was, in front of the watch. They will not ask in these words again.",
         },
       },
     ],
@@ -1107,10 +1107,10 @@ function passCount(marks: Mark[]): number {
 
 function bodyFor(def: CreatureDef, ids: string[], passes: number): string {
   let body = def.body;
-  if (def.id === "ash-shepherd" && ids.includes("lantern-hart:hunt")) body += " It has already smelled the hart's blood.";
+  if (def.id === "ash-shepherd" && ids.includes("lantern-hart:hunt")) body += " It has already smelled the deer's blood.";
   else if (def.id === "ash-shepherd" && passes >= 2) body += " It has heard that you let the road go by.";
   if (def.id === "coin-wyrm" && ids.includes("frost-nun:bar")) body += " The nun told it you bar the cold, so the price is worse.";
-  if (def.id === "orchard-wight" && ids.includes("lantern-hart:spare")) body += " The branches lean in. It saw you spare the hart.";
+  if (def.id === "orchard-wight" && ids.includes("lantern-hart:spare")) body += " The branches lean in. It saw you spare the deer.";
   return body;
 }
 
@@ -1300,15 +1300,15 @@ export function modsBlurb(state: GameState): string | null {
   if (mods.goldDawn < 0) bits.push("coin leaves at dawn");
   if (mods.moodDawn > 0) bits.push("the people rest easier");
   if (mods.moodDawn < 0) bits.push("the people sour a little each dawn");
-  if (mods.breadDecay < 0) bits.push("larders last longer");
-  if (mods.breadDecay > 0) bits.push("larders empty faster");
-  if (mods.hearthDecay < 0) bits.push("hearths last longer");
-  if (mods.hearthDecay > 0) bits.push("hearths burn faster");
+  if (mods.breadDecay < 0) bits.push("food lasts longer");
+  if (mods.breadDecay > 0) bits.push("food runs out faster");
+  if (mods.hearthDecay < 0) bits.push("firewood lasts longer");
+  if (mods.hearthDecay > 0) bits.push("firewood burns faster");
   if (mods.soulDawn > 0) bits.push("souls still arrive");
   if (mods.soulDawn < 0) bits.push("souls slip away");
-  if (mods.ireDawn < 0) bits.push("the wyrm stirs more slowly");
-  if (mods.ireDawn > 0) bits.push("the wyrm stirs faster");
-  if (mods.blockGrowth) bits.push("the rolls will not open");
+  if (mods.ireDawn < 0) bits.push("the dragon stirs more slowly");
+  if (mods.ireDawn > 0) bits.push("the dragon stirs faster");
+  if (mods.blockGrowth) bits.push("the gates will not open");
   if (bits.length === 0) return null;
   return `Still in force: ${bits.join(", ")}.`;
 }
@@ -1450,7 +1450,7 @@ export function tickSettlements(state: GameState): string[] {
     if (settlement.edict === "tithe" && settlement.bread > 10) {
       settlement.bread -= 1;
       state.player.stash.grain += 1;
-      lines.push(`${holdById(settlement.holdId).name} pays the tithe: 1 grain comes to your stash.`);
+      lines.push(`${holdById(settlement.holdId).name} pays the grain tax: 1 grain comes to your stash.`);
     }
     let mood = 0;
     let souls = 0;
@@ -1471,8 +1471,8 @@ export function tickSettlements(state: GameState): string[] {
     settlement.mood = clamp(settlement.mood + mood, 0, 100);
     settlement.souls = clamp(settlement.souls + souls, 8, 400);
     const name = holdById(settlement.holdId).name;
-    if (beforeBread > 0 && settlement.bread === 0) lines.push(`${name} has no bread in the larder.`);
-    if (beforeHearth > 0 && settlement.hearth === 0) lines.push(`${name}'s hearths are cold.`);
+    if (beforeBread > 0 && settlement.bread === 0) lines.push(`${name} has no bread in the food store.`);
+    if (beforeHearth > 0 && settlement.hearth === 0) lines.push(`${name}'s fires are cold.`);
     if (beforeMood >= 30 && settlement.mood < 30) lines.push(`${name} is close to breaking.`);
   }
   if (mods.goldDawn) {
@@ -1501,8 +1501,8 @@ export function stockSettlement(state: GameState, holdId: HoldId, kind: "bread" 
   if (!Number.isInteger(qty) || qty < 1 || qty > 20) return fail(state, "Send between 1 and 20.");
   const found = state.settlements?.find((item) => item.holdId === holdId);
   if (!found) return fail(state, "That settlement is not under your banner.");
-  if (kind === "bread" && found.bread >= 40) return fail(state, "The larder is full.");
-  if (kind === "hearth" && found.hearth >= 40) return fail(state, "The hearth is stacked to the roof.");
+  if (kind === "bread" && found.bread >= 40) return fail(state, "The food store is full.");
+  if (kind === "hearth" && found.hearth >= 40) return fail(state, "The firewood is stacked to the roof.");
   const good = kind === "bread" ? "grain" : "timber";
   if (state.player.stash[good] < qty) return fail(state, `You don't have ${qty} ${good}.`);
   const next = structuredClone(state);
@@ -1513,7 +1513,7 @@ export function stockSettlement(state: GameState, holdId: HoldId, kind: "bread" 
   if (kind === "bread") settlement.bread = Math.min(40, settlement.bread + gain);
   else settlement.hearth = Math.min(40, settlement.hearth + gain);
   const place = holdById(holdId).name;
-  const line = kind === "bread" ? `You sent ${qty} grain to ${place}. The larder can last longer.` : `You sent ${qty} timber to ${place}. The hearths are fed.`;
+  const line = kind === "bread" ? `You sent ${qty} grain to ${place}. The food store can last longer.` : `You sent ${qty} timber to ${place}. The fires are fed.`;
   note(next, line);
   return ok(next, line);
 }

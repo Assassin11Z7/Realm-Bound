@@ -20,36 +20,36 @@ export const WORN_SLOTS: GearSlot[] = ["hand", "cloak", "charm", "ring"];
 type Piece = { name: string; slot: GearSlot; trait: Gear["trait"]; line: string };
 
 const TREASURES: Piece[] = [
-  { name: "Road knife", slot: "hand", trait: "luck", line: "Short, nicked, and honest about both." },
-  { name: "Salt hook", slot: "hand", trait: "purse", line: "The pans use it to drag a rake of salt ashore." },
+  { name: "Road knife", slot: "hand", trait: "luck", line: "Short, chipped, and honest about both." },
+  { name: "Salt hook", slot: "hand", trait: "purse", line: "Salt workers use it to drag salt ashore." },
   { name: "Ash staff", slot: "hand", trait: "lore", line: "It has walked more timber roads than you have." },
   { name: "Mine pick", slot: "hand", trait: "luck", line: "Highbarrow iron still smells on the head." },
-  { name: "Ford bill", slot: "hand", trait: "ward", line: "A watchman's bill, notched where a shield met it." },
+  { name: "Ford spear", slot: "hand", trait: "ward", line: "A watchman's spear, notched where a shield met it." },
   { name: "Bell hammer", slot: "hand", trait: "lore", line: "Small enough for a shrine bell, heavy enough for a nail." },
-  { name: "Hart spear", slot: "hand", trait: "luck", line: "The point is pale, as if it had been left in snow." },
-  { name: "Wyrm needle", slot: "hand", trait: "ward", line: "A sliver of ivory longer than a hand. It hums in frost." },
+  { name: "Deer spear", slot: "hand", trait: "luck", line: "The point is pale, as if it had been left in snow." },
+  { name: "Dragon needle", slot: "hand", trait: "ward", line: "A sliver of pale horn longer than a hand. It hums in frost." },
   { name: "Wool cloak", slot: "cloak", trait: "luck", line: "Woolford weight. It keeps the mist on the outside." },
   { name: "Ford cloak", slot: "cloak", trait: "ward", line: "Oiled against the river. The hem is darker than the rest." },
-  { name: "Snow mantle", slot: "cloak", trait: "ward", line: "Pale wool lined with something that used to be warmer." },
-  { name: "Salt cloak", slot: "cloak", trait: "purse", line: "Stiff with brine. Traders know the cut." },
-  { name: "Greenmere weave", slot: "cloak", trait: "lore", line: "Grain-colored, and it still smells of the mead." },
+  { name: "Snow cloak", slot: "cloak", trait: "ward", line: "Pale wool lined with something that used to be warmer." },
+  { name: "Salt cloak", slot: "cloak", trait: "purse", line: "Stiff with salt. Traders know the cut." },
+  { name: "Greenmere weave", slot: "cloak", trait: "lore", line: "Grain-colored, and it still smells of the mill." },
   { name: "Vesper veil", slot: "cloak", trait: "lore", line: "Thin as candle smoke. The saints are stitched in the hem." },
   { name: "Ash cloak", slot: "cloak", trait: "luck", line: "Timber-soot in the folds. It does not show the road." },
-  { name: "Wyrm hide", slot: "cloak", trait: "ward", line: "A scale-cloak. Vell would know the beast it came from." },
+  { name: "Dragon hide", slot: "cloak", trait: "ward", line: "A scale-cloak. Vell would know the beast it came from." },
   { name: "Crow bead", slot: "charm", trait: "lore", line: "Black glass. It clicks when a lie is close." },
   { name: "Bell shard", slot: "charm", trait: "ward", line: "A cracked piece of a tide-bell. It still wants salt." },
   { name: "Saint nail", slot: "charm", trait: "lore", line: "Bent, blessed, and too warm for the weather." },
-  { name: "Hart tooth", slot: "charm", trait: "luck", line: "The white hart leaves these when it is not caught." },
+  { name: "Deer tooth", slot: "charm", trait: "luck", line: "The white deer leaves these when it is not caught." },
   { name: "Salt pearl", slot: "charm", trait: "purse", line: "Not a pearl. A grain of salt that forgot how to dissolve." },
-  { name: "Mine whistle", slot: "charm", trait: "luck", line: "Highbarrow miners hear it before the seam does." },
+  { name: "Mine whistle", slot: "charm", trait: "luck", line: "Highbarrow miners hear it before the mine shifts." },
   { name: "Candle stub", slot: "charm", trait: "lore", line: "It has been lit in more shrines than one hold owns." },
-  { name: "Wyrm scale", slot: "charm", trait: "ward", line: "Pale as river ice. The gold crack is real." },
+  { name: "Dragon scale", slot: "charm", trait: "ward", line: "Pale as river ice. The gold crack is real." },
   { name: "Copper band", slot: "ring", trait: "purse", line: "Guild-marked. The weight is slightly kind." },
   { name: "Salt ring", slot: "ring", trait: "purse", line: "A hoop of pale metal that crusts in wet air." },
   { name: "Iron thumb", slot: "ring", trait: "luck", line: "Too big for a gentle hand. The mine likes it." },
   { name: "Saint loop", slot: "ring", trait: "lore", line: "A ring of braided wire from a Vesper candle stand." },
-  { name: "Wyrm circle", slot: "ring", trait: "ward", line: "Cold even in a fist. Frost does not stick to it." },
-  { name: "Hart ring", slot: "ring", trait: "luck", line: "Antler polished down to a circle. It points at fords." },
+  { name: "Dragon ring", slot: "ring", trait: "ward", line: "Cold even in a fist. Frost does not stick to it." },
+  { name: "Deer ring", slot: "ring", trait: "luck", line: "Antler polished down to a circle. It points at fords." },
   { name: "Bone ring", slot: "ring", trait: "lore", line: "Someone was buried with the rest of the set." },
   { name: "Ford ring", slot: "ring", trait: "purse", line: "Toll-keepers wear these so the coin knows them." },
   { name: "Painted cup", slot: "hoard", trait: "purse", line: "A feast cup. The hunt on it is older than the compact." },
@@ -58,11 +58,11 @@ const TREASURES: Piece[] = [
   { name: "Map scrap", slot: "hoard", trait: "lore", line: "Half a road, and a hold that is not on your map." },
   { name: "Bell coin", slot: "hoard", trait: "purse", line: "Struck for a shrine, spent on a ferry, lost in a ditch." },
   { name: "Guild weight", slot: "hoard", trait: "purse", line: "Copper Road bronze. It makes other coins look light." },
-  { name: "Antler chip", slot: "hoard", trait: "luck", line: "The white hart passed close enough to leave this." },
-  { name: "Saint's thumb", slot: "hoard", trait: "lore", line: "A reliquary no bigger than a walnut. The hinge still works." },
+  { name: "Antler chip", slot: "hoard", trait: "luck", line: "The white deer passed close enough to leave this." },
+  { name: "Saint's thumb", slot: "hoard", trait: "lore", line: "A holy box no bigger than a walnut. The hinge still works." },
   { name: "Old crown bit", slot: "hoard", trait: "purse", line: "Not a crown. A hinge from one, set with a dull red stone." },
-  { name: "Wyrm pearl", slot: "hoard", trait: "ward", line: "Milk-glass from a frost belly. Vell watches anyone who holds it." },
-  { name: "Seam nugget", slot: "hoard", trait: "luck", line: "Iron that grew in a fist. The mine-drake would want it back." },
+  { name: "Dragon pearl", slot: "hoard", trait: "ward", line: "Pale glass from a frost belly. Vell watches anyone who holds it." },
+  { name: "Mine nugget", slot: "hoard", trait: "luck", line: "Iron that grew in a fist. The mine dragon would want it back." },
   { name: "Tide glass", slot: "hoard", trait: "lore", line: "Saltmere green, full of a tiny trapped wave." },
 ];
 
@@ -120,9 +120,9 @@ export function starterCloak(): Gear {
 
 export function traitText(gear: Gear): string {
   if (gear.slot === "hoard") return `Treasure · sell for ${gear.worth}g`;
-  if (gear.trait === "purse") return `Purse · worn, the caravan pays 1 more · sell ${gear.worth}g`;
-  if (gear.trait === "ward") return `Ward · worn, Vell climbs more slowly · sell ${gear.worth}g`;
-  if (gear.trait === "lore") return `Lore · worn, the road teaches more · sell ${gear.worth}g`;
+  if (gear.trait === "purse") return `Coin · worn, the caravan pays 1 more · sell ${gear.worth}g`;
+  if (gear.trait === "ward") return `Guard · worn, Vell's anger climbs more slowly · sell ${gear.worth}g`;
+  if (gear.trait === "lore") return `Learning · worn, the road teaches more · sell ${gear.worth}g`;
   return `Luck ${gear.luck} · sell ${gear.worth}g`;
 }
 
@@ -366,7 +366,7 @@ export function roadFind(seed: number, day: number, miles: number, dest: HoldId,
       gold: 0,
       ire,
       gear: null,
-      line: ire < 0 ? `A wing passes over and does not stoop. ${WYRM_NAME} looks away.` : `A wing shadow crosses the track. ${WYRM_NAME} notices.`,
+      line: ire < 0 ? `A wing passes over and does not dive. ${WYRM_NAME} looks away.` : `A wing shadow crosses the track. ${WYRM_NAME} notices.`,
       scene: {
         id: `road-${miles}`,
         index: 0,

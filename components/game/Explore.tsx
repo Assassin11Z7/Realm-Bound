@@ -175,8 +175,8 @@ export function ExplorePanel({
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
           {bin === "bag" ? `Carried ${carriedWeight(state)} / ${carryCap(state)} weight` : `Strongroom ${storedWeight(state)} / ${vaultCap(state)} weight`}
-          {(state.tonics?.luck ?? 0) > 0 ? ` · luck draught, ${state.tonics.luck} walks` : ""}
-          {state.tonics?.purse ? " · purse tincture until dusk" : ""}
+          {(state.tonics?.luck ?? 0) > 0 ? ` · luck drink, ${state.tonics.luck} walks` : ""}
+          {state.tonics?.purse ? " · coin drink until dusk" : ""}
         </p>
         <div className="mt-2 flex gap-2">
           <Button type="button" variant={bin === "bag" ? "default" : "outline"} className="h-9" onClick={() => setBin("bag")}>
@@ -270,7 +270,7 @@ export function ExplorePanel({
             </li>
           ))}
           {potionIds.every((id) => (state.brew?.[id] ?? 0) < 1) && (
-            <li className="text-sm text-muted-foreground">No draughts. Raise a still and brew them.</li>
+            <li className="text-sm text-muted-foreground">No drinks. Raise a brew house and make them.</li>
           )}
         </ul>
         </>

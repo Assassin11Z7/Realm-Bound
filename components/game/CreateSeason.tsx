@@ -216,7 +216,7 @@ export function CreateSeason({
               onPick={(hex) => paint({ ...banner, charge: hex })}
             />
             <div>
-              <p className="mb-2 text-sm">Sigil</p>
+              <p className="mb-2 text-sm">Symbol</p>
               <div className="flex flex-wrap gap-2">
                 {SIGILS.map((sigil) => (
                   <button
@@ -232,7 +232,7 @@ export function CreateSeason({
               </div>
             </div>
             <div>
-              <p className="mb-2 text-sm">Division</p>
+              <p className="mb-2 text-sm">Pattern</p>
               <div className="flex flex-wrap gap-2">
                 {DIVISIONS.map((division) => (
                   <button
