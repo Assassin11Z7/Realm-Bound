@@ -24,7 +24,7 @@ npm run lint
 2. **The hall is not the levy.** Goods in the hall can be drawn by your oathbound. Goods pledged to the levy are spent on the road.
 3. **Kin stay while they eat.** Each dusk they draw, then eat. Leave a share, or send a gift. If the chests are bare night after night, they take their banners — and their yields — home.
 4. **Twelve dawns.** The levy is counted when you seal the twelfth day. The caravan is in town on days 1–2, 5–6, and 9–10. Your compact is always there.
-5. **Vell wakes.** The wyrm's ire climbs each dusk. Offer iron, salt, or a relic, or raise a wyrm-stake so it climbs more slowly. Leave the ire high and a shadow scorches one good in the hall. Creatures at the gate can be answered or allowed to pass. A mill adds one unit to each dawn's yield. A shrine steadies your oathbound. Keeping an oath spends three of what a neighbor hungers for.
+5. **Vell wakes.** The wyrm's ire climbs each dusk. Offer iron, salt, or a relic, or raise a wyrm-stake so it climbs more slowly. Leave the ire high and a shadow scorches one good in the hall. Creatures at the gate can be answered or allowed to pass. On quiet dawns a stranger may offer a safe bargain or a roll of twelve bones: faces 1–6 pay, 7–12 turn. A mill adds one unit to each dawn's yield. A shrine steadies your oathbound. Keeping an oath spends three of what a neighbor hungers for. Each season's seed is the name, hold, and faction, so two banners do not meet the same road.
 
 Paintings for the valley, the map, the six holds, the kin, the goods, and the creatures live in `public/art`.
 

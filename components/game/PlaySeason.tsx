@@ -58,7 +58,7 @@ import { GOODS, LEVY_GOODS } from "@/lib/game/types";
 import { GoodThumb, Portrait } from "./art";
 import { useFrame } from "./frame";
 import { BannerMark } from "./marks";
-import { OathRow, OmenDialog, WorksCard, WyrmCard } from "./Myth";
+import { OathRow, OmenDialog, WorksCard, WyrmCard, FateRoll } from "./Myth";
 import { HoldBrief, RealmMap } from "./RealmMap";
 
 type Tab = "realm" | "hold" | "compact" | "road";
@@ -96,7 +96,8 @@ export function PlaySeason({
   const [menu, setMenu] = useState(false);
   const [confirmAbandon, setConfirmAbandon] = useState(false);
   const [giftFor, setGiftFor] = useState<string | null>(null);
-  const [dawn, setDawn] = useState<{ day: number } | null>(null);
+  const [dawn, setDawn] = useState<{ day: number; title: string } | null>(null);
+  const [fate, setFate] = useState<{ face: number; won: boolean; line: string } | null>(null);
 
   useEffect(() => {
     if (!toast) return;
@@ -111,6 +112,17 @@ export function PlaySeason({
   function act(result: Result) {
     if (result.error) {
       setToast({ tone: "bad", text: result.error });
+      return;
+    }
+    if (result.fate) {
+      const roll = result.fate;
+      const line = result.message ?? "";
+      setFate({ ...roll, line });
+      window.setTimeout(() => {
+        onPlayed(result.state);
+        setToast({ tone: roll.won ? "good" : "bad", text: line });
+        setFate(null);
+      }, 2100);
       return;
     }
     onPlayed(result.state);
@@ -144,7 +156,7 @@ export function PlaySeason({
     }
     sealing.current = true;
     navigator.vibrate?.(12);
-    setDawn({ day: result.state.day });
+    setDawn({ day: result.state.day, title: result.state.omen?.creature ?? `Day ${result.state.day}` });
     onPlayed(result.state);
     if (result.message) setToast({ tone: "good", text: result.message });
     window.setTimeout(() => {
@@ -521,10 +533,11 @@ export function PlaySeason({
         <>
           <div className="wm-dawn" aria-hidden="true" />
           <p className="wm-stamp" aria-hidden="true">
-            Dawn · Day {dawn.day}
+            {dawn.title}
           </p>
         </>
       )}
+      {fate && <FateRoll face={fate.face} won={fate.won} line={fate.line} />}
     </div>
   );
 }

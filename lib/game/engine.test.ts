@@ -420,6 +420,8 @@ test("the bell-carter's night load can pay, and a short purse cannot", () => {
   const day5 = sealed(4);
   const night = chooseOmen(day5, "night");
   assert.equal(night.error, undefined);
+  assert.equal(night.fate?.won, true);
+  assert.ok((night.fate?.face ?? 0) >= 1 && (night.fate?.face ?? 0) <= 6);
   assert.equal(night.state.player.gold, 24);
   assert.equal(night.state.player.stash.iron, 2);
   assert.equal(night.state.player.renown, 2);

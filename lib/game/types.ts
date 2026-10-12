@@ -103,6 +103,7 @@ export interface OmenChoice {
   id: string;
   label: string;
   detail: string;
+  gamble?: boolean;
 }
 
 export type OmenArt = "drake" | "nix" | "wing" | "antler" | "serpent" | "speaks" | "road" | "weather" | "saint" | "kin";
@@ -188,8 +189,14 @@ export interface NewGameSetup {
   compactName: string;
 }
 
+export interface FateRoll {
+  face: number;
+  won: boolean;
+}
+
 export interface Result {
   state: GameState;
   error?: string;
   message?: string;
+  fate?: FateRoll;
 }

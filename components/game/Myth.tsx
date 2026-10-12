@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { MILL_COST, SHRINE_COST, STAKE_COST, WYRM_NAME, holdById } from "@/lib/game/content";
@@ -158,10 +159,19 @@ export function OmenDialog({ state, act }: { state: GameState; act: (result: Res
                 <DialogDescription>{omen.creature}</DialogDescription>
               </DialogHeader>
               <p className="mt-3 text-sm leading-relaxed">{omen.body}</p>
+              {omen.choices.some((choice) => choice.gamble) && (
+                <p className="mt-3 text-xs tracking-wide text-[#8d6b2e] uppercase">One path is safe. The other rolls twelve bones. You watch them land.</p>
+              )}
               <div className="mt-4 flex flex-col gap-2 pb-4">
                 {omen.choices.map((choice) => (
-                  <Button key={choice.id} type="button" className="h-auto min-h-11 flex-col items-start gap-0.5 py-2 text-left whitespace-normal" onClick={() => act(chooseOmen(state, choice.id))}>
-                    <span>{choice.label}</span>
+                  <Button
+                    key={choice.id}
+                    type="button"
+                    variant={choice.gamble ? "default" : "secondary"}
+                    className="h-auto min-h-11 flex-col items-start gap-0.5 py-2 text-left whitespace-normal"
+                    onClick={() => act(chooseOmen(state, choice.id))}
+                  >
+                    <span>{choice.gamble ? `Roll · ${choice.label}` : choice.label}</span>
                     <span className="text-xs font-normal opacity-80">{choice.detail}</span>
                   </Button>
                 ))}
@@ -174,5 +184,27 @@ export function OmenDialog({ state, act }: { state: GameState; act: (result: Res
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+export function FateRoll({ face, won, line }: { face: number; won: boolean; line: string }) {
+  const [shown, setShown] = useState<number | null>(null);
+  useEffect(() => {
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const id = window.setTimeout(() => setShown(face), reduce ? 0 : 880);
+    return () => window.clearTimeout(id);
+  }, [face]);
+
+  return (
+    <div className="absolute inset-0 z-[70] flex flex-col items-center justify-center bg-[#14110e]/88 px-8 text-center text-[#f4ead7]">
+      <p className="text-xs tracking-[0.28em] text-[#e6c56e] uppercase">The bones</p>
+      <div
+        className={`mt-4 grid size-24 place-items-center rounded-2xl bg-[#f4ead7] font-display text-5xl text-[#7c2a24] shadow-[0_18px_40px_rgba(0,0,0,0.45)] ${shown === null ? "wm-tumble" : ""}`}
+      >
+        {shown ?? "·"}
+      </div>
+      <p className="mt-5 font-display text-3xl">{shown === null ? "Rolling" : won ? "The road pays" : "The road turns"}</p>
+      <p className="mt-2 max-w-xs text-sm leading-relaxed text-[#f4ead7]/85">{shown === null ? "Twelve faces. Six of them are kind." : line}</p>
+    </div>
   );
 }

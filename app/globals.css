@@ -196,6 +196,14 @@
   0%, 100% { transform: scale(1); opacity: 1; filter: drop-shadow(0 0 0 rgba(230, 197, 110, 0)); }
   50% { transform: scale(1.12); opacity: 0.88; filter: drop-shadow(0 0 5px rgba(230, 197, 110, 0.65)); }
 }
+@keyframes wm-tumble {
+  0% { transform: rotate(-18deg) scale(0.72); filter: blur(1px); }
+  35% { transform: rotate(22deg) scale(1.08); filter: blur(0); }
+  68% { transform: rotate(-10deg) scale(0.96); }
+  100% { transform: rotate(0deg) scale(1); }
+}
+
+.wm-tumble { animation: wm-tumble 180ms linear infinite; }
 @keyframes wm-toast {
   0% { opacity: 0; transform: translateY(-8px); }
   100% { opacity: 1; transform: translateY(0); }
@@ -242,7 +250,7 @@
 .wm-tab { animation: wm-tab 280ms ease-out both; }
 
 @media (prefers-reduced-motion: reduce) {
-  .wm-drift, .wm-breathe, .wm-ire, .wm-hold, .wm-rise, .wm-toast, .wm-tab, .wm-stamp, .wm-press:active {
+  .wm-drift, .wm-breathe, .wm-ire, .wm-hold, .wm-rise, .wm-toast, .wm-tab, .wm-stamp, .wm-press:active, .wm-tumble {
     animation: none !important;
   }
   .wm-dawn { display: none; }

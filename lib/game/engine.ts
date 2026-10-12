@@ -350,6 +350,24 @@ function pickSurprise(seed: number, day: number, seen: string[]) {
   return null;
 }
 
+function kinWhisper(seed: number, day: number, names: string[]): string | null {
+  if (names.length === 0 || day < 2) return null;
+  const rng = mulberry32((seed ^ Math.imul(day, 0x27d4eb2d)) >>> 0);
+  if (rng() > 0.55) return null;
+  const name = names[Math.floor(rng() * names.length)];
+  const lines = [
+    `${name} wakes counting coin that is not there.`,
+    `${name} dreams of ${WYRM_NAME}'s wing and will not say so.`,
+    `A dog in ${name}'s yard will not cross the threshold.`,
+    `${name} swears the salt tasted of snow this morning.`,
+    `Someone left a burnt feather on ${name}'s step.`,
+    `${name} hears a bell and cannot find the hand that rings it.`,
+    `${name} says the road looked longer from the gate.`,
+    `Crows walk the roof above ${name} and will not fly.`,
+  ];
+  return lines[Math.floor(rng() * lines.length)];
+}
+
 function rumorText(good: GoodId, side: "buy" | "sell", delta: 1 | -1): string {
   const name = GOOD_LABEL[good];
   if (side === "buy" && delta === 1) return `${name} is dear on the road today. Buying costs 1 more.`;
@@ -948,6 +966,14 @@ export function sealDay(state: GameState): Result {
       lines.push(`${surprise.creature} is at the gate.`);
     }
   }
+  if (!next.omen) {
+    const whisper = kinWhisper(
+      next.seed ?? 0,
+      next.day,
+      next.compact.members.filter((member) => member.inCompact).map((member) => member.name),
+    );
+    if (whisper) lines.push(whisper);
+  }
 
   for (const line of lines) note(next, line);
 
@@ -1063,6 +1089,7 @@ export function chooseOmen(state: GameState, choiceId: string): Result {
   if (!omen.choices.some((choice) => choice.id === choiceId)) return fail(state, "That is not an answer they will hear.");
   const next = draft(state);
   const play = SURPRISE[omen.id];
+  let fate: { face: number; won: boolean } | undefined;
   if (play) {
     const cautiousIds = new Set(["mark", "bless", "trade", "toll", "quiet", "rung", "bed", "wool"]);
     if (cautiousIds.has(choiceId)) {
@@ -1076,7 +1103,10 @@ export function chooseOmen(state: GameState, choiceId: string): Result {
       const error = payError(next, play.bold.stake);
       if (error) return fail(state, error);
       const roll = mulberry32((next.seed ^ Math.imul(next.day, 0xc2b2ae35) ^ play.bold.salt) >>> 0)();
-      const outcome = roll < 0.5 ? play.bold.win : play.bold.lose;
+      const face = 1 + Math.floor(roll * 12);
+      const won = roll < 0.5;
+      fate = { face, won };
+      const outcome = won ? play.bold.win : play.bold.lose;
       const net = goodNet([play.bold.stake, outcome]);
       if (net > 0 && !canFit(next, net)) return fail(state, "The undercroft is full.");
       applyShift(next, play.bold.stake);
@@ -1085,7 +1115,9 @@ export function chooseOmen(state: GameState, choiceId: string): Result {
     }
     next.omen = null;
     next.compactActed = true;
-    return ok(next, next.chronicle[next.chronicle.length - 1]?.text ?? "The road is answered.");
+    const answered = ok(next, next.chronicle[next.chronicle.length - 1]?.text ?? "The road is answered.");
+    if (fate) answered.fate = fate;
+    return answered;
   }
   const key = `${omen.id}:${choiceId}`;
 

@@ -514,7 +514,7 @@ export const ROAD_SURPRISES: Omen[] = [
     passText: "You waited on the bank until the ford fog thinned, and let it pass.",
     choices: [
       { id: "mark", label: "Stake the ford", detail: "Spend 1 timber. Your oathbound cross without losing the path." },
-      { id: "cross", label: "Drive through", detail: "Stake 3 grain. You may come out with salt and coin, or turned around." },
+      { id: "cross", label: "Drive through", detail: "Stake 3 grain. The bones decide: 1–6 pays in salt and coin, 7–12 turns you around.", gamble: true },
     ],
   },
   {
@@ -526,7 +526,7 @@ export const ROAD_SURPRISES: Omen[] = [
     passText: "You bowed to the candle-saint and let the light go on down the road.",
     choices: [
       { id: "bless", label: "Give a relic", detail: "The storehouse is blessed. Vell looks elsewhere." },
-      { id: "snuff", label: "Snuff the candle", detail: "Stake 6 gold. The wax may hide a relic and a purse, or only the dark." },
+      { id: "snuff", label: "Snuff the candle", detail: "Stake 6 gold. Bones 1–6 hide a relic and a purse. 7–12 leave the dark.", gamble: true },
     ],
   },
   {
@@ -538,7 +538,7 @@ export const ROAD_SURPRISES: Omen[] = [
     passText: "Your cousin furled the banner and rode on. You let the visit pass.",
     choices: [
       { id: "trade", label: "Trade as kin", detail: "Give 2 grain. They leave 2 iron." },
-      { id: "purse", label: "Send them with a purse", detail: "Stake 8 gold. They may return with iron and salt, or with a story about you." },
+      { id: "purse", label: "Send them with a purse", detail: "Stake 8 gold. Bones 1–6 bring iron and salt. 7–12 bring a story about you.", gamble: true },
     ],
   },
   {
@@ -550,7 +550,7 @@ export const ROAD_SURPRISES: Omen[] = [
     passText: "The bell-carter rang once and went north without you. You let the bell pass.",
     choices: [
       { id: "toll", label: "Pay the wool toll", detail: "Spend 2 wool. Four gold comes back, and the road stays marked." },
-      { id: "night", label: "Pay for the night load", detail: "Stake 4 gold. The bell may return with iron, or vanish into the frost." },
+      { id: "night", label: "Pay for the night load", detail: "Stake 4 gold. Bones 1–6 return with iron. 7–12 vanish into the frost.", gamble: true },
     ],
   },
   {
@@ -562,7 +562,7 @@ export const ROAD_SURPRISES: Omen[] = [
     passText: "You stood still until the snow-bells stopped, and let them pass.",
     choices: [
       { id: "quiet", label: "Salt the bells", detail: "Spend 2 salt. The bells go quiet and the wyrm's ire eases." },
-      { id: "dig", label: "Dig under the bell", detail: "Stake 2 timber. The snow may hide a relic, or give way." },
+      { id: "dig", label: "Dig under the bell", detail: "Stake 2 timber. Bones 1–6 hide a relic. 7–12 give way under you.", gamble: true },
     ],
   },
   {
@@ -574,7 +574,7 @@ export const ROAD_SURPRISES: Omen[] = [
     passText: "You let the knocking finish its three beats and pass back into the rock.",
     choices: [
       { id: "rung", label: "Leave iron on the rung", detail: "Spend 2 iron. A carter leaves gold, and the knocking stops." },
-      { id: "descend", label: "Go down at the third knock", detail: "Stake 1 iron. You may climb out richer, or only more afraid." },
+      { id: "descend", label: "Go down at the third knock", detail: "Stake 1 iron. Bones 1–6 climb out richer. 7–12 climb out afraid.", gamble: true },
     ],
   },
   {
@@ -586,7 +586,7 @@ export const ROAD_SURPRISES: Omen[] = [
     passText: "You left the tide-bell under the pans and let the ringing pass.",
     choices: [
       { id: "bed", label: "Keep the tide in its bed", detail: "Give 3 grain. The pans stay level and leave you salt." },
-      { id: "haul", label: "Haul the bell", detail: "Stake 5 gold. Salt and coin may spill out, or the bell may sink." },
+      { id: "haul", label: "Haul the bell", detail: "Stake 5 gold. Bones 1–6 spill salt and coin. 7–12 sink the bell.", gamble: true },
     ],
   },
   {
@@ -598,7 +598,7 @@ export const ROAD_SURPRISES: Omen[] = [
     passText: "The white hart stepped into the trees. You let it pass.",
     choices: [
       { id: "wool", label: "Leave wool", detail: "Spend 2 wool. A lost flock finds the fold." },
-      { id: "chase", label: "Chase it", detail: "Stake 1 timber. You may come back with wool and coin, or empty-handed." },
+      { id: "chase", label: "Chase it", detail: "Stake 1 timber. Bones 1–6 come back with wool and coin. 7–12 come back empty.", gamble: true },
     ],
   },
 ];
