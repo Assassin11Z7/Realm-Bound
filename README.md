@@ -26,7 +26,7 @@ npm run lint
 4. **Twelve dawns.** The levy is counted when you seal the twelfth day. The caravan is in town on days 1–2, 5–6, and 9–10. Your compact is always there.
 5. **Vell wakes.** The wyrm's ire climbs each dusk. Offer iron, salt, or a relic, or raise a wyrm-stake so it climbs more slowly. Leave the ire high and a shadow scorches one good in the hall. Creatures at the gate can be answered or allowed to pass. On quiet dawns a stranger may offer a safe bargain or a roll of twelve bones: faces 1–6 pay, 7–12 turn. A mill adds one unit to each dawn's yield. A shrine steadies your oathbound. Keeping an oath spends three of what a neighbor hungers for. Each season's seed is the name, hold, and faction, so two banners do not meet the same road.
 
-Paintings for the valley, the map, the six holds, the kin, the goods, and the creatures live in `public/art`. The phone speaks scene lines through its own voice. Silence them from the season menu.
+Paintings for the valley, the map, the six holds, the kin, the goods, and the creatures live in `public/art`. The phone speaks scene lines through its own voice. Tap a line to hear it. Silence them from the season menu.
 
 Walking the map is a separate action from sealing the day. The road rolls what you meet: a found thing, a paid rumor, a wing, or a fire. Worn gear shifts that roll. Tasks pay gold with a little extra that is not fixed.
 

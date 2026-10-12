@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { holdById } from "@/lib/game/content";
 import { claimQuest, equipGear, stowGear, travel } from "@/lib/game/engine";
@@ -32,16 +32,30 @@ export function CutsceneView({
   onAdvance: () => void;
 }) {
   const beat = scene.beats[Math.min(scene.index, scene.beats.length - 1)];
-  useEffect(() => {
-    if (!beat) return;
-    speakLine(beat.speaker, beat.line, voice);
-    return () => window.speechSynthesis?.cancel();
-  }, [beat, voice, scene.index, scene.id]);
-
+  const [heardKey, setHeardKey] = useState("");
   if (!beat) return null;
+  const key = `${scene.id}:${scene.index}`;
   const last = scene.index >= scene.beats.length - 1;
+  const ready = heardKey === key;
+
+  function onTap() {
+    if (voice && heardKey !== key) {
+      setHeardKey(key);
+      speakLine(beat.speaker, beat.line, voice);
+      return;
+    }
+    const upcoming = scene.beats[scene.index + 1];
+    if (upcoming) {
+      setHeardKey(`${scene.id}:${scene.index + 1}`);
+      speakLine(upcoming.speaker, upcoming.line, voice);
+    } else {
+      window.speechSynthesis?.cancel();
+    }
+    onAdvance();
+  }
+
   return (
-    <button type="button" className="absolute inset-0 z-[75] overflow-hidden bg-[#14110e] text-left text-[#f4ead7]" onClick={onAdvance}>
+    <button type="button" className="absolute inset-0 z-[75] overflow-hidden bg-[#14110e] text-left text-[#f4ead7]" onClick={onTap}>
       <img key={`${scene.id}-${scene.index}`} src={beat.art} alt="" className="wm-scene absolute inset-0 h-full w-full object-cover" />
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_top,#14110e_0%,rgba(20,17,14,0.88)_22%,rgba(20,17,14,0.2)_48%,transparent_68%)]" />
       <div className="absolute inset-x-0 bottom-0 flex flex-col px-5 pt-16 pb-[max(1.75rem,env(safe-area-inset-bottom))]">
@@ -54,7 +68,9 @@ export function CutsceneView({
         <p key={`${scene.id}-line-${scene.index}`} className="wm-rise mt-2 font-display text-[1.7rem] leading-snug">
           {beat.line}
         </p>
-        <p className="mt-4 text-xs tracking-[0.16em] text-[#f4ead7]/80 uppercase">{last ? "Tap to return to the road" : "Tap for the next line"}</p>
+        <p className="mt-4 text-xs tracking-[0.16em] text-[#f4ead7]/80 uppercase">
+          {ready ? (last ? "Tap to return to the road" : "Tap for the next line") : voice ? "Tap to hear this line" : "Tap to continue"}
+        </p>
       </div>
     </button>
   );
