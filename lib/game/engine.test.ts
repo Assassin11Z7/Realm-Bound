@@ -25,11 +25,17 @@ import {
   sell,
   sellPrice,
   setReserve,
+  travel,
+  advanceScene,
+  claimQuest,
+  equipGear,
+  stowGear,
   withdraw,
 } from "./engine";
 import { parseSave } from "./storage";
 import type { FactionId, GameState, GoodId, HoldId, NewGameSetup } from "./types";
 import { GOODS, LEVY_GOODS } from "./types";
+import { luckOf } from "./world";
 
 function setup(partial: Partial<NewGameSetup> = {}): NewGameSetup {
   return {
@@ -506,4 +512,49 @@ test("old charters grow a seed and an empty rumor", () => {
   assert.equal(round?.seed, day9.seed);
   assert.deepEqual(round?.rumor, day9.rumor);
   assert.deepEqual(round?.surprisesSeen, day9.surprisesSeen);
+});
+
+test("the road rolls a find, a scene, and a claimable walk", () => {
+  const start = createGame(setup());
+  assert.ok(start.scene);
+  assert.equal(start.scene?.beats.length, 3);
+  assert.equal(start.where, "greenmere");
+  assert.equal(luckOf(start), 1);
+  let state = start;
+  while (state.scene) state = advanceScene(state).state;
+  assert.equal(state.scene, null);
+  const stowed = stowGear(state, "gear-start-cloak");
+  assert.equal(stowed.error, undefined);
+  assert.equal(luckOf(stowed.state), 0);
+  state = equipGear(stowed.state, "gear-start-cloak").state;
+  assert.equal(luckOf(state), 1);
+
+  const visit = state.quests.find((quest) => quest.kind === "visit");
+  assert.ok(visit);
+  const walked = travel(state, visit.target as HoldId);
+  assert.equal(walked.error, undefined);
+  assert.equal(walked.state.where, visit.target);
+  assert.ok(walked.state.scene);
+  assert.equal(walked.state.compact.levy.grain, 0);
+  const again = travel(walked.state, "woolford");
+  assert.ok(again.error);
+
+  let clear = walked.state;
+  while (clear.scene) clear = advanceScene(clear).state;
+  const ready = clear.quests.find((quest) => quest.id === "visit");
+  assert.equal(ready?.status, "ready");
+  const claimed = claimQuest(clear, "visit");
+  assert.equal(claimed.error, undefined);
+  assert.ok(claimed.state.player.gold > clear.player.gold);
+  assert.ok(claimed.state.scene);
+
+  const found = walked.state.pack.find((gear) => gear.id !== "gear-start-cloak");
+  if (found) {
+    const worn = equipGear(clear, found.id);
+    if (!worn.error) assert.ok(luckOf(worn.state) >= luckOf(clear));
+  }
+
+  const same = travel(createGame(setup({ holdId: "ashfold" })), "vesper");
+  const repeat = travel(createGame(setup({ holdId: "ashfold" })), "vesper");
+  assert.equal(same.state.scene?.beats[0]?.line, repeat.state.scene?.beats[0]?.line);
 });

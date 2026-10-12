@@ -203,7 +203,11 @@
   100% { transform: rotate(0deg) scale(1); }
 }
 
-.wm-tumble { animation: wm-tumble 180ms linear infinite; }
+@keyframes wm-scene {
+  0% { opacity: 0.35; transform: scale(1.14) translate3d(0, 1.5%, 0); }
+  100% { opacity: 1; transform: scale(1) translate3d(0, 0, 0); }
+}
+.wm-scene { animation: wm-scene 800ms ease-out both; }
 @keyframes wm-toast {
   0% { opacity: 0; transform: translateY(-8px); }
   100% { opacity: 1; transform: translateY(0); }
@@ -250,7 +254,7 @@
 .wm-tab { animation: wm-tab 280ms ease-out both; }
 
 @media (prefers-reduced-motion: reduce) {
-  .wm-drift, .wm-breathe, .wm-ire, .wm-hold, .wm-rise, .wm-toast, .wm-tab, .wm-stamp, .wm-press:active, .wm-tumble {
+  .wm-drift, .wm-breathe, .wm-ire, .wm-hold, .wm-rise, .wm-toast, .wm-tab, .wm-stamp, .wm-press:active, .wm-tumble, .wm-scene {
     animation: none !important;
   }
   .wm-dawn { display: none; }

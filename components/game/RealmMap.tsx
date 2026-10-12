@@ -24,7 +24,8 @@ export function RealmMap({
       <img src="/art/realm-map.jpg" alt="Painted map of the Westmark" className="block h-auto w-full" />
       {HOLDS.map((hold) => {
         const mark = MARKS[hold.id];
-        const mine = hold.id === state.player.holdId;
+        const home = hold.id === state.player.holdId;
+        const here = hold.id === (state.where ?? state.player.holdId);
         const active = selected === hold.id;
         return (
           <button
@@ -37,11 +38,14 @@ export function RealmMap({
             style={{ left: `${mark.x}%`, top: `${mark.y}%` }}
           >
             <span
-              className={`flex size-8 items-center justify-center rounded-full text-[10px] font-semibold text-[#f8f1e4] shadow-lg ${active ? "ring-2 ring-white" : "ring-1 ring-black/40"} ${mine ? "wm-hold bg-[#6e1e22]" : "bg-[#1c1612]/80"}`}
+              className={`flex size-8 items-center justify-center rounded-full text-[10px] font-semibold text-[#f8f1e4] shadow-lg ${active ? "ring-2 ring-white" : "ring-1 ring-black/40"} ${here ? "wm-hold bg-[#6e1e22]" : "bg-[#1c1612]/80"}`}
             >
-              {mine ? "You" : hold.name.slice(0, 1)}
+              {here ? "You" : hold.name.slice(0, 1)}
             </span>
-            <span className="mt-0.5 rounded bg-[#1c1612]/75 px-1 text-[9px] tracking-wide text-[#f4ead7]">{hold.name}</span>
+            <span className="mt-0.5 rounded bg-[#1c1612]/75 px-1 text-[9px] tracking-wide text-[#f4ead7]">
+              {hold.name}
+              {home && !here ? " · home" : ""}
+            </span>
           </button>
         );
       })}

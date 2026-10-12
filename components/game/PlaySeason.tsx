@@ -50,6 +50,7 @@ import {
   sell,
   sellPrice,
   setReserve,
+  advanceScene,
   visitKey,
   withdraw,
 } from "@/lib/game/engine";
@@ -58,7 +59,8 @@ import { GOODS, LEVY_GOODS } from "@/lib/game/types";
 import { GoodThumb, Portrait } from "./art";
 import { useFrame } from "./frame";
 import { BannerMark } from "./marks";
-import { OathRow, OmenDialog, WorksCard, WyrmCard, FateRoll } from "./Myth";
+import { CutsceneView, ExplorePanel } from "./Explore";
+import { FateRoll, OathRow, OmenDialog, WorksCard, WyrmCard } from "./Myth";
 import { HoldBrief, RealmMap } from "./RealmMap";
 
 type Tab = "realm" | "hold" | "compact" | "road";
@@ -98,6 +100,7 @@ export function PlaySeason({
   const [giftFor, setGiftFor] = useState<string | null>(null);
   const [dawn, setDawn] = useState<{ day: number; title: string } | null>(null);
   const [fate, setFate] = useState<{ face: number; won: boolean; line: string } | null>(null);
+  const [voice, setVoice] = useState(true);
 
   useEffect(() => {
     if (!toast) return;
@@ -246,6 +249,7 @@ export function PlaySeason({
         {tab === "realm" && (
           <div className="wm-tab flex flex-col gap-3">
             <RealmMap state={state} selected={holdId} onSelect={setHoldId} />
+            <ExplorePanel state={state} holdId={holdId} act={act} />
             <HoldBrief state={state} holdId={holdId} />
             <WyrmCard state={state} act={act} />
             <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
@@ -409,6 +413,20 @@ export function PlaySeason({
               variant="outline"
               className="h-11"
               onClick={() => {
+                setVoice((on) => {
+                  const next = !on;
+                  if (!next) window.speechSynthesis?.cancel();
+                  return next;
+                });
+              }}
+            >
+              {voice ? "Silence the voices" : "Speak the scenes"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11"
+              onClick={() => {
                 setMenu(false);
                 onStepAway();
               }}
@@ -538,6 +556,7 @@ export function PlaySeason({
         </>
       )}
       {fate && <FateRoll face={fate.face} won={fate.won} line={fate.line} />}
+      {state.scene && <CutsceneView scene={state.scene} voice={voice} onAdvance={() => act(advanceScene(state))} />}
     </div>
   );
 }

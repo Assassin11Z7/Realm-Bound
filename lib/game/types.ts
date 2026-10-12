@@ -126,6 +126,46 @@ export interface Rumor {
   text: string;
 }
 
+export type GearSlot = "hand" | "cloak" | "charm";
+export type Rarity = "common" | "uncanny" | "relic";
+
+export interface Gear {
+  id: string;
+  name: string;
+  slot: GearSlot;
+  rarity: Rarity;
+  luck: number;
+  line: string;
+}
+
+export type QuestKind = "visit" | "pledge" | "loot" | "tribute";
+export type QuestStatus = "open" | "ready" | "claimed";
+
+export interface Quest {
+  id: string;
+  title: string;
+  giver: string;
+  detail: string;
+  kind: QuestKind;
+  target: string;
+  need: number;
+  progress: number;
+  status: QuestStatus;
+  reward: number;
+}
+
+export interface SceneBeat {
+  speaker: string;
+  line: string;
+  art: string;
+}
+
+export interface Cutscene {
+  id: string;
+  index: number;
+  beats: SceneBeat[];
+}
+
 export type Outcome = "held" | "held-late" | "lost";
 
 export interface Player {
@@ -178,6 +218,12 @@ export interface GameState {
   seed: number;
   rumor: Rumor | null;
   surprisesSeen: string[];
+  where: HoldId;
+  miles: number;
+  pack: Gear[];
+  worn: Partial<Record<GearSlot, string>>;
+  quests: Quest[];
+  scene: Cutscene | null;
 }
 
 export interface NewGameSetup {

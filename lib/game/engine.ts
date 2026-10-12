@@ -38,6 +38,7 @@ import {
   seasonOf,
   stashCount,
 } from "./content";
+import { bumpQuest, luckOf, openingQuests, openingScene, rewardScene, roadFind, starterCloak } from "./world";
 import { GOODS, LEVY_GOODS } from "./types";
 import type {
   BarterOffer,
@@ -635,8 +636,19 @@ export function createGame(setup: NewGameSetup): GameState {
     seed: seasonSeed(name || "Ash", setup.holdId, setup.factionId),
     rumor: null,
     surprisesSeen: [],
+    where: setup.holdId,
+    miles: 0,
+    pack: [],
+    worn: {},
+    quests: [],
+    scene: null,
   };
 
+  const cloak = starterCloak();
+  state.pack = [cloak];
+  state.worn = { cloak: cloak.id };
+  state.quests = openingQuests(state.seed, setup.holdId);
+  state.scene = openingScene(name || "Ash", hold.name);
   const yieldQty = playerYieldQty(setup.factionId, setup.holdId, 1);
   state.player.stash[hold.produces] = yieldQty;
   const dawn = runDawn(state);
@@ -663,6 +675,7 @@ export function pledgePersonal(state: GameState, good: GoodId, qty: number): Res
   const moved = addToLevy(next, good, amount);
   if (moved <= 0) return fail(state, `The ${good} levy is already full.`);
   next.player.stash[good] -= moved;
+  bumpQuest(next, "pledge", good, moved);
   const coins = grantCrownGold(next, moved);
   considerVictory(next);
   const coinNote = coins ? ` The crown pays ${coins} gold.` : "";
@@ -999,6 +1012,7 @@ export function offerTribute(state: GameState, kind: "iron" | "relic" | "salt"):
     next.wyrm.ire = Math.max(0, next.wyrm.ire - 16);
     next.wyrm.tribute += 2;
     next.player.gold += 2;
+    bumpQuest(next, "tribute", "any", 1);
     note(next, `You laid 2 iron in the snow for ${WYRM_NAME}. The wyrm's ire eased, and a carter left 2 gold.`);
     return ok(next, `${WYRM_NAME} took the iron. Ire falls.`);
   }
@@ -1008,6 +1022,7 @@ export function offerTribute(state: GameState, kind: "iron" | "relic" | "salt"):
     next.wyrm.ire = Math.max(0, next.wyrm.ire - 28);
     next.wyrm.tribute += 1;
     next.player.renown += 2;
+    bumpQuest(next, "tribute", "any", 1);
     note(next, `You gave ${WYRM_NAME} a relic. The gold eye dimmed, and the snow went quiet.`);
     return ok(next, `${WYRM_NAME} took the relic and looked almost gentle.`);
   }
@@ -1016,6 +1031,7 @@ export function offerTribute(state: GameState, kind: "iron" | "relic" | "salt"):
   next.wyrm.ire = Math.max(0, next.wyrm.ire - 12);
   next.wyrm.tribute += 3;
   next.player.gold += 3;
+  bumpQuest(next, "tribute", "any", 1);
   note(next, `You salted the high road for ${WYRM_NAME}. The wyrm licked the frost and left you 3 gold.`);
   return ok(next, `${WYRM_NAME} tasted the salt. Ire falls.`);
 }
@@ -1201,6 +1217,85 @@ export function chooseOmen(state: GameState, choiceId: string): Result {
   next.omen = null;
   next.compactActed = true;
   return ok(next, next.chronicle[next.chronicle.length - 1]?.text ?? "The omen is answered.");
+}
+
+export function travel(state: GameState, holdId: HoldId): Result {
+  if (state.scene) return fail(state, "The scene is not finished.");
+  const here = state.where ?? state.player.holdId;
+  if (holdId === here) return fail(state, "You are already standing there.");
+  const next = draft(state);
+  const found = roadFind(next.seed ?? 0, next.day, next.miles ?? 0, holdId, luckOf(next));
+  next.where = holdId;
+  next.miles = (next.miles ?? 0) + 1;
+  next.player.gold = Math.max(0, next.player.gold + found.gold);
+  next.wyrm.ire = Math.max(0, Math.min(100, next.wyrm.ire + found.ire));
+  if (found.gear) {
+    if ((next.pack ?? []).length >= 6) {
+      next.player.gold += 2;
+      note(next, `The pack is full. You leave ${found.gear.name} and take 2 gold instead.`);
+    } else {
+      next.pack = [...(next.pack ?? []), found.gear];
+      bumpQuest(next, "loot", "any", 1);
+    }
+  }
+  bumpQuest(next, "visit", holdId, 1);
+  next.scene = found.scene;
+  note(next, found.line);
+  return ok(next, found.line);
+}
+
+export function advanceScene(state: GameState): Result {
+  if (!state.scene) return fail(state, "Nothing is playing.");
+  const next = draft(state);
+  const scene = next.scene;
+  if (!scene) return fail(state, "Nothing is playing.");
+  if (scene.index + 1 >= scene.beats.length) next.scene = null;
+  else scene.index += 1;
+  return ok(next);
+}
+
+export function equipGear(state: GameState, gearId: string): Result {
+  const gear = (state.pack ?? []).find((item) => item.id === gearId);
+  if (!gear) return fail(state, "That is not in the pack.");
+  const next = draft(state);
+  next.worn = { ...(next.worn ?? {}), [gear.slot]: gear.id };
+  note(next, `You wear ${gear.name}. Luck on the road is ${luckOf(next)}.`);
+  return ok(next, `${gear.name} is worn.`);
+}
+
+export function stowGear(state: GameState, gearId: string): Result {
+  const gear = (state.pack ?? []).find((item) => item.id === gearId);
+  if (!gear) return fail(state, "That is not in the pack.");
+  if ((state.worn ?? {})[gear.slot] !== gear.id) return fail(state, "That is already in the pack.");
+  const next = draft(state);
+  const worn = { ...(next.worn ?? {}) };
+  delete worn[gear.slot];
+  next.worn = worn;
+  note(next, `You stow ${gear.name}. Luck on the road is ${luckOf(next)}.`);
+  return ok(next, `${gear.name} is stowed.`);
+}
+
+export function claimQuest(state: GameState, questId: string): Result {
+  const quest = (state.quests ?? []).find((item) => item.id === questId);
+  if (!quest) return fail(state, "No such task.");
+  if (quest.status === "claimed") return fail(state, "That reward is already taken.");
+  if (quest.status !== "ready") return fail(state, "That task is not finished.");
+  if (state.scene) return fail(state, "The scene is not finished.");
+  const next = draft(state);
+  const target = next.quests.find((item) => item.id === questId);
+  if (!target) return fail(state, "No such task.");
+  const bonus = Math.floor(worldRoll(next.seed ?? 0, next.day, target.reward) * (2 + luckOf(next)));
+  const paid = target.reward + bonus;
+  target.status = "claimed";
+  next.player.gold += paid;
+  next.scene = rewardScene(target.title, paid);
+  note(next, `You claim ${target.title}. The road pays ${paid} gold.`);
+  return ok(next, `${paid} gold for ${target.title}.`);
+}
+
+function worldRoll(seed: number, day: number, salt: number) {
+  const roll = (seed ^ Math.imul(day + 1, 0x9e3779b1) ^ salt) >>> 0;
+  return ((Math.imul(roll ^ (roll >>> 16), 0x7feb352d) >>> 0) % 1000) / 1000;
 }
 
 export function caravanPresent(caravan: Caravan | null): caravan is Caravan {

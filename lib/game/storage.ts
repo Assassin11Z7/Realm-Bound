@@ -1,5 +1,56 @@
-import type { GameState, GoodId, Rumor } from "./types";
-import { GOODS, LEVY_GOODS } from "./types";
+import type { Cutscene, GameState, Gear, GearSlot, GoodId, Quest, Rumor } from "./types";
+import { GOODS, HOLD_IDS, LEVY_GOODS } from "./types";
+
+const HOLDS_OK = new Set<string>(HOLD_IDS);
+const SLOTS = new Set<GearSlot>(["hand", "cloak", "charm"]);
+const RARITIES = new Set(["common", "uncanny", "relic"]);
+const QUEST_KINDS = new Set(["visit", "pledge", "loot", "tribute"]);
+
+function legalGear(value: Gear): value is Gear {
+  return Boolean(
+    value &&
+      typeof value.id === "string" &&
+      typeof value.name === "string" &&
+      SLOTS.has(value.slot) &&
+      RARITIES.has(value.rarity) &&
+      typeof value.luck === "number" &&
+      typeof value.line === "string",
+  );
+}
+
+function legalWorn(worn: GameState["worn"] | undefined, pack: Gear[]): GameState["worn"] {
+  const next: GameState["worn"] = {};
+  if (!worn || typeof worn !== "object") return next;
+  for (const slot of SLOTS) {
+    const id = worn[slot];
+    if (typeof id === "string" && pack.some((item) => item.id === id && item.slot === slot)) next[slot] = id;
+  }
+  return next;
+}
+
+function legalQuest(value: Quest): value is Quest {
+  return Boolean(
+    value &&
+      typeof value.id === "string" &&
+      typeof value.title === "string" &&
+      QUEST_KINDS.has(value.kind) &&
+      typeof value.target === "string" &&
+      typeof value.need === "number" &&
+      typeof value.progress === "number" &&
+      (value.status === "open" || value.status === "ready" || value.status === "claimed") &&
+      typeof value.reward === "number",
+  );
+}
+
+function legalScene(value: Cutscene | null | undefined): Cutscene | null {
+  if (!value || typeof value !== "object" || !Array.isArray(value.beats) || value.beats.length === 0) return null;
+  const beats = value.beats.filter(
+    (beat) => beat && typeof beat.speaker === "string" && typeof beat.line === "string" && typeof beat.art === "string",
+  );
+  if (beats.length === 0) return null;
+  const index = typeof value.index === "number" && value.index >= 0 && value.index < beats.length ? value.index : 0;
+  return { id: typeof value.id === "string" ? value.id : "scene", index, beats };
+}
 
 const KEY = "westmark-save-v1";
 const listeners = new Set<() => void>();
@@ -71,6 +122,12 @@ export function parseSave(raw: string): GameState | null {
     else value.seed = value.seed >>> 0;
     value.rumor = legalRumor(value.rumor);
     value.surprisesSeen = Array.isArray(value.surprisesSeen) ? value.surprisesSeen.filter((item) => typeof item === "string") : [];
+    if (!value.where || !HOLDS_OK.has(value.where)) value.where = value.player.holdId;
+    if (typeof value.miles !== "number" || !Number.isFinite(value.miles)) value.miles = 0;
+    value.pack = Array.isArray(value.pack) ? value.pack.filter(legalGear) : [];
+    value.worn = legalWorn(value.worn, value.pack);
+    value.quests = Array.isArray(value.quests) ? value.quests.filter(legalQuest) : [];
+    value.scene = legalScene(value.scene);
     return value;
   } catch {
     return null;
