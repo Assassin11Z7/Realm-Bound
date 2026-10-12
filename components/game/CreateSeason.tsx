@@ -69,7 +69,7 @@ export function CreateSeason({
       return;
     }
     if (step === 3 && compactName.trim().length < 3) {
-      setError("Give the compact a name of at least 3 characters.");
+      setError("Give this season a name of at least 3 characters.");
       return;
     }
     setError(null);
@@ -103,7 +103,7 @@ export function CreateSeason({
             <div>
               <h2 className="font-display text-3xl leading-tight">What are you called?</h2>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                The Westmark will know you by this name and a title. The land you take can disagree with the faction you swear to.
+                The box starts empty. Type a name, then pick a title. The land you take can disagree with the side you stand with.
               </p>
             </div>
             <label className="flex flex-col gap-2 text-sm">
@@ -114,7 +114,7 @@ export function CreateSeason({
                   setName(event.target.value);
                   if (!compactTouched) setCompactName(defaultCompactName(event.target.value, holdId));
                 }}
-                placeholder="Iseult"
+                placeholder="Your name"
                 maxLength={18}
                 autoComplete="off"
                 className="h-11 bg-card text-base"
@@ -138,8 +138,8 @@ export function CreateSeason({
 
         {step === 1 && (
           <div className="flex flex-col gap-3">
-            <h2 className="font-display text-3xl leading-tight">Whose oath?</h2>
-            <p className="text-sm text-muted-foreground">Each faction bends the season in one direction. Pick the pressure you want.</p>
+            <h2 className="font-display text-3xl leading-tight">Who do you stand with?</h2>
+            <p className="text-sm text-muted-foreground">Each side bends the season in one direction. Pick the pressure you want.</p>
             {FACTIONS.map((faction) => {
               const selected = faction.id === factionId;
               return (
@@ -163,7 +163,7 @@ export function CreateSeason({
           <div className="flex flex-col gap-3">
             <h2 className="font-display text-3xl leading-tight">Where do you plant it?</h2>
             <p className="text-sm leading-relaxed text-muted-foreground">
-              Greenmere is the clearest first hold: you can feed the levy&apos;s grain yourself. Woolford and Vesper must trade for almost everything. Each land keeps a creature of its own.
+              Greenmere is the clearest first hold: you can put grain on the wagons yourself. Woolford and Vesper must trade for almost everything. Each land keeps a creature of its own.
             </p>
             {HOLDS.map((hold) => {
               const selected = hold.id === holdId;
@@ -248,7 +248,7 @@ export function CreateSeason({
               </div>
             </div>
             <label className="flex flex-col gap-2 text-sm">
-              Compact name
+              Season name
               <Input
                 value={compactName}
                 maxLength={28}
@@ -261,7 +261,7 @@ export function CreateSeason({
             </label>
             <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
               <p className="text-sm">
-                These three will take the oath. The road wants {LEVY_TARGET.grain} grain, {LEVY_TARGET.iron} iron, and {LEVY_TARGET.salt} salt by the twelfth dusk. If the wagons have not moved, Vell comes down the road.
+                These three are your sworn neighbors. The wagons want {LEVY_TARGET.grain} grain, {LEVY_TARGET.iron} iron, and {LEVY_TARGET.salt} salt before the twelfth dawn. If the wagons have not moved, Vell the frost dragon comes down the road.
               </p>
               <ul className="mt-3 flex flex-col gap-2 text-sm">
                 {oathbound.map((hold) => (

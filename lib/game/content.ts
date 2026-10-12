@@ -149,16 +149,16 @@ export const FACTIONS: Faction[] = [
     id: "crown",
     name: "Crown of the Westmark",
     motto: "The road is the realm.",
-    bonus: "Pledging to the levy pays gold. Two units become a coin.",
+    bonus: "Sending goods to the wagons pays gold. Two units become a coin.",
     summary:
-      "You keep the northern road, and the tolls keep you. Best when you mean to fill the levy yourself.",
+      "You keep the northern road, and the tolls keep you. Best when you mean to fill the wagons yourself.",
     banner: { field: "#6e1e22", charge: "#e6c56e", sigil: "crown", division: "fess" },
   },
   {
     id: "canticle",
     name: "The Stone Canticle",
     motto: "What is given is kept.",
-    bonus: "Offer a relic and it counts as one unit of whatever the levy lacks most.",
+    bonus: "Offer a relic and it counts as one unit of whatever the wagons lack most.",
     summary:
       "Cloisters and candle smoke. Relics are a second purse, if the saints are the ones counting.",
     banner: { field: "#3a3154", charge: "#e7e0d4", sigil: "sun", division: "plain" },
@@ -169,7 +169,7 @@ export const FACTIONS: Faction[] = [
     motto: "Coin has no homeland.",
     bonus: "The caravan buys for one more gold and sells for one less.",
     summary:
-      "Traders and weighing scales. Strongest when your hold grows wool, timber, or relics and the levy must be bought.",
+      "Traders and weighing scales. Strongest when your hold grows wool, timber, or relics and the wagons must be bought.",
     banner: { field: "#1c1612", charge: "#e08a45", sigil: "scales", division: "pale" },
   },
   {
@@ -234,7 +234,7 @@ export const HOLDS: Hold[] = [
     produces: "grain",
     needs: ["iron", "salt"],
     text: "The best bread-land in the Westmark, and the first to go short of iron when a plow breaks.",
-    myth: "A river woman stands in the millstream at dusk and will trade grain for stranger gifts.",
+    myth: "A river woman stands in the shallows and will trade grain for stranger gifts.",
     lord: "Alda Fenn",
     epithet: "river-keeper",
     personality: "steady",
@@ -403,28 +403,28 @@ export const WYRM_NAME = "Vell";
 
 export const RULES: { title: string; body: string }[] = [
   {
-    title: "The people are the hold",
-    body: "Every settlement under your banner has people, a food store, and firewood. Leave them be, and the stores last a while. Free bread, a grain tax, shut gates, open gates, or feeding the fires lasts until you change it. Send grain and timber from your own stash, or the mood breaks and people leave.",
+    title: "Twelve dawns",
+    body: "Fill the wagons with grain, iron, and salt before the twelfth dawn. The numbers at the top of the screen are the wagons. Dawns left sit beside them.",
   },
   {
-    title: "The road remembers",
-    body: "Vell the frost dragon is real, and the wagons still have to move before the twelfth dusk. Deer, old women, saints, hounds, choirs, and smaller dragons come too. Answer them, hunt them, or let them pass. That choice stays in force for the rest of the game.",
+    title: "Seal the day",
+    body: "Sealing the day is how time moves. At dawn, your hold grows the good it makes. Do this when the day's choices are done.",
   },
   {
-    title: "Land is unequal",
-    body: "Every hold grows one good and hungers for others. Trade is geography. If your hills grow wool, someone else's mine must feed you iron.",
+    title: "Neighbors and wagons",
+    body: "The shared stores on the Neighbors tab feed your sworn neighbors. What you send to the wagons is gone. You cannot take it back.",
   },
   {
-    title: "The hall is not the levy",
-    body: "Goods in the hall can be drawn by your oathbound. Goods pledged to the levy are gone: they provision the northern road and cannot be taken back.",
+    title: "The caravan",
+    body: "The caravan is how you trade. Open the Road tab. It is not here every day. Buy what your hold does not grow.",
   },
   {
-    title: "Kin stay while they eat",
-    body: "Each dusk they draw from the hall, then eat. Leave a share, or send a gift. If the chests are bare night after night, they take their banners home and their yields with them.",
+    title: "Vell and the road",
+    body: "Vell is a frost dragon. His anger is one danger. Other creatures on the road offer choices that last after they leave.",
   },
   {
-    title: "The levy is the first chapter",
-    body: "The wagons are counted at the twelfth dusk, and then the realm keeps going. Level up and choose a discipline. Raise the hold. Order your captains. Seasons turn again after the frost.",
+    title: "Food, firewood, and a law",
+    body: "Your people need food and firewood, and a law. Send grain, send timber, or set a law on the Hold tab. The law stays until you change it.",
   },
 ];
 
@@ -460,12 +460,12 @@ export const OMENS: Omen[] = [
   {
     id: "nix",
     creature: "The river woman",
-    title: "A woman in the millstream",
-    body: "She stands where the millstream slows, weeds in her hair, and asks for grain. What she gives back is never the thing you offered.",
+    title: "A woman in the river",
+    body: "She stands where the river slows, weeds in her hair, and asks for grain. What she gives back is never the thing you offered.",
     art: "nix",
     choices: [
       { id: "give", label: "Give 3 grain", detail: "She leaves salt on the bank." },
-      { id: "watch", label: "Tell it to go", detail: "It goes. One of your oathbound sleeps badly." },
+      { id: "watch", label: "Tell it to go", detail: "It goes. One of your sworn neighbors sleeps badly." },
     ],
   },
   {
@@ -486,7 +486,7 @@ export const OMENS: Omen[] = [
     body: "It stands at the tree-line, tall as a chapel door, and looks at your timber. Leave a gift and your kin sleep easier. Take more, and someone in the compact will not forgive the noise.",
     art: "antler",
     choices: [
-      { id: "offer", label: "Leave 3 timber", detail: "Every oathbound steadies." },
+      { id: "offer", label: "Leave 3 timber", detail: "Every sworn neighbor steadies." },
       { id: "cut", label: "Cut anyway", detail: "You gain timber. One sworn neighbor sours." },
     ],
   },
@@ -523,7 +523,7 @@ export const ROAD_SURPRISES: Omen[] = [
     art: "weather",
     passText: "You waited on the bank until the ford fog thinned, and let it pass.",
     choices: [
-      { id: "mark", label: "Stake the ford", detail: "Spend 1 timber. Your oathbound cross without losing the path." },
+      { id: "mark", label: "Stake the ford", detail: "Spend 1 timber. Your sworn neighbors cross without losing the path." },
       { id: "cross", label: "Drive through", detail: "Stake 3 grain. The bones decide: 1–6 pays in salt and coin, 7–12 turns you around.", gamble: true },
     ],
   },

@@ -19,16 +19,16 @@ import { bumpQuest, carryCap, carriedWeight, gearWeight, rewardScene, rollGear, 
 export const SKILLS: Record<SkillId, { name: string; blurb: string }> = {
   stores: { name: "Deep stores", blurb: "The hold yields one more at every dawn." },
   step: { name: "Quiet step", blurb: "Luck on the road rises by one." },
-  coin: { name: "Oath coin", blurb: "Each pledge you make yourself pays 1 extra gold." },
-  truce: { name: "Dragon-truce", blurb: "Vell's anger climbs more slowly each dusk." },
+  coin: { name: "Wagon coin", blurb: "Each gift you send to the wagons yourself pays 1 extra gold." },
+  truce: { name: "Dragon-truce", blurb: "Vell's anger climbs more slowly each dawn." },
   bargain: { name: "Keen bargain", blurb: "You buy for less and sell for more." },
   eye: { name: "Captain's eye", blurb: "Marches and hunts come home more often." },
-  wright: { name: "Hall builder", blurb: "Raising a work costs 3 gold less." },
+  wright: { name: "Hold builder", blurb: "Raising a work costs 3 gold less." },
   scholar: { name: "Road scholar", blurb: "Walking a hold teaches more." },
 };
 
 export const BUILDINGS: { id: BuildingId; name: string; good: "timber" | "grain" | "salt" | "wool" | "iron"; blurb: string }[] = [
-  { id: "hall", name: "Hall range", good: "timber", blurb: "Each level holds 4 more in your own store." },
+  { id: "hall", name: "Storehouse", good: "timber", blurb: "Each level holds 4 more in your own store." },
   { id: "yard", name: "Yard", good: "grain", blurb: "Each level adds one to the dawn yield." },
   { id: "shrine", name: "Shrine walk", good: "salt", blurb: "Each level steadies every captain at dawn." },
   { id: "market", name: "Market row", good: "wool", blurb: "At levels 2 and 4 the caravan treats you better." },
@@ -40,7 +40,7 @@ export const BUILDINGS: { id: BuildingId; name: string; good: "timber" | "grain"
 ];
 
 export const CHAPTERS = [
-  { id: 1, name: "The Northern Levy", aim: "Feed the wagons before the twelfth dusk." },
+  { id: 1, name: "The wagons", aim: "Feed the wagons before the twelfth dawn." },
   { id: 2, name: "The Open Country", aim: "Raise the hold, answer the road, and give the people a law." },
   { id: 3, name: "The Old Powers", aim: "Live with what you chose, and keep the people through another winter." },
   { id: 4, name: "The Realm Compact", aim: "Last long enough that the holds answer the banner." },
@@ -132,7 +132,7 @@ function blankCaptain(): Captain {
 function missionList(): Mission[] {
   return [
     { id: "miles", chapter: 1, title: "Walk three holds", detail: "Miles on the road, not days on the seal.", need: 3, progress: 0, status: "open", rewardGold: 8, rewardXp: 6 },
-    { id: "pledge", chapter: 1, title: "Feed the wagons", detail: "Pledge 8 goods to the levy with your own hand.", need: 8, progress: 0, status: "open", rewardGold: 6, rewardXp: 4 },
+    { id: "pledge", chapter: 1, title: "Feed the wagons", detail: "Send 8 goods to the wagons with your own hand.", need: 8, progress: 0, status: "open", rewardGold: 6, rewardXp: 4 },
     { id: "level2", chapter: 1, title: "Learn a discipline", detail: "Reach level 2 and choose how you grow.", need: 2, progress: 1, status: "open", rewardGold: 10, rewardXp: 0 },
     { id: "worn", chapter: 1, title: "Dress for the road", detail: "Wear two pieces at once.", need: 2, progress: 0, status: "open", rewardGold: 5, rewardXp: 4 },
     { id: "build", chapter: 2, title: "Raise the hold", detail: "Finish one work. It completes at the next dawn.", need: 1, progress: 0, status: "open", rewardGold: 12, rewardXp: 6 },
@@ -503,7 +503,7 @@ export function setCaptainOrder(state: GameState, memberId: string, order: Capta
   const place = captain.target ? ` toward ${holdById(captain.target).name}` : "";
   const word = order === "oath" ? "released to their own oath" : `ordered to ${order}${place}`;
   note(next, `${member.name} is ${word}. The order resolves when you seal the day.`);
-  return ok(next, `${member.name} will ${order === "oath" ? "follow the oath" : order} at dusk.`);
+  return ok(next, `${member.name} will ${order === "oath" ? "follow their own work" : order} when you seal the day.`);
 }
 
 function clearThreat(state: GameState, line: string): Result {

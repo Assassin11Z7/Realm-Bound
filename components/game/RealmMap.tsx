@@ -74,9 +74,9 @@ export function HoldBrief({ state, holdId }: { state: GameState; holdId: HoldId 
             ? "Your banner flies here."
             : member
               ? member.inCompact
-                ? `${member.name}, ${member.epithet}, is sworn to your compact.`
-                : `${member.name} has left the compact. This hold sends nothing.`
-              : `${hold.lord} keeps ${hold.name} outside your oath.`}
+                ? `${member.name}, ${member.epithet}, is sworn to you.`
+                : `${member.name} has left. This hold sends nothing.`
+              : `${hold.lord} keeps ${hold.name} and is not sworn to you.`}
         </p>
       </div>
     </div>

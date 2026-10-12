@@ -20,7 +20,7 @@ import {
 import type { CaptainOrder, GameState, HoldId, Result, SkillId } from "@/lib/game/types";
 
 const ORDERS: { id: CaptainOrder; label: string }[] = [
-  { id: "oath", label: "Oath" },
+  { id: "oath", label: "Stay" },
   { id: "garrison", label: "Gate" },
   { id: "march", label: "March" },
   { id: "hunt", label: "Hunt" },
@@ -194,7 +194,7 @@ export function MissionList({ state, act }: { state: GameState; act: (result: Re
   return (
     <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
       <p className="font-display text-xl">The long work</p>
-      <p className="mt-1 text-sm text-muted-foreground">{chapterName(camp.chapter)}. These do not end when the levy does.</p>
+      <p className="mt-1 text-sm text-muted-foreground">{chapterName(camp.chapter)}. These do not end when the wagons are full.</p>
       <ul className="mt-3 flex flex-col gap-3">
         {visible.map((mission) => (
           <li key={mission.id}>

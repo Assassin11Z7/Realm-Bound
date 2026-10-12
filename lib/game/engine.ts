@@ -38,6 +38,7 @@ import {
   seasonOf,
   stashCount,
 } from "./content";
+import { nextTutorialStep } from "./coach";
 import { emptyBrew } from "./craft";
 import { applyDawnProgress, blankCampaign, grantXp, syncCampaign } from "./progress";
 import {
@@ -295,7 +296,7 @@ type SurprisePlay = {
 
 const SURPRISE: Record<string, SurprisePlay> = {
   "ford-fog": {
-    cautious: { goods: { timber: -1 }, contentment: 4, renown: 1, note: "You staked the ford with timber. The oathbound crossed without losing the path." },
+    cautious: { goods: { timber: -1 }, contentment: 4, renown: 1, note: "You staked the ford with timber. Your sworn neighbors crossed without losing the path." },
     bold: {
       salt: 11,
       stake: { goods: { grain: -3 }, note: "" },
@@ -304,7 +305,7 @@ const SURPRISE: Record<string, SurprisePlay> = {
     },
   },
   "candle-saint": {
-    cautious: { goods: { relics: -1 }, contentment: 8, renown: 2, ire: -6, note: "The candle-saint blessed the storehouse. Your oathbound slept, and Vell looked elsewhere." },
+    cautious: { goods: { relics: -1 }, contentment: 8, renown: 2, ire: -6, note: "The candle-saint blessed the storehouse. Your sworn neighbors slept, and Vell looked elsewhere." },
     bold: {
       salt: 5,
       stake: { gold: -6, note: "" },
@@ -318,7 +319,7 @@ const SURPRISE: Record<string, SurprisePlay> = {
       salt: 7,
       stake: { gold: -8, note: "" },
       win: { goods: { iron: 3, salt: 2 }, renown: 2, note: "Your cousin came back from the hills with iron and salt, and nobody asked which road." },
-      lose: { contentment: -8, note: "Your cousin took the purse and told the compact you had paid them to leave. The hall went quiet." },
+      lose: { contentment: -8, note: "Your cousin took the purse and told the neighbors you had paid them to leave. The stores went quiet." },
     },
   },
   "bell-carter": {
@@ -697,6 +698,7 @@ export function createGame(setup: NewGameSetup): GameState {
     quests: [],
     scene: null,
     campaign: blankCampaign([]),
+    tutorial: { step: "wagons" },
   };
 
   const cloak = starterCloak();
@@ -718,19 +720,19 @@ export function createGame(setup: NewGameSetup): GameState {
   if (dawn.length) note(state, dawn.join(" "));
   note(
     state,
-    `The levy is the first chapter: ${LEVY_TARGET.grain} grain, ${LEVY_TARGET.iron} iron, and ${LEVY_TARGET.salt} salt before the twelfth dusk. ${WYRM_NAME} is in the mountains, and other powers walk the road. The people of ${hold.name} have to be fed. After the wagons, the realm stays open.`,
+    `The wagons need ${LEVY_TARGET.grain} grain, ${LEVY_TARGET.iron} iron, and ${LEVY_TARGET.salt} salt before the twelfth dawn. ${WYRM_NAME} the frost dragon is in the mountains, and other creatures walk the road. The people of ${hold.name} need food, firewood, and a law. After the wagons move, the realm stays open.`,
   );
   return state;
 }
 
 export function pledgePersonal(state: GameState, good: GoodId, qty: number): Result {
   const amount = qtyOf(qty);
-  if (!amount) return fail(state, "Choose how much to pledge.");
-  if (!isLevyGood(good)) return fail(state, `The levy does not take ${good}.`);
+  if (!amount) return fail(state, "Choose how much to send to the wagons.");
+  if (!isLevyGood(good)) return fail(state, `The wagons do not take ${good}.`);
   if (state.player.stash[good] < amount) return fail(state, `You don't have that much ${good}.`);
   const next = draft(state);
   const moved = addToLevy(next, good, amount);
-  if (moved <= 0) return fail(state, `The ${good} levy is already full.`);
+  if (moved <= 0) return fail(state, `The ${good} wagons are already full.`);
   next.player.stash[good] -= moved;
   bumpQuest(next, "pledge", good, moved);
   const coins = grantCrownGold(next, moved) + oathCoin(next);
@@ -744,7 +746,7 @@ export function pledgePersonal(state: GameState, good: GoodId, qty: number): Res
 
 export function deposit(state: GameState, good: GoodId, qty: number): Result {
   const amount = qtyOf(qty);
-  if (!amount) return fail(state, "Choose how much to leave in the hall.");
+  if (!amount) return fail(state, "Choose how much to put in the shared stores.");
   if (state.player.stash[good] < amount) return fail(state, `You don't have that much ${good}.`);
   const next = draft(state);
   next.player.stash[good] -= amount;
@@ -752,15 +754,15 @@ export function deposit(state: GameState, good: GoodId, qty: number): Result {
   next.stats.deposited += amount;
   next.compactActed = true;
   note(next, `You left ${amount} ${good} in the hall.`);
-  return ok(next, `Left ${amount} ${good} in the hall.`);
+  return ok(next, `Left ${amount} ${good} in the shared stores.`);
 }
 
 export function withdraw(state: GameState, good: GoodId, qty: number): Result {
   const amount = qtyOf(qty);
-  if (!amount) return fail(state, "Choose how much to draw.");
-  if (state.compact.hall[good] < amount) return fail(state, `The hall doesn't have that much ${good}.`);
+  if (!amount) return fail(state, "Choose how much to take back.");
+  if (state.compact.hall[good] < amount) return fail(state, `The shared stores don't have that much ${good}.`);
   if (state.player.withdrawnToday + amount > FOUNDER_WITHDRAW_CAP) {
-    return fail(state, `You can draw ${FOUNDER_WITHDRAW_CAP} units from the hall each day.`);
+    return fail(state, `You can take ${FOUNDER_WITHDRAW_CAP} units from the shared stores each day.`);
   }
   if (!canFit(state, amount)) {
     return fail(state, "The cellar is full. Spend something down, or raise it.");
@@ -770,17 +772,17 @@ export function withdraw(state: GameState, good: GoodId, qty: number): Result {
   next.player.stash[good] += amount;
   next.player.withdrawnToday += amount;
   note(next, `You drew ${amount} ${good} from the hall.`);
-  return ok(next, `Drew ${amount} ${good} from the hall.`);
+  return ok(next, `Took ${amount} ${good} from the shared stores.`);
 }
 
 export function pledgeFromHall(state: GameState, good: GoodId, qty: number): Result {
   const amount = qtyOf(qty);
-  if (!amount) return fail(state, "Choose how much to pledge.");
-  if (!isLevyGood(good)) return fail(state, `The levy does not take ${good}.`);
-  if (state.compact.hall[good] < amount) return fail(state, `The hall doesn't have that much ${good}.`);
+  if (!amount) return fail(state, "Choose how much to send to the wagons.");
+  if (!isLevyGood(good)) return fail(state, `The wagons do not take ${good}.`);
+  if (state.compact.hall[good] < amount) return fail(state, `The shared stores don't have that much ${good}.`);
   const next = draft(state);
   const moved = addToLevy(next, good, amount);
-  if (moved <= 0) return fail(state, `The ${good} levy is already full.`);
+  if (moved <= 0) return fail(state, `The ${good} wagons are already full.`);
   next.compact.hall[good] -= moved;
   const coins = grantCrownGold(next, moved) + oathCoin(next);
   considerVictory(next);
@@ -849,10 +851,10 @@ export function gift(state: GameState, memberId: string, good: GoodId, qty: numb
 
 export function offerRelic(state: GameState): Result {
   if (state.player.factionId !== "canticle") {
-    return fail(state, "Only the Stone Canticle can offer a relic to the levy.");
+    return fail(state, "Only the Stone Canticle can offer a relic to the wagons.");
   }
   if (state.player.stash.relics < 1) return fail(state, "You have no relic to offer.");
-  if (isLevyMet(state)) return fail(state, "The levy is already full.");
+  if (isLevyMet(state)) return fail(state, "The wagons are already full.");
   let focus: LevyGood = "grain";
   let worst = -1;
   for (const good of LEVY_LIST) {
@@ -862,7 +864,7 @@ export function offerRelic(state: GameState): Result {
       focus = good;
     }
   }
-  if (worst <= 0) return fail(state, "The levy is already full.");
+  if (worst <= 0) return fail(state, "The wagons are already full.");
   const next = draft(state);
   next.player.stash.relics -= 1;
   const moved = addToLevy(next, focus, 1);
@@ -946,7 +948,7 @@ export function postOffer(state: GameState, give: PlayerOffer["give"], want: Pla
   const next = draft(state);
   next.playerOffer = { give: { good: give.good, qty: giveQty }, want: { good: want.good, qty: wantQty } };
   note(next, `You posted an offer: ${giveQty} ${give.good} for ${wantQty} ${want.good}.`);
-  return ok(next, "Offer posted. Kin look it over at dusk.");
+  return ok(next, "Offer posted. Neighbors look it over when you seal the day.");
 }
 
 export function cancelOffer(state: GameState): Result {
@@ -1078,7 +1080,7 @@ export function sealDay(state: GameState): Result {
   else if (next.crossing) message = `${next.crossing.creature} is on the road. ${message}`;
   else if (next.petition) message = `${next.petition.title}. ${message}`;
   if (next.outcome === "lost" && !next.outcomeDismissed && next.day === SEASON_DAYS + 1) {
-    message = `${WYRM_NAME} came down the road. The levy was short, and the frost had teeth. You can still winter on.`;
+    message = `${WYRM_NAME} came down the road. The wagons were short, and the frost had teeth. You can still winter on.`;
   }
   return ok(next, message);
 }
@@ -1139,7 +1141,7 @@ export function raiseShrine(state: GameState): Result {
   const next = draft(state);
   next.player.gold -= SHRINE_COST.gold;
   next.works.shrine = true;
-  note(next, "You raised a shrine to the things that walk the Westmark. Your oathbound sleep a little easier.");
+  note(next, "You raised a shrine to the things that walk the Westmark. Your sworn neighbors sleep a little easier.");
   return ok(next, "The shrine is lit. Kin rest easier each dawn.");
 }
 
@@ -1275,7 +1277,7 @@ export function chooseOmen(state: GameState, choiceId: string): Result {
       kin.contentment = Math.max(0, kin.contentment - 10);
       kin.lastNote = "Heard the axes and did not like it.";
     }
-    note(next, "You cut the timber anyway. The antlered one watched, and one oathbound will not forget the sound.");
+    note(next, "You cut the timber anyway. The antlered one watched, and one sworn neighbor will not forget the sound.");
   } else if (key === "serpent:salt") {
     if (lack("salt", 3)) return fail(state, "You don't have 3 salt for the serpent.");
     next.player.stash.salt -= 3;
@@ -1330,6 +1332,18 @@ export function travel(state: GameState, holdId: HoldId): Result {
   note(next, found.line);
   grantDeed(next, 3 + (next.campaign?.skills.includes("scholar") ? 2 : 0) + loreBonus(next));
   return ok(next, found.line);
+}
+
+export function advanceTutorial(state: GameState): Result {
+  const next = draft(state);
+  next.tutorial = { step: nextTutorialStep(next.tutorial?.step ?? null) };
+  return ok(next);
+}
+
+export function replayTutorial(state: GameState): Result {
+  const next = draft(state);
+  next.tutorial = { step: "wagons" };
+  return ok(next);
 }
 
 export function advanceScene(state: GameState): Result {

@@ -306,6 +306,23 @@ export interface Campaign {
   threatsFaced: number;
 }
 
+export const TUTORIAL_STEPS = [
+  "wagons",
+  "seal",
+  "neighbors",
+  "wagons-take",
+  "caravan",
+  "anger",
+  "creatures",
+  "people",
+] as const;
+export type TutorialStep = (typeof TUTORIAL_STEPS)[number];
+
+/** `step: null` means the first-session lesson is finished. */
+export interface Tutorial {
+  step: TutorialStep | null;
+}
+
 export interface GameState {
   version: 1;
   day: number;
@@ -352,6 +369,7 @@ export interface GameState {
   quests: Quest[];
   scene: Cutscene | null;
   campaign: Campaign;
+  tutorial: Tutorial;
 }
 
 export interface NewGameSetup {

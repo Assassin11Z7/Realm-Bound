@@ -28,7 +28,7 @@ export function PeopleStrip({ state, onOpen }: { state: GameState; onOpen: () =>
     <button type="button" onClick={onOpen} className="rounded-2xl bg-card p-4 text-left ring-1 ring-foreground/10">
       <p className="text-xs tracking-wide text-muted-foreground uppercase">The people</p>
       <p className="mt-1 font-display text-2xl leading-none">
-        {home.souls} souls at {holdById(home.holdId).name}
+        {home.souls} people at {holdById(home.holdId).name}
       </p>
       <p className="mt-2 text-sm text-muted-foreground">
         Mood {home.mood} · food {home.bread} · firewood {home.hearth} · {lawName(home.edict)}
@@ -46,7 +46,7 @@ export function MarksCard({ state }: { state: GameState }) {
   const marks = state.marks ?? [];
   const blurb = modsBlurb(state);
   return (
-    <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+    <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10" data-coach="creatures">
       <p className="font-display text-xl">What the realm remembers</p>
       {blurb && <p className="mt-2 text-sm leading-relaxed">{blurb}</p>}
       {marks.length === 0 ? (
@@ -76,12 +76,12 @@ export function PeoplePanel({ state, act }: { state: GameState; act: (result: Re
     <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
       <p className="font-display text-xl">The people</p>
       <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-        Laws last until you change them. Grain feeds the food store. Timber feeds the fires. Leave them be, and nothing comes out of your stash.
+        Laws last until you change them. Grain feeds the food store. Timber feeds the fires. Leave them be, and nothing comes out of your own stores.
       </p>
       {blurb && <p className="mt-2 text-sm leading-relaxed">{blurb}</p>}
       {state.petition && (
         <div className="mt-3 rounded-xl bg-background p-3 ring-1 ring-gold/50">
-          <p className="text-xs tracking-wide text-[#8d6b2e] uppercase">Before the hall</p>
+          <p className="text-xs tracking-wide text-[#8d6b2e] uppercase">The people ask</p>
           <p className="mt-1 font-display text-lg leading-tight">{state.petition.title}</p>
           <p className="mt-2 text-sm leading-relaxed">{state.petition.body}</p>
           <div className="mt-3 flex flex-col gap-2">
@@ -105,13 +105,13 @@ export function PeoplePanel({ state, act }: { state: GameState; act: (result: Re
           const place = holdById(settlement.holdId).name;
           const home = settlement.holdId === state.player.holdId;
           return (
-            <div key={settlement.holdId} className="rounded-xl bg-background p-3">
+            <div key={settlement.holdId} className="rounded-xl bg-background p-3" data-coach={home ? "people" : undefined}>
               <div className="flex items-baseline justify-between gap-2">
                 <p className="font-medium">
                   {place}
                   {home ? " · your hold" : ""}
                 </p>
-                <p className="text-sm">{settlement.souls} souls</p>
+                <p className="text-sm">{settlement.souls} people</p>
               </div>
               <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
                 <span>Mood</span>

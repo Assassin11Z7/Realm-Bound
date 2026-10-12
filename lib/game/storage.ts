@@ -1,3 +1,4 @@
+import { legalTutorial } from "./coach";
 import { emptyBrew } from "./craft";
 import { normalizeCampaign } from "./progress";
 import { normalizeRealm } from "./realm";
@@ -151,6 +152,7 @@ export function parseSave(raw: string): GameState | null {
     value.worn = legalWorn(value.worn, value.pack);
     value.quests = Array.isArray(value.quests) ? value.quests.filter(legalQuest) : [];
     value.scene = legalScene(value.scene);
+    value.tutorial = legalTutorial(value.tutorial);
     value.campaign = normalizeCampaign(
       value.campaign,
       value.compact.members.map((member) => member.id).filter((id) => typeof id === "string"),

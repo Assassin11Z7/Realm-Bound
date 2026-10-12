@@ -115,8 +115,8 @@ const CREATURES: CreatureDef[] = [
   {
     id: "millwife",
     creature: "The mill woman",
-    title: "A woman in the millstream",
-    body: "A woman stands in the millstream up to her knees, flour on her sleeves, and asks to be housed or fed. She is older than the mill.",
+    title: "A woman in the river",
+    body: "A woman stands in the river up to her knees, flour on her sleeves, and asks to be housed or fed. She is older than the mill.",
     art: "/art/nix.jpg",
     disposition: "kind",
     choices: [
@@ -724,7 +724,7 @@ const CREATURES: CreatureDef[] = [
           gold: -5,
           mood: 8,
           lasting: { moodDawn: 1 },
-          summary: "You paid the banner widow to go. The hall is lighter without her seat.",
+          summary: "You paid the banner widow to go. The neighbors' table is lighter without her seat.",
         },
       },
       {
@@ -1415,7 +1415,7 @@ export function offerPetition(state: GameState): string | null {
 
 export function choosePetition(state: GameState, choiceId: string): Result {
   const petition = state.petition;
-  if (!petition) return fail(state, "The hall is not waiting on you.");
+  if (!petition) return fail(state, "The people are not waiting on you.");
   const shown = petition.choices.find((choice) => choice.id === choiceId);
   const spec = petitionById(petition.id)?.choices.find((choice) => choice.id === choiceId);
   if (!shown || !spec) return fail(state, "That is not a choice the hall will hear.");

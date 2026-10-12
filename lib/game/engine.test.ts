@@ -324,6 +324,7 @@ test("barter, undercroft, and save parsing", () => {
     }),
   );
   assert.equal(bare?.wyrm.ire, 18);
+  assert.equal(bare?.tutorial.step, null);
   assert.equal(bare?.works.mill, false);
   assert.equal(bare?.omen, null);
   assert.deepEqual(bare?.omensSeen, []);
@@ -771,4 +772,6 @@ test("a creature's bargain and a settlement's law stay in force", () => {
   assert.equal(bare?.crossing, null);
   assert.equal(bare?.petition, null);
   assert.equal(bare?.settlements[0].edict, "custom");
+  assert.equal(bare?.tutorial.step, null);
+  assert.equal(createGame(setup()).tutorial.step, "wagons");
 });

@@ -250,7 +250,7 @@ export function ExplorePanel({
             <li className="text-sm text-muted-foreground">Nothing loose. The road still has ditches.</li>
           )}
         </ul>
-        <p className="mt-4 text-xs tracking-wide text-muted-foreground uppercase">Draughts</p>
+        <p className="mt-4 text-xs tracking-wide text-muted-foreground uppercase">Drinks</p>
         <ul className="mt-2 flex flex-col gap-2">
           {potionIds.filter((id) => (state.brew?.[id] ?? 0) > 0).map((id) => (
             <li key={id} className="rounded-xl bg-background px-3 py-2">

@@ -108,7 +108,7 @@ function SeasonShell() {
         <DialogContent container={frame} className="max-h-[80%] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-display text-2xl">How a season works</DialogTitle>
-            <DialogDescription>Start here, before armies, maps the size of a kingdom, or other players.</DialogDescription>
+            <DialogDescription>The wagons, the day, and where each control lives.</DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-3">
             {RULES.map((rule) => (

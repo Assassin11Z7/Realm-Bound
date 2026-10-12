@@ -232,9 +232,9 @@ export function openingQuests(seed: number, home: HoldId): Quest[] {
     },
     {
       id: "pledge",
-      title: `Pledge ${good}`,
-      giver: "The levy",
-      detail: `Four ${good}, from your own stores, onto the road.`,
+      title: `Send ${good} to the wagons`,
+      giver: "The wagons",
+      detail: `Four ${good}, from your own stores, onto the wagons.`,
       kind: "pledge",
       target: good,
       need: 4,

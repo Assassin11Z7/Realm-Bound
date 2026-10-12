@@ -35,7 +35,7 @@ export function WyrmCard({ state, act }: { state: GameState; act: (result: Resul
         </div>
         <Progress value={ire} className="mt-1 h-1.5 bg-white/10" />
         <p className="mt-3 text-sm leading-relaxed text-[#f4ead7]/80">
-          {WYRM_NAME} is one power in the mountains. Tribute cools that gold eye. Other creatures keep their own bargains, and those last longer than a dusk.
+          {WYRM_NAME} is a frost dragon. His anger is one danger. Other creatures keep their own bargains, and those last longer than a day.
         </p>
         <div className="mt-3 flex flex-col gap-2">
           <Button type="button" className="h-11" onClick={() => act(offerTribute(state, "iron"))}>
@@ -68,7 +68,7 @@ export function WorksCard({ state, act }: { state: GameState; act: (result: Resu
         <WorkRow
           done={state.works.shrine}
           title="Shrine"
-          detail={`Kin rest easier each dawn · ${SHRINE_COST.gold} gold`}
+          detail={`Neighbors rest easier each dawn · ${SHRINE_COST.gold} gold`}
           onBuild={() => act(raiseShrine(state))}
         />
         <WorkRow
@@ -126,11 +126,11 @@ export function OathRow({
   return (
     <div className="mt-3 flex items-center gap-3">
       <div className="min-w-0 flex-1">
-        <p className="text-xs text-muted-foreground">{kept ? "Oath kept" : `Asks for 3 ${need}`}</p>
+        <p className="text-xs text-muted-foreground">{kept ? "Promise kept" : `Asks for 3 ${need}`}</p>
       </div>
       {!kept && (
         <Button type="button" variant="outline" className="h-10" onClick={() => act(fulfillOath(state, memberId))}>
-          Keep oath
+          Keep the promise
         </Button>
       )}
     </div>

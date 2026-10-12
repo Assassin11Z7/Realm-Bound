@@ -46,14 +46,17 @@ import {
   pledgeRoadShare,
   postOffer,
   raiseUndercroft,
+  replayTutorial,
   sealDay,
   sell,
   sellPrice,
   setReserve,
   advanceScene,
+  advanceTutorial,
   visitKey,
   withdraw,
 } from "@/lib/game/engine";
+import { COACH, dawnsLeftLabel, whatNow } from "@/lib/game/coach";
 import type { GameState, GoodId, HoldId, LevyGood, Result } from "@/lib/game/types";
 import { GOODS, LEVY_GOODS } from "@/lib/game/types";
 import { GoodThumb, Portrait } from "./art";
@@ -65,7 +68,7 @@ import { CraftBench } from "./Craft";
 import { CutsceneView, ExplorePanel } from "./Explore";
 import { FateRoll, OathRow, OmenDialog, WorksCard, WyrmCard } from "./Myth";
 import { CrossingDialog, MarksCard, PeoplePanel, PeopleStrip } from "./Rule";
-import { EDICTS, peopleTrouble } from "@/lib/game/realm";
+import { peopleTrouble } from "@/lib/game/realm";
 import { HoldBrief, RealmMap } from "./RealmMap";
 
 type Tab = "realm" | "hold" | "compact" | "road";
@@ -74,7 +77,7 @@ type Amount = 1 | 5 | "all";
 const TABS: { id: Tab; label: string; icon: typeof Map }[] = [
   { id: "realm", label: "Realm", icon: Map },
   { id: "hold", label: "Hold", icon: House },
-  { id: "compact", label: "Compact", icon: Users },
+  { id: "compact", label: "Neighbors", icon: Users },
   { id: "road", label: "Road", icon: Route },
 ];
 
@@ -113,9 +116,34 @@ export function PlaySeason({
     return () => window.clearTimeout(id);
   }, [toast]);
 
+  const lesson = state.tutorial?.step ?? null;
+  const coach = lesson && !state.scene ? COACH[lesson] : null;
+  const coachReady = Boolean(coach && (!coach.needsTab || tab === coach.tab));
+  const coachTarget = coach ? (coachReady ? coach.target : `tab-${coach.tab}`) : null;
+
   useEffect(() => {
     mainRef.current?.scrollTo({ top: 0 });
   }, [tab]);
+
+  useEffect(() => {
+    const root = mainRef.current?.parentElement ?? document.body;
+    root.querySelectorAll(".wm-coach-hot").forEach((node) => node.classList.remove("wm-coach-hot"));
+    if (!coachTarget || state.scene) return;
+    const el = root.querySelector(`[data-coach="${coachTarget}"]`);
+    if (!(el instanceof HTMLElement)) return;
+    el.classList.add("wm-coach-hot");
+    if (mainRef.current?.contains(el)) el.scrollIntoView({ block: "center", inline: "nearest" });
+    return () => el.classList.remove("wm-coach-hot");
+  }, [coachTarget, tab, state.scene, state.day]);
+
+  function onCoach() {
+    if (!coach) return;
+    if (!coachReady) {
+      setTab(coach.tab);
+      return;
+    }
+    act(advanceTutorial(state));
+  }
 
   function act(result: Result) {
     if (result.error) {
@@ -180,7 +208,6 @@ export function PlaySeason({
   const faction = factionById(state.player.factionId);
   const hold = holdById(state.player.holdId);
   const homePeople = state.settlements?.find((item) => item.holdId === state.player.holdId);
-  const homeLaw = EDICTS.find((item) => item.id === homePeople?.edict)?.name ?? "Leave them be";
   const cap = state.player.undercroft ? UNDERCROFT_CAP : BASE_CAP;
   const verdictOpen = Boolean(state.outcome && !state.outcomeDismissed);
 
@@ -199,7 +226,7 @@ export function PlaySeason({
               </p>
               {homePeople && (
                 <p className="text-[11px] text-[#f4ead7]/75">
-                  {homePeople.souls} souls · mood {homePeople.mood} · {homeLaw}
+                  {homePeople.souls} people · mood {homePeople.mood}
                 </p>
               )}
               <span className="mt-1 flex items-center gap-2 text-[11px] text-[#f4ead7]/80">
@@ -232,24 +259,35 @@ export function PlaySeason({
               {state.player.title} {state.player.name}
             </p>
           </div>
-          <button type="button" className="mt-3 grid w-full grid-cols-3 gap-2 text-left" onClick={() => setTab("compact")}>
-            {LEVY_GOODS.map((item) => {
-              const have = state.compact.levy[item];
-              const target = LEVY_TARGET[item];
-              return (
-                <span key={item} className="min-w-0">
-                  <span className="flex justify-between text-[11px]">
-                    <span>{GOOD_LABEL[item]}</span>
-                    <span>
-                      {have}/{target}
+          <button
+            type="button"
+            data-coach="wagons"
+            className="mt-3 flex w-full flex-col gap-1.5 text-left"
+            onClick={() => setTab("compact")}
+          >
+            <span className="flex justify-between text-[11px] tracking-wide text-[#e6c56e] uppercase">
+              <span>Wagons</span>
+              <span>{dawnsLeftLabel(state.day)}</span>
+            </span>
+            <span className="grid grid-cols-3 gap-2">
+              {LEVY_GOODS.map((item) => {
+                const have = state.compact.levy[item];
+                const target = LEVY_TARGET[item];
+                return (
+                  <span key={item} className="min-w-0">
+                    <span className="flex justify-between text-[11px]">
+                      <span>{GOOD_LABEL[item]}</span>
+                      <span>
+                        {have}/{target}
+                      </span>
                     </span>
+                    <Progress value={Math.min(100, (have / target) * 100)} className="mt-1 h-1.5 bg-white/20" />
                   </span>
-                  <Progress value={Math.min(100, (have / target) * 100)} className="mt-1 h-1.5 bg-white/20" />
-                </span>
-              );
-            })}
+                );
+              })}
+            </span>
           </button>
-          <button type="button" className="mt-2 flex w-full items-center gap-2 text-left" onClick={() => setTab("realm")}>
+          <button type="button" data-coach="anger" className="mt-2 flex w-full items-center gap-2 text-left" onClick={() => setTab("realm")}>
             <img src="/art/wyrm-vell.jpg" alt="" className={`size-8 rounded-full object-cover ring-1 ring-[#e6c56e] wm-ire${state.wyrm.ire >= 60 ? " wm-ire-hot" : ""}`} />
             <span className="min-w-0 flex-1">
               <span className="flex justify-between text-[11px]">
@@ -267,6 +305,14 @@ export function PlaySeason({
           <p key={toast.text} className={`wm-toast mt-2 rounded-xl px-3 py-2 text-sm leading-snug ${toast.tone === "bad" ? "bg-primary text-primary-foreground" : "bg-moss text-[#f3eadb]"}`}>
             {toast.text}
           </p>
+        )}
+        {coach && (
+          <div className="wm-rise mt-2 rounded-2xl bg-[#1c1612] p-3 text-[#f4ead7] ring-2 ring-[#e6c56e]" data-coach="lesson">
+            <p className="text-sm leading-snug">{coach.text}</p>
+            <Button type="button" className="mt-2 h-11 w-full" onClick={onCoach}>
+              {coachReady ? "Got it" : "Show me"}
+            </Button>
+          </div>
         )}
       </div>
 
@@ -302,7 +348,7 @@ export function PlaySeason({
               </div>
               <div className="p-4">
                 <p className="text-sm leading-relaxed">
-                  Sealing the day brings {dawnYield(state)} {hold.produces}.
+                  Sealing the day brings {dawnYield(state)} {GOOD_LABEL[hold.produces].toLowerCase()}.
                   {state.works.mill ? " The mill is in that count." : ""} {faction.bonus}
                 </p>
                 <p className="mt-2 text-sm leading-relaxed text-[#3d4a62]">{hold.myth}</p>
@@ -333,14 +379,14 @@ export function PlaySeason({
                   {good === item && (
                     <div className="flex flex-wrap gap-2 px-3 pb-3">
                       <Button type="button" variant="secondary" className="h-11" onClick={() => move(resolveQty(state.player.stash[item]), (qty) => act(deposit(state, item, qty)))}>
-                        To the hall
+                        To the shared stores
                       </Button>
                       {isLevy(item) ? (
                         <Button type="button" className="h-11" onClick={() => move(resolveQty(state.player.stash[item]), (qty) => act(pledgePersonal(state, item, qty)))}>
-                          To the levy
+                          To the wagons
                         </Button>
                       ) : (
-                        <p className="self-center text-xs text-muted-foreground">The road does not take {item}. Sell it, or gift it.</p>
+                        <p className="self-center text-xs text-muted-foreground">The wagons do not take {GOOD_LABEL[item].toLowerCase()}. Sell it, or give it away.</p>
                       )}
                     </div>
                   )}
@@ -369,8 +415,14 @@ export function PlaySeason({
         {tab === "road" && <RoadPanel state={state} act={act} />}
       </div>
 
+      {!coach && !state.scene && (
+        <p className="mx-4 mt-2 rounded-xl bg-card px-3 py-2 text-sm leading-snug ring-1 ring-foreground/10" data-coach="what-now">
+          <span className="font-medium">What now. </span>
+          {whatNow(state)}
+        </p>
+      )}
       <div className="px-4 pt-1">
-        <Button type="button" className="h-12 w-full text-base" onClick={onSeal}>
+        <Button type="button" data-coach="seal" className="h-12 w-full text-base" onClick={onSeal}>
           {state.day === 12 ? "Seal the twelfth day" : "Seal the day"}
         </Button>
       </div>
@@ -382,6 +434,7 @@ export function PlaySeason({
             <button
               key={item.id}
               type="button"
+              data-coach={`tab-${item.id}`}
               aria-current={active ? "page" : undefined}
               onClick={() => setTab(item.id)}
               className={`relative flex min-h-14 flex-col items-center justify-center gap-1 text-xs ${active ? "text-primary" : "text-muted-foreground"}`}
@@ -442,6 +495,17 @@ export function PlaySeason({
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-2">
+            <Button
+              type="button"
+              className="h-11"
+              onClick={() => {
+                setMenu(false);
+                setTab("realm");
+                act(replayTutorial(state));
+              }}
+            >
+              How to play
+            </Button>
             <Button
               type="button"
               variant="outline"
@@ -549,7 +613,7 @@ export function PlaySeason({
               {state.outcome === "held" &&
                 `The wagons moved, and ${WYRM_NAME} turned back. That was the first chapter. Your level, the hold, and the captains stay with you.`}
               {state.outcome === "held-late" && `The wagon drivers will remember the delay. The realm does not end here. Keep sealing dawns.`}
-              {state.outcome === "lost" && `${WYRM_NAME} came down the road. The levy was short. Winter on, raise the hold, and order the captains. The banner is still yours.`}
+              {state.outcome === "lost" && `${WYRM_NAME} came down the road. The wagons were short. Winter on, raise the hold, and order the captains. The banner is still yours.`}
             </DialogDescription>
           </DialogHeader>
           {state.outcome === "lost" && (
@@ -616,12 +680,12 @@ function CompactPanel({
 
   return (
     <div className="wm-tab flex flex-col gap-3">
-      <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+      <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10" data-coach="wagons-take">
         <p className="text-sm leading-relaxed">
-          Leave what your kin are likely to draw tonight. Send the rest to the road. The reserve binds them, not you.
+          Leave enough in the shared stores for your sworn neighbors. Send the rest to the wagons. What the wagons take is gone.
         </p>
         <Button type="button" className="mt-3 h-11 w-full" onClick={() => act(pledgeRoadShare(state))}>
-          Leave a share, send the rest
+          Keep a share, send the rest
         </Button>
       </div>
       <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
@@ -661,14 +725,14 @@ function CompactPanel({
       </div>
       <AmountPicker amount={amount} onChange={onAmount} />
       <p className="text-xs text-muted-foreground">
-        Drawn from the hall today: {state.player.withdrawnToday}/{FOUNDER_WITHDRAW_CAP}
+        Taken from the shared stores today: {state.player.withdrawnToday}/{FOUNDER_WITHDRAW_CAP}
       </p>
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2" data-coach="stores">
         {GOODS.map((item) => (
           <div key={item} className={`rounded-2xl ring-1 ${hallGood === item ? "bg-accent ring-gold" : "bg-card ring-foreground/10"}`}>
             <button type="button" className="flex min-h-12 w-full items-center gap-3 px-3 text-left" aria-pressed={hallGood === item} onClick={() => setHallGood(item)}>
               <GoodThumb good={item} />
-              <span className="flex-1 text-sm">Hall {GOOD_LABEL[item].toLowerCase()}</span>
+              <span className="flex-1 text-sm">Shared {GOOD_LABEL[item].toLowerCase()}</span>
               <span className="font-display text-xl">{state.compact.hall[item]}</span>
             </button>
             {hallGood === item && (
@@ -683,7 +747,7 @@ function CompactPanel({
                       act(pledgeFromHall(state, item, qty));
                     }}
                   >
-                    Pledge
+                    To the wagons
                   </Button>
                 )}
                 <Button
@@ -699,7 +763,7 @@ function CompactPanel({
                     act(withdraw(state, item, qty));
                   }}
                 >
-                  Draw
+                  Take back
                 </Button>
               </div>
             )}
@@ -748,7 +812,7 @@ function RoadPanel({ state, act }: { state: GameState; act: (result: Result) => 
     <div className="wm-tab flex flex-col gap-3">
       <p className="text-sm text-muted-foreground">{seasonNote(state.day)}</p>
       {state.caravan ? (
-        <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/10">
+        <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/10" data-coach="caravan">
           <div className="relative h-28">
             <img src="/art/caravan.jpg" alt="" className="h-full w-full object-cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
@@ -756,7 +820,7 @@ function RoadPanel({ state, act }: { state: GameState; act: (result: Result) => 
           </div>
           <div className="p-4">
           <p className="text-sm text-muted-foreground">
-            {visitKey(state.day + 1) !== null ? "It stays through tomorrow, then the road goes quiet." : "It leaves at dusk."}
+            {visitKey(state.day + 1) !== null ? "It stays through tomorrow, then the road goes quiet." : "It leaves when you seal the day."}
           </p>
           {state.rumor && state.rumor.day === state.day && <p className="mt-2 text-sm leading-relaxed">{state.rumor.text}</p>}
           <ul className="mt-3 flex flex-col gap-3">
@@ -782,7 +846,7 @@ function RoadPanel({ state, act }: { state: GameState; act: (result: Result) => 
           </div>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/10">
+        <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/10" data-coach="caravan">
           <div className="relative h-28">
             <img src="/art/caravan.jpg" alt="" className="h-full w-full object-cover brightness-75" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/75 to-transparent" />
@@ -790,7 +854,7 @@ function RoadPanel({ state, act }: { state: GameState; act: (result: Result) => 
           </div>
           <div className="p-4">
           <p className="text-sm leading-relaxed">
-            No wheels today.{market ? ` The caravan returns on day ${market}.` : ""} Until then the compact is your market.
+            No caravan today.{market ? ` It returns on day ${market}.` : ""} Until then, trade with your neighbors.
           </p>
           </div>
         </div>
@@ -798,7 +862,7 @@ function RoadPanel({ state, act }: { state: GameState; act: (result: Result) => 
 
       <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
         <p className="font-display text-xl">Neighbor barter</p>
-        {state.npcOffers.length === 0 && <p className="mt-2 text-sm text-muted-foreground">No kin posted a trade this morning.</p>}
+        {state.npcOffers.length === 0 && <p className="mt-2 text-sm text-muted-foreground">No neighbor offered a trade this morning.</p>}
         <ul className="mt-3 flex flex-col gap-3">
           {state.npcOffers.map((offer) => (
             <li key={offer.id} className="rounded-xl bg-background p-3">
@@ -818,7 +882,7 @@ function RoadPanel({ state, act }: { state: GameState; act: (result: Result) => 
         {state.playerOffer ? (
           <>
             <p className="mt-2 text-sm">
-              {state.playerOffer.give.qty} {state.playerOffer.give.good} for {state.playerOffer.want.qty} {state.playerOffer.want.good}. Kin look it over at dusk.
+              {state.playerOffer.give.qty} {state.playerOffer.give.good} for {state.playerOffer.want.qty} {state.playerOffer.want.good}. Neighbors look it over when you seal the day.
             </p>
             <Button type="button" variant="outline" className="mt-3 h-11" onClick={() => act(cancelOffer(state))}>
               Take it down
@@ -857,7 +921,7 @@ function RoadPanel({ state, act }: { state: GameState; act: (result: Result) => 
               </label>
             </div>
             <Button type="submit" className="h-11">
-              Post at dusk
+              Post the offer
             </Button>
           </form>
         )}
