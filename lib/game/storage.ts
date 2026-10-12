@@ -1,3 +1,4 @@
+import { normalizeCampaign } from "./progress";
 import type { Cutscene, GameState, Gear, GearSlot, GoodId, Quest, Rumor } from "./types";
 import { GOODS, HOLD_IDS, LEVY_GOODS } from "./types";
 
@@ -128,6 +129,10 @@ export function parseSave(raw: string): GameState | null {
     value.worn = legalWorn(value.worn, value.pack);
     value.quests = Array.isArray(value.quests) ? value.quests.filter(legalQuest) : [];
     value.scene = legalScene(value.scene);
+    value.campaign = normalizeCampaign(
+      value.campaign,
+      value.compact.members.map((member) => member.id).filter((id) => typeof id === "string"),
+    );
     return value;
   } catch {
     return null;

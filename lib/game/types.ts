@@ -189,6 +189,57 @@ export interface Compact {
   members: Member[];
 }
 
+export type SkillId = "stores" | "step" | "coin" | "truce" | "bargain" | "eye" | "wright" | "scholar";
+export type BuildingId = "hall" | "yard" | "shrine" | "market" | "watch";
+export type CaptainOrder = "oath" | "garrison" | "march" | "hunt" | "trade";
+
+export interface SkillOffer {
+  level: number;
+  choices: SkillId[];
+}
+
+export interface Captain {
+  rank: number;
+  xp: number;
+  order: CaptainOrder;
+  target: HoldId | null;
+}
+
+export interface Mission {
+  id: string;
+  chapter: number;
+  title: string;
+  detail: string;
+  need: number;
+  progress: number;
+  status: QuestStatus;
+  rewardGold: number;
+  rewardXp: number;
+}
+
+export interface Threat {
+  id: string;
+  title: string;
+  detail: string;
+  art: string;
+}
+
+export interface Campaign {
+  level: number;
+  xp: number;
+  skills: SkillId[];
+  offer: SkillOffer | null;
+  buildings: Record<BuildingId, number>;
+  project: BuildingId | null;
+  chapter: number;
+  captains: Record<string, Captain>;
+  missions: Mission[];
+  threat: Threat | null;
+  marches: number;
+  hunts: number;
+  threatsFaced: number;
+}
+
 export interface GameState {
   version: 1;
   day: number;
@@ -224,6 +275,7 @@ export interface GameState {
   worn: Partial<Record<GearSlot, string>>;
   quests: Quest[];
   scene: Cutscene | null;
+  campaign: Campaign;
 }
 
 export interface NewGameSetup {

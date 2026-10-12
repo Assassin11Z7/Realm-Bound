@@ -38,6 +38,7 @@ import {
   seasonOf,
   stashCount,
 } from "./content";
+import { applyDawnProgress, blankCampaign, grantXp, syncCampaign } from "./progress";
 import { bumpQuest, luckOf, openingQuests, openingScene, rewardScene, roadFind, starterCloak } from "./world";
 import { GOODS, LEVY_GOODS } from "./types";
 import type {
@@ -82,7 +83,8 @@ function qtyOf(qty: number): number | null {
 }
 
 function capFor(state: GameState): number {
-  return state.player.undercroft ? UNDERCROFT_CAP : BASE_CAP;
+  const base = state.player.undercroft ? UNDERCROFT_CAP : BASE_CAP;
+  return base + (state.campaign?.buildings.hall ?? 0) * 4;
 }
 
 function canFit(state: GameState, adding: number): boolean {
@@ -100,6 +102,8 @@ export function playerYieldQty(factionId: FactionId, holdId: HoldId, day: number
 export function dawnYield(state: GameState, day = state.day): number {
   let qty = playerYieldQty(state.player.factionId, state.player.holdId, day);
   if (state.works.mill) qty += 1;
+  qty += state.campaign?.buildings.yard ?? 0;
+  if (state.campaign?.skills.includes("stores")) qty += 1;
   return qty;
 }
 
@@ -117,6 +121,10 @@ export function buyPrice(state: GameState, good: GoodId): number {
   if (state.rumor && state.rumor.day === state.day && state.rumor.good === good && state.rumor.side === "buy") {
     price += state.rumor.delta;
   }
+  if (state.campaign?.skills.includes("bargain")) price -= 1;
+  const market = state.campaign?.buildings.market ?? 0;
+  if (market >= 2) price -= 1;
+  if (market >= 4) price -= 1;
   return Math.max(1, price);
 }
 
@@ -126,6 +134,10 @@ export function sellPrice(state: GameState, good: GoodId): number {
   if (state.rumor && state.rumor.day === state.day && state.rumor.good === good && state.rumor.side === "sell") {
     price += state.rumor.delta;
   }
+  if (state.campaign?.skills.includes("bargain")) price += 1;
+  const market = state.campaign?.buildings.market ?? 0;
+  if (market >= 2) price += 1;
+  if (market >= 4) price += 1;
   return Math.max(1, price);
 }
 
@@ -182,6 +194,18 @@ function grantCrownGold(state: GameState, qty: number) {
   const coins = Math.floor(qty / 2);
   state.player.gold += coins;
   return coins;
+}
+
+function grantDeed(state: GameState, amount: number) {
+  if (!state.campaign) return;
+  for (const line of grantXp(state, amount)) note(state, line);
+  syncCampaign(state);
+}
+
+function oathCoin(state: GameState): number {
+  if (!state.campaign?.skills.includes("coin")) return 0;
+  state.player.gold += 1;
+  return 1;
 }
 
 function considerVictory(state: GameState) {
@@ -642,6 +666,7 @@ export function createGame(setup: NewGameSetup): GameState {
     worn: {},
     quests: [],
     scene: null,
+    campaign: blankCampaign([]),
   };
 
   const cloak = starterCloak();
@@ -649,6 +674,8 @@ export function createGame(setup: NewGameSetup): GameState {
   state.worn = { cloak: cloak.id };
   state.quests = openingQuests(state.seed, setup.holdId);
   state.scene = openingScene(name || "Ash", hold.name);
+  state.campaign = blankCampaign(state.compact.members.map((member) => member.id));
+  syncCampaign(state);
   const yieldQty = playerYieldQty(setup.factionId, setup.holdId, 1);
   state.player.stash[hold.produces] = yieldQty;
   const dawn = runDawn(state);
@@ -661,7 +688,7 @@ export function createGame(setup: NewGameSetup): GameState {
   if (dawn.length) note(state, dawn.join(" "));
   note(
     state,
-    `${WYRM_NAME} the frost-wyrm roosts above the pale mountains. The road wants ${LEVY_TARGET.grain} grain, ${LEVY_TARGET.iron} iron, and ${LEVY_TARGET.salt} salt before the twelfth dusk, or the wyrm comes down it.`,
+    `${WYRM_NAME} the frost-wyrm roosts above the pale mountains. The levy is the first chapter: ${LEVY_TARGET.grain} grain, ${LEVY_TARGET.iron} iron, and ${LEVY_TARGET.salt} salt before the twelfth dusk. After that the realm stays open. Level, raise the hold, and order your captains.`,
   );
   return state;
 }
@@ -676,9 +703,10 @@ export function pledgePersonal(state: GameState, good: GoodId, qty: number): Res
   if (moved <= 0) return fail(state, `The ${good} levy is already full.`);
   next.player.stash[good] -= moved;
   bumpQuest(next, "pledge", good, moved);
-  const coins = grantCrownGold(next, moved);
+  const coins = grantCrownGold(next, moved) + oathCoin(next);
   considerVictory(next);
-  const coinNote = coins ? ` The crown pays ${coins} gold.` : "";
+  grantDeed(next, 1);
+  const coinNote = coins ? ` You gain ${coins} gold.` : "";
   const victory = next.outcome === "held" || next.outcome === "held-late" ? " The road will hold." : "";
   note(next, `You pledged ${moved} ${good} from your own stores.${coinNote}`);
   return ok(next, `Pledged ${moved} ${good}.${coinNote}${victory}`);
@@ -724,13 +752,14 @@ export function pledgeFromHall(state: GameState, good: GoodId, qty: number): Res
   const moved = addToLevy(next, good, amount);
   if (moved <= 0) return fail(state, `The ${good} levy is already full.`);
   next.compact.hall[good] -= moved;
-  const coins = grantCrownGold(next, moved);
+  const coins = grantCrownGold(next, moved) + oathCoin(next);
   considerVictory(next);
+  grantDeed(next, 1);
   const below =
     isLevyGood(good) && next.compact.hall[good] < next.compact.reserve[good]
       ? " That cut into the reserve."
       : "";
-  const coinNote = coins ? ` The crown pays ${coins} gold.` : "";
+  const coinNote = coins ? ` You gain ${coins} gold.` : "";
   const victory = next.outcome === "held" || next.outcome === "held-late" ? " The road will hold." : "";
   note(next, `You pledged ${moved} ${good} from the hall.${coinNote}`);
   return ok(next, `Pledged ${moved} ${good} from the hall.${below}${coinNote}${victory}`);
@@ -754,7 +783,9 @@ export function pledgeRoadShare(state: GameState): Result {
   }
   if (moved <= 0) return fail(state, "Nothing in the hall sits above your kin's likely draw.");
   considerVictory(next);
-  const coinNote = coins ? ` The crown pays ${coins} gold.` : "";
+  grantDeed(next, 1);
+  oathCoin(next);
+  const coinNote = coins ? ` You gain ${coins} gold.` : "";
   const victory = next.outcome === "held" || next.outcome === "held-late" ? " The road will hold." : "";
   note(next, `You sent the road's share from the hall: ${parts.join(", ")}.${coinNote}`);
   return ok(next, `Sent ${parts.join(", ")} to the road, and left a share in the hall.${coinNote}${victory}`);
@@ -946,7 +977,8 @@ export function sealDay(state: GameState): Result {
     next.omen = null;
   }
 
-  next.wyrm.ire = Math.min(100, next.wyrm.ire + (next.works.stake ? IRE_STEP_STAKED : IRE_STEP));
+  const ireStep = next.works.stake ? IRE_STEP_STAKED : IRE_STEP;
+  next.wyrm.ire = Math.min(100, next.wyrm.ire + (next.campaign?.skills.includes("truce") ? Math.max(1, ireStep - 1) : ireStep));
   if (next.works.shrine) {
     for (const member of next.compact.members) {
       if (!member.inCompact) continue;
@@ -979,6 +1011,8 @@ export function sealDay(state: GameState): Result {
       lines.push(`${surprise.creature} is at the gate.`);
     }
   }
+  lines.push(...applyDawnProgress(next));
+
   if (!next.omen) {
     const whisper = kinWhisper(
       next.seed ?? 0,
@@ -1216,6 +1250,7 @@ export function chooseOmen(state: GameState, choiceId: string): Result {
 
   next.omen = null;
   next.compactActed = true;
+  grantDeed(next, 2);
   return ok(next, next.chronicle[next.chronicle.length - 1]?.text ?? "The omen is answered.");
 }
 
@@ -1241,6 +1276,7 @@ export function travel(state: GameState, holdId: HoldId): Result {
   bumpQuest(next, "visit", holdId, 1);
   next.scene = found.scene;
   note(next, found.line);
+  grantDeed(next, 3 + (next.campaign?.skills.includes("scholar") ? 2 : 0));
   return ok(next, found.line);
 }
 
@@ -1260,6 +1296,7 @@ export function equipGear(state: GameState, gearId: string): Result {
   const next = draft(state);
   next.worn = { ...(next.worn ?? {}), [gear.slot]: gear.id };
   note(next, `You wear ${gear.name}. Luck on the road is ${luckOf(next)}.`);
+  syncCampaign(next);
   return ok(next, `${gear.name} is worn.`);
 }
 
@@ -1272,6 +1309,7 @@ export function stowGear(state: GameState, gearId: string): Result {
   delete worn[gear.slot];
   next.worn = worn;
   note(next, `You stow ${gear.name}. Luck on the road is ${luckOf(next)}.`);
+  syncCampaign(next);
   return ok(next, `${gear.name} is stowed.`);
 }
 
@@ -1290,6 +1328,7 @@ export function claimQuest(state: GameState, questId: string): Result {
   next.player.gold += paid;
   next.scene = rewardScene(target.title, paid);
   note(next, `You claim ${target.title}. The road pays ${paid} gold.`);
+  grantDeed(next, 4);
   return ok(next, `${paid} gold for ${target.title}.`);
 }
 

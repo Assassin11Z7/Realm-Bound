@@ -325,6 +325,12 @@ export function seasonOf(day: number): SeasonName {
   if (day <= 6) return "green";
   if (day <= 9) return "harvest";
   if (day <= 12) return "frost";
+  if (day <= 15) return "deepwinter";
+  const span = (day - 16) % 15;
+  if (span < 3) return "thaw";
+  if (span < 6) return "green";
+  if (span < 9) return "harvest";
+  if (span < 12) return "frost";
   return "deepwinter";
 }
 
@@ -413,8 +419,8 @@ export const RULES: { title: string; body: string }[] = [
     body: "Each dusk they draw from the hall, then eat. Leave a share, or send a gift. If the chests are bare night after night, they take their banners home and their yields with them.",
   },
   {
-    title: "Twelve dawns",
-    body: "The levy is counted when you seal the twelfth day. Creatures come to the gate on their own days. On the quiet dawns the road may send a stranger. Answer them, or let them pass.",
+    title: "The levy is the first chapter",
+    body: "The wagons are counted at the twelfth dusk, and then the realm keeps going. Level up and choose a discipline. Raise the hold. Order your captains. Seasons turn again after the frost.",
   },
 ];
 

@@ -59,6 +59,8 @@ import { GOODS, LEVY_GOODS } from "@/lib/game/types";
 import { GoodThumb, Portrait } from "./art";
 import { useFrame } from "./frame";
 import { BannerMark } from "./marks";
+import { chapterName, powerOf, xpNeed } from "@/lib/game/progress";
+import { CaptainOrders, HoldWorks, MissionList, SkillDialog, ThreatCard } from "./Campaign";
 import { CutsceneView, ExplorePanel } from "./Explore";
 import { FateRoll, OathRow, OmenDialog, WorksCard, WyrmCard } from "./Myth";
 import { HoldBrief, RealmMap } from "./RealmMap";
@@ -185,12 +187,22 @@ export function PlaySeason({
             <div className="min-w-0 flex-1">
               <h1 className="truncate font-display text-xl leading-none">{state.compact.name}</h1>
               <p className="mt-1 text-xs text-[#f4ead7]/75">
-                Day {state.day} · {seasonLabel(state.day)} · {renownTitle(state.player.renown)}
+                Day {state.day} · {seasonLabel(state.day)} · {chapterName(state.campaign?.chapter ?? 1)}
               </p>
+              <span className="mt-1 flex items-center gap-2 text-[11px] text-[#f4ead7]/80">
+                <span>Lv {state.campaign?.level ?? 1}</span>
+                <Progress
+                  value={Math.min(100, ((state.campaign?.xp ?? 0) / xpNeed(state.campaign?.level ?? 1)) * 100)}
+                  className="h-1.5 flex-1 bg-white/20"
+                />
+                <span>{powerOf(state)} power</span>
+              </span>
             </div>
             <div className="text-right">
               <p className="font-display text-xl leading-none text-[#e6c56e]">{state.player.gold}g</p>
-              <p className="mt-1 text-[11px] text-[#f4ead7]/70">{state.player.renown} renown</p>
+              <p className="mt-1 text-[11px] text-[#f4ead7]/70">
+                {renownTitle(state.player.renown)} · {state.player.renown}
+              </p>
             </div>
           </div>
           <div className="mt-2 flex gap-2">
@@ -249,7 +261,9 @@ export function PlaySeason({
         {tab === "realm" && (
           <div className="wm-tab flex flex-col gap-3">
             <RealmMap state={state} selected={holdId} onSelect={setHoldId} />
+            <ThreatCard state={state} act={act} />
             <ExplorePanel state={state} holdId={holdId} act={act} />
+            <MissionList state={state} act={act} />
             <HoldBrief state={state} holdId={holdId} />
             <WyrmCard state={state} act={act} />
             <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
@@ -289,6 +303,7 @@ export function PlaySeason({
               </div>
             </div>
             <WorksCard state={state} act={act} />
+            <HoldWorks state={state} act={act} />
             <AmountPicker amount={amount} onChange={setAmount} />
             <div className="flex flex-col gap-2">
               {GOODS.map((item) => (
@@ -513,9 +528,9 @@ export function PlaySeason({
             </DialogTitle>
             <DialogDescription>
               {state.outcome === "held" &&
-                `The northern road is provisioned, and ${WYRM_NAME} turned back into the snow.${state.wyrm.ire < 30 ? " Vell was fed, and almost gentle." : ""}`}
-              {state.outcome === "held-late" && `The marchers will remember the delay. ${WYRM_NAME} turned with the wagons all the same.`}
-              {state.outcome === "lost" && `${WYRM_NAME} came down the road. The levy was short, and the frost had teeth. You can still winter on.`}
+                `The wagons moved, and ${WYRM_NAME} turned back. That was the first chapter. Your level, the hold, and the captains stay with you.`}
+              {state.outcome === "held-late" && `The marchers will remember the delay. The realm does not end here. Keep sealing dawns.`}
+              {state.outcome === "lost" && `${WYRM_NAME} came down the road. The levy was short. Winter on, raise the hold, and order the captains. The banner is still yours.`}
             </DialogDescription>
           </DialogHeader>
           {state.outcome === "lost" && (
@@ -539,7 +554,7 @@ export function PlaySeason({
           </p>
           <DialogFooter>
             <Button type="button" className="h-11" onClick={() => act(dismissOutcome(state))}>
-              {state.outcome === "lost" ? "Winter on" : "Stay with the hold"}
+              {state.outcome === "lost" ? "Winter on" : "Open the marches"}
             </Button>
             <Button type="button" variant="outline" className="h-11" onClick={() => leave(onAbandon)}>
               New season
@@ -556,6 +571,7 @@ export function PlaySeason({
         </>
       )}
       {fate && <FateRoll face={fate.face} won={fate.won} line={fate.line} />}
+      <SkillDialog state={state} act={act} />
       {state.scene && <CutsceneView scene={state.scene} voice={voice} onAdvance={() => act(advanceScene(state))} />}
     </div>
   );
@@ -691,6 +707,7 @@ function CompactPanel({
                 )}
               </div>
               <OathRow state={state} memberId={member.id} act={act} />
+              <CaptainOrders state={state} memberId={member.id} act={act} />
               <Progress value={member.contentment} className="mt-3 h-1.5" />
               <p className="mt-2 text-sm text-muted-foreground">{member.lastNote}</p>
             </div>

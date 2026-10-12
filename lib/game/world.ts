@@ -62,6 +62,7 @@ export function luckOf(state: GameState): number {
     const gear = (state.pack ?? []).find((item) => item.id === id);
     if (gear) luck += gear.luck;
   }
+  if (state.campaign?.skills.includes("step")) luck += 1;
   return luck;
 }
 

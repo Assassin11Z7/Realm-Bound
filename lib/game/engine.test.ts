@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { LEVY_TARGET } from "./content";
+import { LEVY_TARGET, seasonOf } from "./content";
 import {
   acceptOffer,
   buy,
@@ -35,6 +35,7 @@ import {
 import { parseSave } from "./storage";
 import type { FactionId, GameState, GoodId, HoldId, NewGameSetup } from "./types";
 import { GOODS, LEVY_GOODS } from "./types";
+import { chooseSkill, setCaptainOrder, startProject } from "./progress";
 import { luckOf } from "./world";
 
 function setup(partial: Partial<NewGameSetup> = {}): NewGameSetup {
@@ -553,6 +554,37 @@ test("the road rolls a find, a scene, and a claimable walk", () => {
     const worn = equipGear(clear, found.id);
     if (!worn.error) assert.ok(luckOf(worn.state) >= luckOf(clear));
   }
+
+  const grown = createGame(setup());
+  assert.equal(grown.campaign.level, 1);
+  assert.equal(grown.campaign.chapter, 1);
+  assert.equal(grown.campaign.captains[grown.compact.members[0].id].order, "oath");
+  assert.equal(seasonOf(12), "frost");
+  assert.equal(seasonOf(13), "deepwinter");
+  assert.equal(seasonOf(16), "thaw");
+  grown.player.gold = 0;
+  grown.player.stash.grain = 0;
+  const broke = startProject(grown, "yard");
+  assert.ok(broke.error);
+  grown.player.gold += 20;
+  grown.player.stash.grain += 2;
+  const rising = startProject(grown, "yard");
+  assert.equal(rising.error, undefined);
+  assert.equal(rising.state.campaign.project, "yard");
+  const dawn = sealDay(rising.state).state;
+  assert.equal(dawn.campaign.buildings.yard, 1);
+  assert.equal(dawnYield(dawn), dawnYield(grown) + 1);
+  const captain = grown.compact.members[0];
+  const ordered = setCaptainOrder(grown, captain.id, "trade");
+  const traded = sealDay(ordered.state).state;
+  assert.ok(traded.player.gold > ordered.state.player.gold);
+  const skilled = chooseSkill(
+    { ...dawn, campaign: { ...dawn.campaign, offer: { level: 2, choices: ["stores", "step", "coin"] } } },
+    "stores",
+  );
+  assert.equal(skilled.error, undefined);
+  assert.ok(skilled.state.campaign.skills.includes("stores"));
+  assert.equal(dawnYield(skilled.state), dawnYield(dawn) + 1);
 
   const same = travel(createGame(setup({ holdId: "ashfold" })), "vesper");
   const repeat = travel(createGame(setup({ holdId: "ashfold" })), "vesper");
