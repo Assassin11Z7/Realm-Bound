@@ -28,7 +28,7 @@ npm run lint
 
 Paintings for the valley, the map, the six holds, the kin, the goods, and the creatures live in `public/art`. The phone speaks scene lines through its own voice. Tap a line to hear it. Silence them from the season menu.
 
-Walking the map is a separate action from sealing the day. The road rolls what you meet: a found thing, a paid rumor, a wing, or a fire. Worn gear shifts that roll. Tasks pay gold with a little extra that is not fixed.
+Walking the map is a separate action from sealing the day. The road rolls what you meet: a found thing, a paid rumor, a wing, or a fire. The pack holds arms, cloaks, charms, rings, and treasures, each with its own line. Wear four slots. Sell the rest. A purse raises what the caravan pays, a ward slows Vell, lore teaches more from the walk, and luck still shifts the road. Tasks pay gold with a little extra that is not fixed.
 
 The levy is the first chapter, not the end. After the twelfth dusk the seasons turn again. You level up and choose a discipline, raise the hold one work at a time, and order each captain to hold the gate, march, hunt, or trade. Those orders resolve when you seal the day. The long work on the Realm tab keeps paying out as the days add up.
 

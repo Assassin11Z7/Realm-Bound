@@ -39,7 +39,7 @@ import {
   stashCount,
 } from "./content";
 import { applyDawnProgress, blankCampaign, grantXp, syncCampaign } from "./progress";
-import { bumpQuest, luckOf, openingQuests, openingScene, rewardScene, roadFind, starterCloak } from "./world";
+import { PACK_LIMIT, bumpQuest, loreBonus, luckOf, openingQuests, openingScene, purseBonus, rewardScene, roadFind, starterCloak, wardBonus } from "./world";
 import { GOODS, LEVY_GOODS } from "./types";
 import type {
   BarterOffer,
@@ -135,6 +135,7 @@ export function sellPrice(state: GameState, good: GoodId): number {
     price += state.rumor.delta;
   }
   if (state.campaign?.skills.includes("bargain")) price += 1;
+  price += purseBonus(state);
   const market = state.campaign?.buildings.market ?? 0;
   if (market >= 2) price += 1;
   if (market >= 4) price += 1;
@@ -977,8 +978,10 @@ export function sealDay(state: GameState): Result {
     next.omen = null;
   }
 
-  const ireStep = next.works.stake ? IRE_STEP_STAKED : IRE_STEP;
-  next.wyrm.ire = Math.min(100, next.wyrm.ire + (next.campaign?.skills.includes("truce") ? Math.max(1, ireStep - 1) : ireStep));
+  let ireStep = next.works.stake ? IRE_STEP_STAKED : IRE_STEP;
+  if (next.campaign?.skills.includes("truce")) ireStep = Math.max(1, ireStep - 1);
+  ireStep = Math.max(1, ireStep - wardBonus(next));
+  next.wyrm.ire = Math.min(100, next.wyrm.ire + ireStep);
   if (next.works.shrine) {
     for (const member of next.compact.members) {
       if (!member.inCompact) continue;
@@ -1265,7 +1268,7 @@ export function travel(state: GameState, holdId: HoldId): Result {
   next.player.gold = Math.max(0, next.player.gold + found.gold);
   next.wyrm.ire = Math.max(0, Math.min(100, next.wyrm.ire + found.ire));
   if (found.gear) {
-    if ((next.pack ?? []).length >= 6) {
+    if ((next.pack ?? []).length >= PACK_LIMIT) {
       next.player.gold += 2;
       note(next, `The pack is full. You leave ${found.gear.name} and take 2 gold instead.`);
     } else {
@@ -1276,7 +1279,7 @@ export function travel(state: GameState, holdId: HoldId): Result {
   bumpQuest(next, "visit", holdId, 1);
   next.scene = found.scene;
   note(next, found.line);
-  grantDeed(next, 3 + (next.campaign?.skills.includes("scholar") ? 2 : 0));
+  grantDeed(next, 3 + (next.campaign?.skills.includes("scholar") ? 2 : 0) + loreBonus(next));
   return ok(next, found.line);
 }
 
@@ -1290,9 +1293,26 @@ export function advanceScene(state: GameState): Result {
   return ok(next);
 }
 
+export function sellGear(state: GameState, gearId: string): Result {
+  const gear = (state.pack ?? []).find((item) => item.id === gearId);
+  if (!gear) return fail(state, "That is not in the pack.");
+  const next = draft(state);
+  next.pack = (next.pack ?? []).filter((item) => item.id !== gearId);
+  if ((next.worn ?? {})[gear.slot] === gearId) {
+    const worn = { ...(next.worn ?? {}) };
+    delete worn[gear.slot];
+    next.worn = worn;
+  }
+  next.player.gold += gear.worth;
+  note(next, `You sell ${gear.name} for ${gear.worth} gold.`);
+  syncCampaign(next);
+  return ok(next, `${gear.worth} gold for ${gear.name}.`);
+}
+
 export function equipGear(state: GameState, gearId: string): Result {
   const gear = (state.pack ?? []).find((item) => item.id === gearId);
   if (!gear) return fail(state, "That is not in the pack.");
+  if (gear.slot === "hoard") return fail(state, "Treasures stay in the pack. Sell them when you need the coin.");
   const next = draft(state);
   next.worn = { ...(next.worn ?? {}), [gear.slot]: gear.id };
   note(next, `You wear ${gear.name}. Luck on the road is ${luckOf(next)}.`);

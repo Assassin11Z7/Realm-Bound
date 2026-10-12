@@ -13,7 +13,7 @@ import type {
   Threat,
 } from "./types";
 import { HOLD_IDS } from "./types";
-import { rewardScene, worldRng } from "./world";
+import { PACK_LIMIT, bumpQuest, rewardScene, rollGear, worldRng } from "./world";
 
 export const SKILLS: Record<SkillId, { name: string; blurb: string }> = {
   stores: { name: "Deep stores", blurb: "The hold yields one more at every dawn." },
@@ -333,6 +333,14 @@ function steadyShrine(state: GameState) {
   }
 }
 
+function bringTrophy(state: GameState, roll: () => number): string | null {
+  if ((state.pack ?? []).length >= PACK_LIMIT || roll() >= 0.55) return null;
+  const gear = rollGear(state.seed ?? 0, state.day, (state.miles ?? 0) + (state.pack?.length ?? 0) + 11);
+  state.pack = [...(state.pack ?? []), gear];
+  bumpQuest(state, "loot", "any", 1);
+  return gear.name;
+}
+
 function growCaptain(captain: Captain, amount: number, name: string): string[] {
   captain.xp += amount;
   const lines: string[] = [];
@@ -365,7 +373,12 @@ export function resolveCaptains(state: GameState): string[] {
         const gold = 1 + Math.floor(roll() * (2 + captain.rank));
         state.player.gold += gold;
         camp.marches += 1;
-        lines.push(`${member.name} marched to ${place} and returned with ${gold} gold.`);
+        const trophy = bringTrophy(state, roll);
+        lines.push(
+          trophy
+            ? `${member.name} marched to ${place} and returned with ${gold} gold and ${trophy}.`
+            : `${member.name} marched to ${place} and returned with ${gold} gold.`,
+        );
       } else {
         member.contentment = Math.max(0, member.contentment - 4);
         lines.push(`${member.name} marched toward ${place} and came back empty.`);
@@ -376,7 +389,12 @@ export function resolveCaptains(state: GameState): string[] {
       if (success) {
         state.wyrm.ire = Math.max(0, state.wyrm.ire - 3);
         camp.hunts += 1;
-        lines.push(`${member.name} turned a hunt aside. ${WYRM_NAME}'s ire eases.`);
+        const trophy = bringTrophy(state, roll);
+        lines.push(
+          trophy
+            ? `${member.name} turned a hunt aside and brought back ${trophy}. ${WYRM_NAME}'s ire eases.`
+            : `${member.name} turned a hunt aside. ${WYRM_NAME}'s ire eases.`,
+        );
       } else {
         state.wyrm.ire = Math.min(100, state.wyrm.ire + 2);
         lines.push(`${member.name}'s hunt found only tracks. ${WYRM_NAME} noticed.`);

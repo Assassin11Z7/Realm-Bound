@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { holdById } from "@/lib/game/content";
-import { claimQuest, equipGear, stowGear, travel } from "@/lib/game/engine";
-import { luckOf } from "@/lib/game/world";
-import type { Cutscene, GameState, HoldId, Rarity, Result } from "@/lib/game/types";
+import { claimQuest, equipGear, sellGear, stowGear, travel } from "@/lib/game/engine";
+import { PACK_LIMIT, WORN_SLOTS, luckOf, traitText } from "@/lib/game/world";
+import type { Cutscene, GameState, Gear, HoldId, Rarity, Result } from "@/lib/game/types";
 
 const RARITY_CLASS: Record<Rarity, string> = {
   common: "text-muted-foreground",
@@ -76,6 +76,44 @@ export function CutsceneView({
   );
 }
 
+function GearRow({
+  gear,
+  worn,
+  onSell,
+  onWear,
+}: {
+  gear: Gear;
+  worn: boolean;
+  onSell: () => void;
+  onWear?: () => void;
+}) {
+  return (
+    <div className="flex items-start gap-2">
+      <div className="min-w-0 flex-1">
+        <p className={`text-sm font-medium ${RARITY_CLASS[gear.rarity]}`}>
+          {gear.name}
+          <span className="ml-2 text-[10px] tracking-wide uppercase">{gear.rarity}</span>
+        </p>
+        <p className="text-xs leading-relaxed text-muted-foreground">{gear.line}</p>
+        <p className="text-xs text-muted-foreground">
+          {traitText(gear)}
+          {worn ? " · worn" : ""}
+        </p>
+      </div>
+      <div className="flex shrink-0 flex-col gap-1">
+        {onWear && (
+          <Button type="button" variant="outline" className="h-9" onClick={onWear}>
+            {worn ? "Stow" : "Wear"}
+          </Button>
+        )}
+        <Button type="button" variant="ghost" className="h-9" onClick={onSell}>
+          Sell
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function ExplorePanel({
   state,
   holdId,
@@ -121,30 +159,39 @@ export function ExplorePanel({
       </div>
       <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
         <p className="font-display text-xl">Pack</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {(state.pack ?? []).length}/{PACK_LIMIT} carried · luck {luckOf(state)}. Wear a hand, a cloak, a charm, and a ring. Treasures sell.
+        </p>
+        <ul className="mt-3 flex flex-col gap-2">
+          {WORN_SLOTS.map((slot) => {
+            const gear = (state.pack ?? []).find((item) => item.id === (state.worn ?? {})[slot]);
+            return (
+              <li key={slot} className="rounded-xl bg-background px-3 py-2">
+                <p className="text-[10px] tracking-wide text-muted-foreground uppercase">{slot}</p>
+                {gear ? (
+                  <GearRow gear={gear} worn onSell={() => act(sellGear(state, gear.id))} onWear={() => act(stowGear(state, gear.id))} />
+                ) : (
+                  <p className="text-sm text-muted-foreground">Empty</p>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+        <p className="mt-4 text-xs tracking-wide text-muted-foreground uppercase">In the pack</p>
         <ul className="mt-2 flex flex-col gap-2">
-          {(state.pack ?? []).map((gear) => (
-            <li key={gear.id} className="flex items-center gap-3 rounded-xl bg-background px-3 py-2">
-              <div className="min-w-0 flex-1">
-                <p className={`text-sm font-medium ${RARITY_CLASS[gear.rarity]}`}>
-                  {gear.name}
-                  <span className="ml-2 text-[10px] tracking-wide uppercase">{gear.rarity}</span>
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {gear.slot} · luck {gear.luck}
-                  {worn.has(gear.id) ? " · worn" : ""}
-                </p>
-              </div>
-              {worn.has(gear.id) ? (
-                <Button type="button" variant="outline" className="h-10" onClick={() => act(stowGear(state, gear.id))}>
-                  Stow
-                </Button>
-              ) : (
-                <Button type="button" variant="outline" className="h-10" onClick={() => act(equipGear(state, gear.id))}>
-                  Wear
-                </Button>
-              )}
+          {(state.pack ?? []).filter((gear) => !worn.has(gear.id)).map((gear) => (
+            <li key={gear.id} className="rounded-xl bg-background px-3 py-2">
+              <GearRow
+                gear={gear}
+                worn={false}
+                onSell={() => act(sellGear(state, gear.id))}
+                onWear={gear.slot === "hoard" ? undefined : () => act(equipGear(state, gear.id))}
+              />
             </li>
           ))}
+          {(state.pack ?? []).every((gear) => worn.has(gear.id)) && (
+            <li className="text-sm text-muted-foreground">Nothing loose. The road still has ditches.</li>
+          )}
         </ul>
       </div>
     </div>

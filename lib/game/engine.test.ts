@@ -29,6 +29,7 @@ import {
   advanceScene,
   claimQuest,
   equipGear,
+  sellGear,
   stowGear,
   withdraw,
 } from "./engine";
@@ -36,7 +37,7 @@ import { parseSave } from "./storage";
 import type { FactionId, GameState, GoodId, HoldId, NewGameSetup } from "./types";
 import { GOODS, LEVY_GOODS } from "./types";
 import { chooseSkill, setCaptainOrder, startProject } from "./progress";
-import { luckOf } from "./world";
+import { luckOf, rollGear, treasureCount } from "./world";
 
 function setup(partial: Partial<NewGameSetup> = {}): NewGameSetup {
   return {
@@ -589,4 +590,24 @@ test("the road rolls a find, a scene, and a claimable walk", () => {
   const same = travel(createGame(setup({ holdId: "ashfold" })), "vesper");
   const repeat = travel(createGame(setup({ holdId: "ashfold" })), "vesper");
   assert.equal(same.state.scene?.beats[0]?.line, repeat.state.scene?.beats[0]?.line);
+});
+
+test("treasures have their own names, and a hoard piece can be sold", () => {
+  assert.ok(treasureCount() >= 40);
+  const one = rollGear(9, 4, 2);
+  const again = rollGear(9, 4, 2);
+  assert.equal(one.name, again.name);
+  assert.equal(one.line, again.line);
+  const names = new Set(Array.from({ length: 12 }, (_, index) => rollGear(index + 1, index + 2, index + 3).name));
+  assert.ok(names.size >= 6);
+  const state = createGame(setup());
+  const hoard = rollGear(state.seed, 6, 3);
+  hoard.slot = "hoard";
+  state.pack.push(hoard);
+  const gold = state.player.gold;
+  assert.ok(equipGear(state, hoard.id).error);
+  const sold = sellGear(state, hoard.id);
+  assert.equal(sold.error, undefined);
+  assert.equal(sold.state.player.gold, gold + hoard.worth);
+  assert.equal(sold.state.pack.some((gear) => gear.id === hoard.id), false);
 });

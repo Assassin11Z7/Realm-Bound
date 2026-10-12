@@ -1,9 +1,10 @@
 import { normalizeCampaign } from "./progress";
+import { WORN_SLOTS, fillGear } from "./world";
 import type { Cutscene, GameState, Gear, GearSlot, GoodId, Quest, Rumor } from "./types";
 import { GOODS, HOLD_IDS, LEVY_GOODS } from "./types";
 
 const HOLDS_OK = new Set<string>(HOLD_IDS);
-const SLOTS = new Set<GearSlot>(["hand", "cloak", "charm"]);
+const SLOTS = new Set<GearSlot>(["hand", "cloak", "charm", "ring", "hoard"]);
 const RARITIES = new Set(["common", "uncanny", "relic"]);
 const QUEST_KINDS = new Set(["visit", "pledge", "loot", "tribute"]);
 
@@ -22,7 +23,7 @@ function legalGear(value: Gear): value is Gear {
 function legalWorn(worn: GameState["worn"] | undefined, pack: Gear[]): GameState["worn"] {
   const next: GameState["worn"] = {};
   if (!worn || typeof worn !== "object") return next;
-  for (const slot of SLOTS) {
+  for (const slot of WORN_SLOTS) {
     const id = worn[slot];
     if (typeof id === "string" && pack.some((item) => item.id === id && item.slot === slot)) next[slot] = id;
   }
@@ -125,7 +126,7 @@ export function parseSave(raw: string): GameState | null {
     value.surprisesSeen = Array.isArray(value.surprisesSeen) ? value.surprisesSeen.filter((item) => typeof item === "string") : [];
     if (!value.where || !HOLDS_OK.has(value.where)) value.where = value.player.holdId;
     if (typeof value.miles !== "number" || !Number.isFinite(value.miles)) value.miles = 0;
-    value.pack = Array.isArray(value.pack) ? value.pack.filter(legalGear) : [];
+    value.pack = (Array.isArray(value.pack) ? value.pack.filter(legalGear) : []).map(fillGear);
     value.worn = legalWorn(value.worn, value.pack);
     value.quests = Array.isArray(value.quests) ? value.quests.filter(legalQuest) : [];
     value.scene = legalScene(value.scene);

@@ -126,8 +126,9 @@ export interface Rumor {
   text: string;
 }
 
-export type GearSlot = "hand" | "cloak" | "charm";
+export type GearSlot = "hand" | "cloak" | "charm" | "ring" | "hoard";
 export type Rarity = "common" | "uncanny" | "relic";
+export type GearTrait = "luck" | "purse" | "ward" | "lore";
 
 export interface Gear {
   id: string;
@@ -135,6 +136,8 @@ export interface Gear {
   slot: GearSlot;
   rarity: Rarity;
   luck: number;
+  trait: GearTrait;
+  worth: number;
   line: string;
 }
 
