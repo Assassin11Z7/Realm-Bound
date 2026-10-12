@@ -206,7 +206,7 @@ export const HOLDS: Hold[] = [
     produces: "iron",
     needs: ["grain", "salt"],
     text: "The mines sweat rust-water. Bread and salt come from lower country, or they do not come.",
-    myth: "A mine-drake nests under the terraces. When the snow deepens, it answers to Vell.",
+    myth: "A mine-drake nests under the terraces. The snow has older things in it than one wyrm.",
     lord: "Osric Venn",
     epithet: "mine-lord",
     personality: "lean",
@@ -276,7 +276,7 @@ export const HOLDS: Hold[] = [
     produces: "wool",
     needs: ["grain", "salt"],
     text: "Flocks the color of dirty snow. Wool buys what the hills refuse to grow.",
-    myth: "The flocks go still when Vell's wing shadows the hills.",
+    myth: "The flocks go still when a great wing crosses the hills. Saints, hounds, and worse use the same folds.",
     lord: "Nell Weaver",
     epithet: "flock-keep",
     personality: "steady",
@@ -403,8 +403,12 @@ export const WYRM_NAME = "Vell";
 
 export const RULES: { title: string; body: string }[] = [
   {
-    title: "Vell wakes",
-    body: "A frost-wyrm roosts above the pale mountains. At the twelfth dusk Vell comes down the northern road unless the wagons have already moved. The levy is how you move them.",
+    title: "The people are the hold",
+    body: "Every settlement under your banner has souls, a larder, and a hearth. Old custom keeps them while the stores last. A bread dole, a granary tithe, closed rolls, open rolls, or a hearth rite lasts until you change it. Send grain and timber from your own stash, or the mood breaks and people leave.",
+  },
+  {
+    title: "The road remembers",
+    body: "Vell the frost-wyrm is real, and the levy still has to move before the twelfth dusk. Harts, hags, saints, hounds, choirs, and smaller wyrms come too. Answer them, hunt them, or let them pass. That choice stays in force for the rest of the game.",
   },
   {
     title: "Land is unequal",

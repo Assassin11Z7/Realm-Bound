@@ -35,7 +35,7 @@ export function WyrmCard({ state, act }: { state: GameState; act: (result: Resul
         </div>
         <Progress value={ire} className="mt-1 h-1.5 bg-white/10" />
         <p className="mt-3 text-sm leading-relaxed text-[#f4ead7]/80">
-          {WYRM_NAME} roosts above the pale mountains. Tribute cools that gold eye. Leave the ire to climb, and a shadow scorches the hall.
+          {WYRM_NAME} is one power in the mountains. Tribute cools that gold eye. Other creatures keep their own bargains, and those last longer than a dusk.
         </p>
         <div className="mt-3 flex flex-col gap-2">
           <Button type="button" className="h-11" onClick={() => act(offerTribute(state, "iron"))}>

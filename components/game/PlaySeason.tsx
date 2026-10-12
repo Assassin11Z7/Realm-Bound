@@ -64,6 +64,8 @@ import { CaptainOrders, HoldWorks, MissionList, SkillDialog, ThreatCard } from "
 import { CraftBench } from "./Craft";
 import { CutsceneView, ExplorePanel } from "./Explore";
 import { FateRoll, OathRow, OmenDialog, WorksCard, WyrmCard } from "./Myth";
+import { CrossingDialog, MarksCard, PeoplePanel, PeopleStrip } from "./Rule";
+import { EDICTS, peopleTrouble } from "@/lib/game/realm";
 import { HoldBrief, RealmMap } from "./RealmMap";
 
 type Tab = "realm" | "hold" | "compact" | "road";
@@ -162,7 +164,10 @@ export function PlaySeason({
     }
     sealing.current = true;
     navigator.vibrate?.(12);
-    setDawn({ day: result.state.day, title: result.state.omen?.creature ?? `Day ${result.state.day}` });
+    setDawn({
+      day: result.state.day,
+      title: result.state.omen?.creature ?? result.state.crossing?.creature ?? result.state.petition?.title ?? `Day ${result.state.day}`,
+    });
     onPlayed(result.state);
     if (result.message) setToast({ tone: "good", text: result.message });
     window.setTimeout(() => {
@@ -174,6 +179,8 @@ export function PlaySeason({
   const trouble = state.compact.members.some((member) => !member.inCompact || member.contentment < 25);
   const faction = factionById(state.player.factionId);
   const hold = holdById(state.player.holdId);
+  const homePeople = state.settlements?.find((item) => item.holdId === state.player.holdId);
+  const homeLaw = EDICTS.find((item) => item.id === homePeople?.edict)?.name ?? "Old custom";
   const cap = state.player.undercroft ? UNDERCROFT_CAP : BASE_CAP;
   const verdictOpen = Boolean(state.outcome && !state.outcomeDismissed);
 
@@ -190,6 +197,11 @@ export function PlaySeason({
               <p className="mt-1 text-xs text-[#f4ead7]/75">
                 Day {state.day} · {seasonLabel(state.day)} · {chapterName(state.campaign?.chapter ?? 1)}
               </p>
+              {homePeople && (
+                <p className="text-[11px] text-[#f4ead7]/75">
+                  {homePeople.souls} souls · mood {homePeople.mood} · {homeLaw}
+                </p>
+              )}
               <span className="mt-1 flex items-center gap-2 text-[11px] text-[#f4ead7]/80">
                 <span>Lv {state.campaign?.level ?? 1}</span>
                 <Progress
@@ -262,6 +274,8 @@ export function PlaySeason({
         {tab === "realm" && (
           <div className="wm-tab flex flex-col gap-3">
             <RealmMap state={state} selected={holdId} onSelect={setHoldId} />
+            <PeopleStrip state={state} onOpen={() => setTab("hold")} />
+            <MarksCard state={state} />
             <ThreatCard state={state} act={act} />
             <ExplorePanel state={state} holdId={holdId} act={act} />
             <MissionList state={state} act={act} />
@@ -303,6 +317,7 @@ export function PlaySeason({
                 )}
               </div>
             </div>
+            <PeoplePanel state={state} act={act} />
             <WorksCard state={state} act={act} />
             <HoldWorks state={state} act={act} />
             <CraftBench state={state} act={act} />
@@ -374,6 +389,7 @@ export function PlaySeason({
               <Icon className="size-5" />
               {item.label}
               {item.id === "compact" && trouble && <span className="absolute top-2 right-[30%] size-2 rounded-full bg-primary" />}
+              {item.id === "hold" && peopleTrouble(state) && <span className="absolute top-2 right-[30%] size-2 rounded-full bg-primary" />}
               {item.id === "road" && state.caravan && <span className="absolute top-2 right-[30%] size-2 rounded-full bg-gold" />}
             </button>
           );
@@ -381,12 +397,13 @@ export function PlaySeason({
       </nav>
 
       <OmenDialog state={state} act={act} />
+      <CrossingDialog state={state} act={act} />
 
       <Dialog open={help} onOpenChange={setHelp}>
         <DialogContent container={frame} className="max-h-[80%] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-display text-2xl">How a season works</DialogTitle>
-            <DialogDescription>Four rules. The rest is judgment.</DialogDescription>
+            <DialogDescription>The season, the road, and the people.</DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-3">
             {RULES.map((rule) => (

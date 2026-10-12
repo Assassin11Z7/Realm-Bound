@@ -1,5 +1,6 @@
 import { emptyBrew } from "./craft";
 import { normalizeCampaign } from "./progress";
+import { normalizeRealm } from "./realm";
 import { WORN_SLOTS, fillGear } from "./world";
 import type { Cutscene, GameState, Gear, GearSlot, GoodId, PotionId, Quest, Rumor } from "./types";
 import { GOODS, HOLD_IDS, LEVY_GOODS } from "./types";
@@ -154,6 +155,7 @@ export function parseSave(raw: string): GameState | null {
       value.campaign,
       value.compact.members.map((member) => member.id).filter((id) => typeof id === "string"),
     );
+    normalizeRealm(value);
     return value;
   } catch {
     return null;

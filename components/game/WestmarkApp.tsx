@@ -82,7 +82,7 @@ function SeasonShell() {
         <p className="mt-5 text-xs tracking-[0.28em] text-[#e6c56e] uppercase">A pocket realm</p>
         <h1 className="mt-2 font-display text-5xl leading-none">Westmark</h1>
         <p className="mt-3 max-w-xs text-base leading-relaxed text-[#f4ead7]/90">
-          A frost-wyrm named Vell watches the northern road. Twelve dawns to feed the wagons, keep your kin, and turn that gold eye away.
+          Twelve dawns to feed the wagons. Vell watches one road. Older things walk the others, and the people in your holds have to be ruled.
         </p>
       </div>
       {loaded.corrupt && (

@@ -28,8 +28,13 @@ import {
   travel,
   advanceScene,
   claimQuest,
+  chooseCrossing,
+  choosePetition,
+  dismissCrossing,
   equipGear,
   sellGear,
+  setEdict,
+  stockSettlement,
   stowGear,
   withdraw,
 } from "./engine";
@@ -38,6 +43,7 @@ import type { FactionId, GameState, GoodId, HoldId, NewGameSetup } from "./types
 import { GOODS, LEVY_GOODS } from "./types";
 import { chooseSkill, setCaptainOrder, startProject } from "./progress";
 import { craft, drinkPotion, storeGear } from "./craft";
+import { creatureCount, forceCrossing, forcePetition } from "./realm";
 import { carryCap, luckOf, rollGear, treasureCount, vaultCap } from "./world";
 
 function setup(partial: Partial<NewGameSetup> = {}): NewGameSetup {
@@ -649,4 +655,120 @@ test("the bag is weighed, the strongroom stores, and the benches craft", () => {
   assert.equal(finished.error, undefined);
   assert.equal(finished.state.campaign.buildings.yard, 1);
   assert.equal(finished.state.campaign.project, null);
+});
+
+test("quiet roads meet other creatures, and ignoring them spends nothing", () => {
+  assert.ok(creatureCount() >= 12);
+  const start = createGame(setup());
+  assert.equal(start.settlements.length, 4);
+  assert.ok(start.settlements.every((item) => item.edict === "custom"));
+  assert.equal(start.crossing, null);
+  assert.equal(start.marks.length, 0);
+  assert.equal(start.settlements[0].souls, 86);
+
+  const day3 = sealed(2);
+  assert.equal(day3.day, 3);
+  assert.equal(day3.omen, null);
+  assert.ok(day3.crossing);
+  assert.equal(day3.marks.length, 0);
+  assert.equal(day3.player.gold, 22);
+  assert.equal(day3.wyrm.ire, 28);
+
+  const passed = dismissCrossing(day3);
+  assert.equal(passed.error, undefined);
+  assert.equal(passed.state.player.gold, 22);
+  assert.equal(passed.state.wyrm.ire, day3.wyrm.ire);
+  assert.equal(passed.state.crossing, null);
+  assert.ok(passed.state.marks.some((mark) => mark.id.endsWith(":pass")));
+  assert.equal(dawnYield(passed.state), dawnYield(day3));
+
+  const ignored = sealDay(day3).state;
+  assert.equal(ignored.day, 4);
+  assert.equal(ignored.omen?.id, "nix");
+  assert.equal(ignored.crossing, null);
+  assert.equal(ignored.player.gold, 22);
+  assert.equal(ignored.wyrm.ire, 33);
+  assert.ok(ignored.marks.some((mark) => mark.id.endsWith(":pass")));
+  assert.equal(ignored.compact.levy.iron, 0);
+});
+
+test("a creature's bargain and a settlement's law stay in force", () => {
+  const start = createGame(setup());
+  start.player.stash.grain = 6;
+  const fed = chooseCrossing(forceCrossing(start, "millwife"), "loaf");
+  assert.equal(fed.error, undefined);
+  assert.equal(fed.state.player.stash.grain, 4);
+  assert.equal(fed.state.player.gold, 22);
+  assert.equal(dawnYield(fed.state), dawnYield(start) + 1);
+  assert.ok(fed.state.marks.some((mark) => mark.id === "millwife:loaf"));
+  const later = sealDay(fed.state).state;
+  assert.equal(dawnYield(later), dawnYield(start) + 1);
+  assert.equal(later.player.gold, 22);
+  assert.ok(later.marks.some((mark) => mark.id === "millwife:loaf"));
+
+  const hunted = chooseCrossing(forceCrossing(createGame(setup()), "lantern-hart"), "hunt");
+  assert.equal(hunted.error, undefined);
+  const trusted = forceCrossing(createGame(setup()), "ash-shepherd");
+  const welcome = trusted.crossing?.choices.find((choice) => choice.id === "welcome");
+  assert.equal(welcome?.branch, "base");
+  const open = chooseCrossing(trusted, "welcome");
+  assert.equal(open.state.settlements.find((item) => item.holdId === "greenmere")?.souls, 98);
+
+  const marked = forceCrossing(hunted.state, "ash-shepherd");
+  const cold = marked.crossing?.choices.find((choice) => choice.id === "welcome");
+  assert.equal(cold?.branch, "alt");
+  const thin = chooseCrossing(marked, "welcome");
+  assert.equal(thin.error, undefined);
+  const beforeSouls = hunted.state.settlements.find((item) => item.holdId === "greenmere")?.souls ?? 0;
+  const home = thin.state.settlements.find((item) => item.holdId === "greenmere");
+  assert.equal(home?.souls, beforeSouls + 6);
+
+  const ruled = setEdict(createGame(setup()), "greenmere", "tithe");
+  assert.equal(ruled.error, undefined);
+  const grain = ruled.state.player.stash.grain;
+  const gold = ruled.state.player.gold;
+  const y = dawnYield(ruled.state, 2);
+  const tithed = sealDay(ruled.state).state;
+  assert.equal(tithed.player.gold, gold);
+  assert.equal(tithed.player.stash.grain, grain + y + 1);
+  assert.equal(tithed.settlements.find((item) => item.holdId === "greenmere")?.edict, "tithe");
+  assert.equal(tithed.wyrm.ire, 23);
+
+  const stocked = stockSettlement(createGame(setup()), "greenmere", "bread", 1);
+  assert.equal(stocked.error, undefined);
+  assert.equal(stocked.state.player.stash.grain, createGame(setup()).player.stash.grain - 1);
+  assert.equal(stocked.state.settlements[0].bread, 28);
+
+  const voices = choosePetition(forcePetition(createGame(setup()), "three-voices"), "bakers");
+  assert.equal(voices.error, undefined);
+  assert.equal(voices.state.petition, null);
+  assert.equal(voices.state.settlements[0].edict, "dole");
+  assert.ok(voices.state.marks.some((mark) => mark.id === "petition:three-voices:bakers"));
+
+  const hag = chooseCrossing(forceCrossing(createGame(setup()), "toll-hag"), "trick");
+  const again = chooseCrossing(forceCrossing(createGame(setup()), "toll-hag"), "trick");
+  assert.equal(hag.error, undefined);
+  assert.equal(hag.fate?.won, again.fate?.won);
+  assert.equal(hag.state.player.gold, 20);
+  assert.ok((hag.fate?.face ?? 0) >= 1 && (hag.fate?.face ?? 0) <= 12);
+
+  const bare = parseSave(
+    JSON.stringify({
+      version: 1,
+      day: 4,
+      player: { holdId: "greenmere", stash: { grain: 1, timber: 0, iron: 0, salt: 0, wool: 0, relics: 0 } },
+      compact: {
+        members: [],
+        hall: { grain: 0, timber: 0, iron: 0, salt: 0, wool: 0, relics: 0 },
+        levy: { grain: 0, iron: 0, salt: 0 },
+        reserve: { grain: 0, iron: 0, salt: 0 },
+      },
+      chronicle: [],
+    }),
+  );
+  assert.ok((bare?.settlements.length ?? 0) >= 1);
+  assert.deepEqual(bare?.marks, []);
+  assert.equal(bare?.crossing, null);
+  assert.equal(bare?.petition, null);
+  assert.equal(bare?.settlements[0].edict, "custom");
 });

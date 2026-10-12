@@ -233,6 +233,63 @@ export interface Threat {
   art: string;
 }
 
+export type EdictId = "custom" | "dole" | "tithe" | "close-rolls" | "open-rolls" | "hearth-rite";
+
+export interface Lasting {
+  yield?: number;
+  goldDawn?: number;
+  moodDawn?: number;
+  breadDecay?: number;
+  hearthDecay?: number;
+  soulDawn?: number;
+  ireDawn?: number;
+  blockGrowth?: boolean;
+}
+
+export interface Settlement {
+  holdId: HoldId;
+  souls: number;
+  mood: number;
+  bread: number;
+  hearth: number;
+  edict: EdictId;
+}
+
+export interface CrossingChoice {
+  id: string;
+  label: string;
+  detail: string;
+  branch: "base" | "alt";
+  gamble?: boolean;
+}
+
+export interface Crossing {
+  id: string;
+  creature: string;
+  title: string;
+  body: string;
+  art: string;
+  disposition: "kind" | "grim";
+  choices: CrossingChoice[];
+}
+
+export interface Mark {
+  id: string;
+  creature: string;
+  choice: string;
+  day: number;
+  summary: string;
+  lasting: Lasting;
+}
+
+export interface Petition {
+  id: string;
+  holdId: HoldId;
+  title: string;
+  body: string;
+  choices: CrossingChoice[];
+}
+
 export interface Campaign {
   level: number;
   xp: number;
@@ -275,6 +332,12 @@ export interface GameState {
   omen: Omen | null;
   omensSeen: string[];
   oathsKept: string[];
+  crossing: Crossing | null;
+  marks: Mark[];
+  creaturesSeen: string[];
+  settlements: Settlement[];
+  petition: Petition | null;
+  petitionsSeen: string[];
   seed: number;
   rumor: Rumor | null;
   surprisesSeen: string[];

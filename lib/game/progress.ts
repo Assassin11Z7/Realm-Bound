@@ -1,4 +1,5 @@
 import { WYRM_NAME, holdById } from "./content";
+import { rememberStance } from "./realm";
 import type {
   BuildingId,
   Campaign,
@@ -40,8 +41,8 @@ export const BUILDINGS: { id: BuildingId; name: string; good: "timber" | "grain"
 
 export const CHAPTERS = [
   { id: 1, name: "The Northern Levy", aim: "Feed the wagons before the twelfth dusk." },
-  { id: 2, name: "The Open Marches", aim: "Raise the hold and give your captains orders." },
-  { id: 3, name: "The Wyrm's Attention", aim: "Build high enough that a second winter cannot surprise you." },
+  { id: 2, name: "The Open Marches", aim: "Raise the hold, answer the road, and give the people a law." },
+  { id: 3, name: "The Old Powers", aim: "Live with what you chose, and keep the people through another winter." },
   { id: 4, name: "The Realm Compact", aim: "Last long enough that the holds answer the banner." },
 ];
 
@@ -58,13 +59,13 @@ const THREATS: Omit<Threat, "id">[] = [
     art: "/art/caravan.jpg",
   },
   {
-    title: "A second wake in the snow",
-    detail: "Not Vell. A younger frost is hunting the high road. It can be bought off, ridden against, or endured.",
-    art: "/art/wyrm-wing.jpg",
+    title: "The barrow hound's pack",
+    detail: "Hounds are working the mounds, and they are not Vell's. Pay them off, send a march, or let the hold take the quarrel.",
+    art: "/art/drake-mine.jpg",
   },
   {
     title: "The ford is down",
-    detail: "Water took the crossing. Coin hires a crew. A captain can force the span. Waiting feeds the wyrm's patience.",
+    detail: "Water took the crossing. Coin hires a crew. A captain can force the span. Waiting leaves the carts in the mud.",
     art: "/art/hold-greenmere.jpg",
   },
   {
@@ -81,6 +82,21 @@ const THREATS: Omit<Threat, "id">[] = [
     title: "A deepwood claim",
     detail: "Riders out of Ashfold say the timber east of the road is theirs. Settle it.",
     art: "/art/hold-ashfold.jpg",
+  },
+  {
+    title: "The drowned choir at the pans",
+    detail: "Voices under the salt are pulling carts off the track. Pay, ride, or endure them.",
+    art: "/art/serpent.jpg",
+  },
+  {
+    title: "A column of the unsworn",
+    detail: "People without a banner are camping on the wool road. Coin, a captain, or a closed gate.",
+    art: "/art/caravan.jpg",
+  },
+  {
+    title: "The banner widow's riders",
+    detail: "She says a seat was promised. The riders will take a fee, a fight, or a slight.",
+    art: "/art/hold-woolford.jpg",
   },
 ];
 
@@ -122,7 +138,9 @@ function missionList(): Mission[] {
     { id: "build", chapter: 2, title: "Raise the hold", detail: "Finish one work. It completes at the next dawn.", need: 1, progress: 0, status: "open", rewardGold: 12, rewardXp: 6 },
     { id: "march", chapter: 2, title: "Send a captain", detail: "A march that returns counts. Set the order, then seal the day.", need: 1, progress: 0, status: "open", rewardGold: 8, rewardXp: 6 },
     { id: "day20", chapter: 2, title: "See the second thaw", detail: "Still be sealing dawns on day 20.", need: 20, progress: 1, status: "open", rewardGold: 14, rewardXp: 8 },
-    { id: "hunt", chapter: 2, title: "Hunt the frost", detail: "A captain's hunt that finds its mark.", need: 1, progress: 0, status: "open", rewardGold: 10, rewardXp: 6 },
+    { id: "hunt", chapter: 2, title: "A successful hunt", detail: "A captain's hunt that finds its mark.", need: 1, progress: 0, status: "open", rewardGold: 10, rewardXp: 6 },
+    { id: "creature", chapter: 2, title: "Answer the road", detail: "Strike a bargain with a creature. Letting them pass does not count.", need: 1, progress: 0, status: "open", rewardGold: 8, rewardXp: 6 },
+    { id: "law", chapter: 2, title: "Set a law", detail: "Change one settlement off the old custom.", need: 1, progress: 0, status: "open", rewardGold: 8, rewardXp: 4 },
     { id: "level6", chapter: 3, title: "A name on the road", detail: "Reach level 6.", need: 6, progress: 1, status: "open", rewardGold: 16, rewardXp: 0 },
     { id: "high", chapter: 3, title: "Build to the ridge", detail: "Any work at level 3.", need: 3, progress: 0, status: "open", rewardGold: 18, rewardXp: 8 },
     { id: "skills", chapter: 3, title: "Three disciplines", detail: "Keep three skills.", need: 3, progress: 0, status: "open", rewardGold: 12, rewardXp: 6 },
@@ -298,6 +316,10 @@ function measured(state: GameState, id: string): number {
       return (state.pack ?? []).some((gear) => gear.rarity === "relic") ? 1 : 0;
     case "two-high":
       return atThree;
+    case "creature":
+      return (state.marks ?? []).some((mark) => !mark.id.endsWith(":pass") && !mark.id.startsWith("petition:") && !mark.id.startsWith("road:")) ? 1 : 0;
+    case "law":
+      return (state.settlements ?? []).some((item) => item.edict && item.edict !== "custom") ? 1 : 0;
     default:
       return 0;
   }
@@ -485,7 +507,9 @@ export function setCaptainOrder(state: GameState, memberId: string, order: Capta
 }
 
 function clearThreat(state: GameState, line: string): Result {
+  const title = state.campaign.threat?.title ?? "The road";
   const next = structuredClone(state);
+  rememberStance(next, `road:${title}:ended`, title, `You met ${title} and did not buy it off.`);
   next.campaign.threat = null;
   next.campaign.threatsFaced += 1;
   note(next, line);
@@ -502,6 +526,7 @@ export function payThreat(state: GameState): Result {
   next.player.gold -= 6;
   next.campaign.threat = null;
   next.campaign.threatsFaced += 1;
+  rememberStance(next, `road:${title}:paid`, title, `You paid ${title} to move on. The hold still tells it.`);
   const line = `You paid 6 gold and ${title.toLowerCase()} moved on.`;
   note(next, line);
   for (const extra of grantXp(next, 3)) note(next, extra);
@@ -528,6 +553,7 @@ export function rideThreat(state: GameState): Result {
   next.campaign.threat = null;
   next.campaign.threatsFaced += 1;
   next.campaign.marches += 1;
+  rememberStance(next, `road:${threat.title}:rode`, threat.title, `${rider.name} broke ${threat.title}. The road stays marked by it.`);
   const line = `${rider.name} broke ${threat.title.toLowerCase()} and brought back ${gold} gold.`;
   note(next, line);
   for (const extra of grantXp(next, 5)) note(next, extra);
@@ -546,7 +572,8 @@ export function endureThreat(state: GameState): Result {
   }
   next.campaign.threat = null;
   next.campaign.threatsFaced += 1;
-  const line = `You let ${title.toLowerCase()} pass. ${WYRM_NAME} felt the quarrel.`;
+  rememberStance(next, `road:${title}:endured`, title, `You let ${title} pass. The holds felt the quarrel.`);
+  const line = `You let ${title.toLowerCase()} pass. The holds felt the quarrel, and the mountain heard it.`;
   note(next, line);
   syncCampaign(next);
   return ok(next, line);

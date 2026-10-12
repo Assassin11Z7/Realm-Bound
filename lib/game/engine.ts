@@ -40,11 +40,26 @@ import {
 } from "./content";
 import { emptyBrew } from "./craft";
 import { applyDawnProgress, blankCampaign, grantXp, syncCampaign } from "./progress";
+import {
+  blankSettlements,
+  chooseCrossing as answerCrossing,
+  choosePetition as answerPetition,
+  clearUnansweredCrossing,
+  dismissCrossing as passCrossing,
+  offerCrossing,
+  offerPetition,
+  realmIreDelta,
+  realmYieldBonus,
+  setEdict as enactEdict,
+  stockSettlement as sendStores,
+  tickSettlements,
+} from "./realm";
 import { bumpQuest, carryCap, carriedWeight, gearWeight, loreBonus, luckOf, openingQuests, openingScene, purseBonus, rewardScene, roadFind, starterCloak, wardBonus } from "./world";
 import { GOODS, LEVY_GOODS } from "./types";
 import type {
   BarterOffer,
   Caravan,
+  EdictId,
   FactionId,
   GameState,
   GoodId,
@@ -105,6 +120,7 @@ export function dawnYield(state: GameState, day = state.day): number {
   if (state.works.mill) qty += 1;
   qty += state.campaign?.buildings.yard ?? 0;
   if (state.campaign?.skills.includes("stores")) qty += 1;
+  qty += realmYieldBonus(state);
   return qty;
 }
 
@@ -623,6 +639,7 @@ export function createGame(setup: NewGameSetup): GameState {
   const compactName = cleanName(setup.compactName, 28);
   const hold = holdById(setup.holdId);
   const faction = factionById(setup.factionId);
+  const sworn = pickOathbound(setup.holdId);
   const state: GameState = {
     version: 1,
     day: 1,
@@ -644,7 +661,7 @@ export function createGame(setup: NewGameSetup): GameState {
       hall: emptyStash(),
       levy: { grain: 0, iron: 0, salt: 0 },
       reserve: { grain: 0, iron: 0, salt: 0 },
-      members: pickOathbound(setup.holdId).map(makeMember),
+      members: sworn.map(makeMember),
     },
     caravan: null,
     npcOffers: [],
@@ -660,6 +677,12 @@ export function createGame(setup: NewGameSetup): GameState {
     omen: null,
     omensSeen: [],
     oathsKept: [],
+    crossing: null,
+    marks: [],
+    creaturesSeen: [],
+    settlements: blankSettlements(setup.holdId, sworn, 1),
+    petition: null,
+    petitionsSeen: [],
     seed: seasonSeed(name || "Ash", setup.holdId, setup.factionId),
     rumor: null,
     surprisesSeen: [],
@@ -695,7 +718,7 @@ export function createGame(setup: NewGameSetup): GameState {
   if (dawn.length) note(state, dawn.join(" "));
   note(
     state,
-    `${WYRM_NAME} the frost-wyrm roosts above the pale mountains. The levy is the first chapter: ${LEVY_TARGET.grain} grain, ${LEVY_TARGET.iron} iron, and ${LEVY_TARGET.salt} salt before the twelfth dusk. After that the realm stays open. Level, raise the hold, and order your captains.`,
+    `The levy is the first chapter: ${LEVY_TARGET.grain} grain, ${LEVY_TARGET.iron} iron, and ${LEVY_TARGET.salt} salt before the twelfth dusk. ${WYRM_NAME} is in the mountains, and other powers walk the road. The people of ${hold.name} have to be fed. After the wagons, the realm stays open.`,
   );
   return state;
 }
@@ -983,6 +1006,8 @@ export function sealDay(state: GameState): Result {
     lines.push(`${next.omen.creature} went unanswered.`);
     next.omen = null;
   }
+  const leftBehind = clearUnansweredCrossing(next);
+  if (leftBehind) lines.push(leftBehind);
 
   let ireStep = next.works.stake ? IRE_STEP_STAKED : IRE_STEP;
   if (next.campaign?.skills.includes("truce")) ireStep = Math.max(1, ireStep - 1);
@@ -1006,6 +1031,8 @@ export function sealDay(state: GameState): Result {
   }
 
   next.day = nextDay;
+  const ireDelta = realmIreDelta(next);
+  if (ireDelta) next.wyrm.ire = Math.max(0, Math.min(100, next.wyrm.ire + ireDelta));
   next.rumor = rumorFor(next.seed ?? 0, next.day);
   const omenId = OMEN_ON_DAY[next.day];
   if (omenId && !next.omensSeen.includes(omenId)) {
@@ -1020,13 +1047,22 @@ export function sealDay(state: GameState): Result {
       lines.push(`${surprise.creature} is at the gate.`);
     }
   }
+  if (!next.omen) {
+    const arrived = offerCrossing(next);
+    if (arrived) lines.push(arrived);
+  }
+  lines.push(...tickSettlements(next));
+  if (!next.omen && !next.crossing) {
+    const asked = offerPetition(next);
+    if (asked) lines.push(asked);
+  }
   if (next.tonics?.purse) {
     next.tonics.purse = false;
     lines.push("The purse tincture fades with the dusk.");
   }
   lines.push(...applyDawnProgress(next));
 
-  if (!next.omen) {
+  if (!next.omen && !next.crossing && !next.petition) {
     const whisper = kinWhisper(
       next.seed ?? 0,
       next.day,
@@ -1039,6 +1075,8 @@ export function sealDay(state: GameState): Result {
 
   let message = `Day ${next.day} begins. ${lines[lines.length - 1]}`;
   if (next.omen) message = `${next.omen.creature} is at the gate. ${message}`;
+  else if (next.crossing) message = `${next.crossing.creature} is on the road. ${message}`;
+  else if (next.petition) message = `${next.petition.title}. ${message}`;
   if (next.outcome === "lost" && !next.outcomeDismissed && next.day === SEASON_DAYS + 1) {
     message = `${WYRM_NAME} came down the road. The levy was short, and the frost had teeth. You can still winter on.`;
   }
@@ -1370,4 +1408,29 @@ function worldRoll(seed: number, day: number, salt: number) {
 
 export function caravanPresent(caravan: Caravan | null): caravan is Caravan {
   return caravan !== null;
+}
+
+function remembered(result: Result): Result {
+  if (!result.error) syncCampaign(result.state);
+  return result;
+}
+
+export function chooseCrossing(state: GameState, choiceId: string): Result {
+  return remembered(answerCrossing(state, choiceId));
+}
+
+export function dismissCrossing(state: GameState): Result {
+  return remembered(passCrossing(state));
+}
+
+export function choosePetition(state: GameState, choiceId: string): Result {
+  return remembered(answerPetition(state, choiceId));
+}
+
+export function setEdict(state: GameState, holdId: HoldId, edict: EdictId): Result {
+  return remembered(enactEdict(state, holdId, edict));
+}
+
+export function stockSettlement(state: GameState, holdId: HoldId, kind: "bread" | "hearth", qty: number): Result {
+  return remembered(sendStores(state, holdId, kind, qty));
 }
