@@ -548,7 +548,7 @@ export function PlaySeason({
             <DialogDescription>
               {state.outcome === "held" &&
                 `The wagons moved, and ${WYRM_NAME} turned back. That was the first chapter. Your level, the hold, and the captains stay with you.`}
-              {state.outcome === "held-late" && `The marchers will remember the delay. The realm does not end here. Keep sealing dawns.`}
+              {state.outcome === "held-late" && `The wagon drivers will remember the delay. The realm does not end here. Keep sealing dawns.`}
               {state.outcome === "lost" && `${WYRM_NAME} came down the road. The levy was short. Winter on, raise the hold, and order the captains. The banner is still yours.`}
             </DialogDescription>
           </DialogHeader>
@@ -573,7 +573,7 @@ export function PlaySeason({
           </p>
           <DialogFooter>
             <Button type="button" className="h-11" onClick={() => act(dismissOutcome(state))}>
-              {state.outcome === "lost" ? "Winter on" : "Open the marches"}
+              {state.outcome === "lost" ? "Winter on" : "Keep the realm"}
             </Button>
             <Button type="button" variant="outline" className="h-11" onClick={() => leave(onAbandon)}>
               New season
