@@ -163,7 +163,7 @@ export function CreateSeason({
           <div className="flex flex-col gap-3">
             <h2 className="font-display text-3xl leading-tight">Where do you plant it?</h2>
             <p className="text-sm leading-relaxed text-muted-foreground">
-              Greenmere is the clearest first hold: you can feed the levy&apos;s grain yourself. Woolford and Vesper must trade for almost everything.
+              Greenmere is the clearest first hold: you can feed the levy&apos;s grain yourself. Woolford and Vesper must trade for almost everything. Each land keeps a creature of its own.
             </p>
             {HOLDS.map((hold) => {
               const selected = hold.id === holdId;
@@ -173,14 +173,18 @@ export function CreateSeason({
                   type="button"
                   aria-pressed={selected}
                   onClick={() => chooseHold(hold.id)}
-                  className={`rounded-2xl p-4 text-left ring-1 ${selected ? "bg-accent ring-gold" : "bg-card ring-foreground/10"}`}
+                  className={`overflow-hidden rounded-2xl text-left ring-1 ${selected ? "bg-accent ring-gold" : "bg-card ring-foreground/10"}`}
                 >
-                  <span className="flex items-baseline justify-between gap-3">
-                    <span className="font-display text-xl">{hold.name}</span>
-                    <span className="text-xs text-muted-foreground">{hold.region}</span>
-                  </span>
-                  <span className="mt-1 block text-sm">
-                    Grows {hold.produces}. Hungers for {hold.needs.join(" and ")}.
+                  <img src={`/art/hold-${hold.id}.jpg`} alt="" className="h-24 w-full object-cover" />
+                  <span className="block p-4">
+                    <span className="flex items-baseline justify-between gap-3">
+                      <span className="font-display text-xl">{hold.name}</span>
+                      <span className="text-xs text-muted-foreground">{hold.region}</span>
+                    </span>
+                    <span className="mt-1 block text-sm">
+                      Grows {hold.produces}. Hungers for {hold.needs.join(" and ")}.
+                    </span>
+                    <span className="mt-2 block text-sm leading-relaxed text-[#3d4a62]">{hold.myth}</span>
                   </span>
                 </button>
               );
@@ -257,7 +261,7 @@ export function CreateSeason({
             </label>
             <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
               <p className="text-sm">
-                These three will take the oath. The road wants {LEVY_TARGET.grain} grain, {LEVY_TARGET.iron} iron, and {LEVY_TARGET.salt} salt by the twelfth dusk.
+                These three will take the oath. The road wants {LEVY_TARGET.grain} grain, {LEVY_TARGET.iron} iron, and {LEVY_TARGET.salt} salt by the twelfth dusk. If the wagons have not moved, Vell comes down the road.
               </p>
               <ul className="mt-3 flex flex-col gap-2 text-sm">
                 {oathbound.map((hold) => (

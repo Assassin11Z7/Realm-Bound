@@ -88,6 +88,34 @@ export interface ChronicleEntry {
   text: string;
 }
 
+export interface WyrmState {
+  ire: number;
+  tribute: number;
+}
+
+export interface Works {
+  mill: boolean;
+  shrine: boolean;
+  stake: boolean;
+}
+
+export interface OmenChoice {
+  id: string;
+  label: string;
+  detail: string;
+}
+
+export type OmenArt = "drake" | "nix" | "wing" | "antler" | "serpent" | "speaks";
+
+export interface Omen {
+  id: string;
+  creature: string;
+  title: string;
+  body: string;
+  art: OmenArt;
+  choices: OmenChoice[];
+}
+
 export type Outcome = "held" | "held-late" | "lost";
 
 export interface Player {
@@ -132,6 +160,11 @@ export interface GameState {
     bought: number;
     sold: number;
   };
+  wyrm: WyrmState;
+  works: Works;
+  omen: Omen | null;
+  omensSeen: string[];
+  oathsKept: string[];
 }
 
 export interface NewGameSetup {

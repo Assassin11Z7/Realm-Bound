@@ -52,6 +52,11 @@ export function parseSave(raw: string): GameState | null {
       if (typeof value.compact.levy?.[good] !== "number") return null;
       if (typeof value.compact.reserve?.[good] !== "number") return null;
     }
+    if (!value.wyrm) value.wyrm = { ire: 18, tribute: 0 };
+    if (!value.works) value.works = { mill: false, shrine: false, stake: false };
+    if (!value.omen) value.omen = null;
+    if (!Array.isArray(value.omensSeen)) value.omensSeen = [];
+    if (!Array.isArray(value.oathsKept)) value.oathsKept = [];
     return value;
   } catch {
     return null;

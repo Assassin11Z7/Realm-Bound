@@ -22,6 +22,7 @@ import {
   RULES,
   UNDERCROFT_CAP,
   UNDERCROFT_COST,
+  WYRM_NAME,
   contentWord,
   factionById,
   holdById,
@@ -35,11 +36,11 @@ import {
   buy,
   buyPrice,
   cancelOffer,
+  dawnYield,
   deposit,
   dismissOutcome,
   gift,
   offerRelic,
-  playerYieldQty,
   pledgeFromHall,
   pledgePersonal,
   pledgeRoadShare,
@@ -54,8 +55,10 @@ import {
 } from "@/lib/game/engine";
 import type { GameState, GoodId, HoldId, LevyGood, Result } from "@/lib/game/types";
 import { GOODS, LEVY_GOODS } from "@/lib/game/types";
+import { GoodThumb, Portrait } from "./art";
 import { useFrame } from "./frame";
-import { BannerMark, GoodIcon } from "./marks";
+import { BannerMark } from "./marks";
+import { OathRow, OmenDialog, WorksCard, WyrmCard } from "./Myth";
 import { HoldBrief, RealmMap } from "./RealmMap";
 
 type Tab = "realm" | "hold" | "compact" | "road";
@@ -149,51 +152,65 @@ export function PlaySeason({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="px-4 pt-3">
-        <div className="flex items-center gap-3">
-          <BannerMark banner={state.player.banner} className="h-12 w-10 shrink-0" title={`${state.player.title} ${state.player.name}'s banner`} />
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate font-display text-xl leading-none">{state.compact.name}</h1>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Day {state.day} · {seasonLabel(state.day)} · {renownTitle(state.player.renown)}
+      <header className="relative text-[#f4ead7]">
+        <img src={`/art/hold-${hold.id}.jpg`} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#1c1612]/50 via-[#1c1612]/45 to-[#1c1612]" />
+        <div className="relative px-4 pt-3 pb-3">
+          <div className="flex items-center gap-3">
+            <BannerMark banner={state.player.banner} className="h-12 w-10 shrink-0" title={`${state.player.title} ${state.player.name}'s banner`} />
+            <div className="min-w-0 flex-1">
+              <h1 className="truncate font-display text-xl leading-none">{state.compact.name}</h1>
+              <p className="mt-1 text-xs text-[#f4ead7]/75">
+                Day {state.day} · {seasonLabel(state.day)} · {renownTitle(state.player.renown)}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="font-display text-xl leading-none text-[#e6c56e]">{state.player.gold}g</p>
+              <p className="mt-1 text-[11px] text-[#f4ead7]/70">{state.player.renown} renown</p>
+            </div>
+          </div>
+          <div className="mt-2 flex gap-2">
+            <IconButton label="Chronicle" onClick={() => setChronicle(true)} tone="night">
+              <BookOpen className="size-4" />
+            </IconButton>
+            <IconButton label="How a season works" onClick={() => setHelp(true)} tone="night">
+              <CircleHelp className="size-4" />
+            </IconButton>
+            <IconButton label="Season menu" onClick={() => setMenu(true)} tone="night">
+              <Ellipsis className="size-4" />
+            </IconButton>
+            <p className="ml-auto self-center truncate text-xs text-[#f4ead7]/75">
+              {state.player.title} {state.player.name}
             </p>
           </div>
-          <div className="text-right">
-            <p className="font-display text-xl leading-none text-gold">{state.player.gold}g</p>
-            <p className="mt-1 text-[11px] text-muted-foreground">{state.player.renown} renown</p>
-          </div>
-        </div>
-        <div className="mt-2 flex gap-2">
-          <IconButton label="Chronicle" onClick={() => setChronicle(true)}>
-            <BookOpen className="size-4" />
-          </IconButton>
-          <IconButton label="How a season works" onClick={() => setHelp(true)}>
-            <CircleHelp className="size-4" />
-          </IconButton>
-          <IconButton label="Season menu" onClick={() => setMenu(true)}>
-            <Ellipsis className="size-4" />
-          </IconButton>
-          <p className="ml-auto self-center truncate text-xs text-muted-foreground">
-            {state.player.title} {state.player.name}
-          </p>
-        </div>
-        <button type="button" className="mt-3 grid w-full grid-cols-3 gap-2 text-left" onClick={() => setTab("compact")}>
-          {LEVY_GOODS.map((item) => {
-            const have = state.compact.levy[item];
-            const target = LEVY_TARGET[item];
-            return (
-              <span key={item} className="min-w-0">
-                <span className="flex justify-between text-[11px]">
-                  <span>{GOOD_LABEL[item]}</span>
-                  <span>
-                    {have}/{target}
+          <button type="button" className="mt-3 grid w-full grid-cols-3 gap-2 text-left" onClick={() => setTab("compact")}>
+            {LEVY_GOODS.map((item) => {
+              const have = state.compact.levy[item];
+              const target = LEVY_TARGET[item];
+              return (
+                <span key={item} className="min-w-0">
+                  <span className="flex justify-between text-[11px]">
+                    <span>{GOOD_LABEL[item]}</span>
+                    <span>
+                      {have}/{target}
+                    </span>
                   </span>
+                  <Progress value={Math.min(100, (have / target) * 100)} className="mt-1 h-1.5 bg-white/20" />
                 </span>
-                <Progress value={Math.min(100, (have / target) * 100)} className="mt-1 h-1.5" />
+              );
+            })}
+          </button>
+          <button type="button" className="mt-2 flex w-full items-center gap-2 text-left" onClick={() => setTab("realm")}>
+            <img src="/art/wyrm-vell.jpg" alt="" className="size-8 rounded-full object-cover ring-1 ring-[#e6c56e]" />
+            <span className="min-w-0 flex-1">
+              <span className="flex justify-between text-[11px]">
+                <span>{WYRM_NAME}</span>
+                <span>ire {state.wyrm.ire}</span>
               </span>
-            );
-          })}
-        </button>
+              <Progress value={state.wyrm.ire} className="mt-1 h-1.5 bg-white/20" />
+            </span>
+          </button>
+        </div>
       </header>
 
       <div aria-live="polite" className="px-4">
@@ -209,6 +226,7 @@ export function PlaySeason({
           <div className="flex flex-col gap-3">
             <RealmMap state={state} selected={holdId} onSelect={setHoldId} />
             <HoldBrief state={state} holdId={holdId} />
+            <WyrmCard state={state} act={act} />
             <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
               <p className="text-xs tracking-wide text-muted-foreground uppercase">This morning</p>
               <ul className="mt-2 flex flex-col gap-2 text-sm leading-relaxed">
@@ -222,27 +240,36 @@ export function PlaySeason({
 
         {tab === "hold" && (
           <div className="flex flex-col gap-3">
-            <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
-              <p className="font-display text-2xl">{hold.name}</p>
-              <p className="mt-1 text-sm leading-relaxed">
-                Sealing the day brings {playerYieldQty(state.player.factionId, state.player.holdId, state.day)} {hold.produces}. {faction.bonus}
-              </p>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Undercroft {stashCount(state.player.stash)}/{cap}
-                {state.day > 12 ? " · Deep winter has thinned the yield." : ""}
-              </p>
-              {!state.player.undercroft && (
-                <Button type="button" variant="outline" className="mt-3 h-11" onClick={() => act(raiseUndercroft(state))}>
-                  Raise the undercroft · {UNDERCROFT_COST}g
-                </Button>
-              )}
+            <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/10">
+              <div className="relative h-32">
+                <img src={`/art/hold-${hold.id}.jpg`} alt="" className="h-full w-full object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/75 to-transparent" />
+                <p className="absolute right-4 bottom-3 left-4 font-display text-2xl text-[#f4ead7]">{hold.name}</p>
+              </div>
+              <div className="p-4">
+                <p className="text-sm leading-relaxed">
+                  Sealing the day brings {dawnYield(state)} {hold.produces}.
+                  {state.works.mill ? " The mill is in that count." : ""} {faction.bonus}
+                </p>
+                <p className="mt-2 text-sm leading-relaxed text-[#3d4a62]">{hold.myth}</p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Undercroft {stashCount(state.player.stash)}/{cap}
+                  {state.day > 12 ? " · Deep winter has thinned the yield." : ""}
+                </p>
+                {!state.player.undercroft && (
+                  <Button type="button" variant="outline" className="mt-3 h-11" onClick={() => act(raiseUndercroft(state))}>
+                    Raise the undercroft · {UNDERCROFT_COST}g
+                  </Button>
+                )}
+              </div>
             </div>
+            <WorksCard state={state} act={act} />
             <AmountPicker amount={amount} onChange={setAmount} />
             <div className="flex flex-col gap-2">
               {GOODS.map((item) => (
                 <div key={item} className={`rounded-2xl ring-1 ${good === item ? "bg-accent ring-gold" : "bg-card ring-foreground/10"}`}>
                   <button type="button" className="flex min-h-12 w-full items-center gap-3 px-3 text-left" onClick={() => setGood(item)} aria-pressed={good === item}>
-                    <GoodIcon good={item} />
+                    <GoodThumb good={item} />
                     <span className="flex-1 text-sm">{GOOD_LABEL[item]}</span>
                     <span className="font-display text-xl">{state.player.stash[item]}</span>
                   </button>
@@ -310,6 +337,8 @@ export function PlaySeason({
           );
         })}
       </nav>
+
+      <OmenDialog state={state} act={act} />
 
       <Dialog open={help} onOpenChange={setHelp}>
         <DialogContent container={frame} className="max-h-[80%] overflow-y-auto">
@@ -417,7 +446,7 @@ export function PlaySeason({
                 }}
               >
                 <span className="flex items-center gap-2">
-                  <GoodIcon good={item} className="size-5" />
+                  <GoodThumb good={item} className="size-6" />
                   {GOOD_LABEL[item]}
                 </span>
                 <span>{state.player.stash[item]}</span>
@@ -439,14 +468,15 @@ export function PlaySeason({
         <DialogContent container={frame} className="max-h-[85%] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-display text-2xl">
-              {state.outcome === "held" && "The road will hold"}
-              {state.outcome === "held-late" && "Late, but open"}
-              {state.outcome === "lost" && "The frost took the road"}
+              {state.outcome === "held" && "Wagons moved"}
+              {state.outcome === "held-late" && "Late, but the wing turned"}
+              {state.outcome === "lost" && `${WYRM_NAME} came down the road`}
             </DialogTitle>
             <DialogDescription>
-              {state.outcome === "held" && "The northern road is provisioned. Wagons can move before the frost."}
-              {state.outcome === "held-late" && "The marchers will remember the delay. The road is open all the same."}
-              {state.outcome === "lost" && "The twelfth dusk came in short. You can winter on. Yields thin, and the caravan grows dear."}
+              {state.outcome === "held" &&
+                `The northern road is provisioned, and ${WYRM_NAME} turned back into the snow.${state.wyrm.ire < 30 ? " Vell was fed, and almost gentle." : ""}`}
+              {state.outcome === "held-late" && `The marchers will remember the delay. ${WYRM_NAME} turned with the wagons all the same.`}
+              {state.outcome === "lost" && `${WYRM_NAME} came down the road. The levy was short, and the frost had teeth. You can still winter on.`}
             </DialogDescription>
           </DialogHeader>
           {state.outcome === "lost" && (
@@ -553,7 +583,7 @@ function CompactPanel({
         {GOODS.map((item) => (
           <div key={item} className={`rounded-2xl ring-1 ${hallGood === item ? "bg-accent ring-gold" : "bg-card ring-foreground/10"}`}>
             <button type="button" className="flex min-h-12 w-full items-center gap-3 px-3 text-left" aria-pressed={hallGood === item} onClick={() => setHallGood(item)}>
-              <GoodIcon good={item} />
+              <GoodThumb good={item} />
               <span className="flex-1 text-sm">Hall {GOOD_LABEL[item].toLowerCase()}</span>
               <span className="font-display text-xl">{state.compact.hall[item]}</span>
             </button>
@@ -597,8 +627,9 @@ function CompactPanel({
           const home = holdById(member.holdId);
           return (
             <div key={member.id} className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
-              <div className="flex items-start justify-between gap-3">
-                <div>
+              <div className="flex items-start gap-3">
+                <Portrait holdId={member.holdId} className="size-12" />
+                <div className="min-w-0 flex-1">
                   <p className="font-display text-lg leading-tight">{member.name}</p>
                   <p className="text-xs text-muted-foreground">
                     {home.name} · {PERSONALITY_LABEL[member.personality]} · {contentWord(member.contentment, member.inCompact)}
@@ -610,6 +641,7 @@ function CompactPanel({
                   </Button>
                 )}
               </div>
+              <OathRow state={state} memberId={member.id} act={act} />
               <Progress value={member.contentment} className="mt-3 h-1.5" />
               <p className="mt-2 text-sm text-muted-foreground">{member.lastNote}</p>
             </div>
@@ -631,15 +663,20 @@ function RoadPanel({ state, act }: { state: GameState; act: (result: Result) => 
     <div className="flex flex-col gap-3">
       <p className="text-sm text-muted-foreground">{seasonNote(state.day)}</p>
       {state.caravan ? (
-        <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
-          <p className="font-display text-2xl">The caravan</p>
-          <p className="mt-1 text-sm text-muted-foreground">
+        <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/10">
+          <div className="relative h-28">
+            <img src="/art/caravan.jpg" alt="" className="h-full w-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+            <p className="absolute right-4 bottom-3 left-4 font-display text-2xl text-[#f4ead7]">The caravan</p>
+          </div>
+          <div className="p-4">
+          <p className="text-sm text-muted-foreground">
             {visitKey(state.day + 1) !== null ? "It stays through tomorrow, then the road goes quiet." : "It leaves at dusk."}
           </p>
           <ul className="mt-3 flex flex-col gap-3">
             {GOODS.map((item) => (
               <li key={item} className="flex items-center gap-2">
-                <GoodIcon good={item} className="size-6" />
+                <GoodThumb good={item} className="size-8" />
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm">{GOOD_LABEL[item]}</span>
                   <span className="block text-[11px] text-muted-foreground">
@@ -655,13 +692,20 @@ function RoadPanel({ state, act }: { state: GameState; act: (result: Result) => 
               </li>
             ))}
           </ul>
+          </div>
         </div>
       ) : (
-        <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
-          <p className="font-display text-2xl">The road is empty</p>
-          <p className="mt-2 text-sm leading-relaxed">
+        <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/10">
+          <div className="relative h-28">
+            <img src="/art/caravan.jpg" alt="" className="h-full w-full object-cover brightness-75" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/75 to-transparent" />
+            <p className="absolute right-4 bottom-3 left-4 font-display text-2xl text-[#f4ead7]">The road is empty</p>
+          </div>
+          <div className="p-4">
+          <p className="text-sm leading-relaxed">
             No wheels today.{market ? ` The caravan returns on day ${market}.` : ""} Until then the compact is your market.
           </p>
+          </div>
         </div>
       )}
 
@@ -754,9 +798,20 @@ function AmountPicker({ amount, onChange }: { amount: Amount; onChange: (amount:
   );
 }
 
-function IconButton({ children, label, onClick }: { children: React.ReactNode; label: string; onClick: () => void }) {
+function IconButton({
+  children,
+  label,
+  onClick,
+  tone = "day",
+}: {
+  children: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  tone?: "day" | "night";
+}) {
+  const face = tone === "night" ? "bg-black/40 text-[#f4ead7] ring-white/30" : "bg-card ring-border";
   return (
-    <button type="button" aria-label={label} onClick={onClick} className="flex size-10 items-center justify-center rounded-full bg-card ring-1 ring-border">
+    <button type="button" aria-label={label} onClick={onClick} className={`flex size-10 items-center justify-center rounded-full ring-1 ${face}`}>
       {children}
     </button>
   );

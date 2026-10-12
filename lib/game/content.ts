@@ -4,6 +4,7 @@ import type {
   GoodId,
   HoldId,
   LevyGood,
+  Omen,
   Personality,
   SigilId,
   Stash,
@@ -189,6 +190,7 @@ export interface Hold {
   produces: GoodId;
   needs: GoodId[];
   text: string;
+  myth: string;
   lord: string;
   epithet: string;
   personality: Personality;
@@ -204,6 +206,7 @@ export const HOLDS: Hold[] = [
     produces: "iron",
     needs: ["grain", "salt"],
     text: "The mines sweat rust-water. Bread and salt come from lower country, or they do not come.",
+    myth: "A mine-drake nests under the terraces. When the snow deepens, it answers to Vell.",
     lord: "Osric Venn",
     epithet: "mine-lord",
     personality: "lean",
@@ -217,6 +220,7 @@ export const HOLDS: Hold[] = [
     produces: "timber",
     needs: ["grain", "iron"],
     text: "A forest that burned in a grandfather's war and came back meaner. The axes go quiet without iron.",
+    myth: "The antlered one walks the regrown wood and keeps count of every careless axe.",
     lord: "Torin Ash",
     epithet: "wood-warden",
     personality: "generous",
@@ -230,6 +234,7 @@ export const HOLDS: Hold[] = [
     produces: "grain",
     needs: ["iron", "salt"],
     text: "The best bread-land in the Westmark, and the first to go short of iron when a plow breaks.",
+    myth: "A nix stands in the millrace at dusk and will trade grain for stranger gifts.",
     lord: "Alda Fenn",
     epithet: "river-reeve",
     personality: "steady",
@@ -243,6 +248,7 @@ export const HOLDS: Hold[] = [
     produces: "salt",
     needs: ["timber", "grain"],
     text: "Pans, racks, and a wind that pickles the air. The salters trade salt for timber and bread.",
+    myth: "A slate serpent patrols the pans. The salters leave it the first rake of the day.",
     lord: "Mira Calder",
     epithet: "salter",
     personality: "generous",
@@ -256,6 +262,7 @@ export const HOLDS: Hold[] = [
     produces: "relics",
     needs: ["grain", "timber"],
     text: "A monastery that sells the past to pay for bread. One relic a dawn, when the keeper is honest.",
+    myth: "The cloister keeps a dragon-skull older than its saints, and the skull still dreams.",
     lord: "Caldus Ree",
     epithet: "relic-keeper",
     personality: "lean",
@@ -269,6 +276,7 @@ export const HOLDS: Hold[] = [
     produces: "wool",
     needs: ["grain", "salt"],
     text: "Flocks the color of dirty snow. Wool buys what the hills refuse to grow.",
+    myth: "The flocks go still when Vell's wing shadows the hills.",
     lord: "Nell Weaver",
     epithet: "flock-keep",
     personality: "steady",
@@ -344,9 +352,9 @@ export function seasonNote(day: number): string {
     case "harvest":
       return "The meads are in. Grain is cheap.";
     case "frost":
-      return "Frost on the road. Bread and iron cost more.";
+      return "Frost on the road. Bread and iron cost more, and Vell is listening.";
     case "deepwinter":
-      return "Deep winter. Yields thin, and the caravan knows it.";
+      return "Deep winter. Yields thin, and the wyrm has already come down once.";
   }
 }
 
@@ -385,7 +393,13 @@ export function suggestedTitle(factionId: FactionId): Title {
   }
 }
 
+export const WYRM_NAME = "Vell";
+
 export const RULES: { title: string; body: string }[] = [
+  {
+    title: "Vell wakes",
+    body: "A frost-wyrm roosts above the pale mountains. At the twelfth dusk Vell comes down the northern road unless the wagons have already moved. The levy is how you move them.",
+  },
   {
     title: "Land is unequal",
     body: "Every hold grows one good and hungers for others. Trade is geography. If your hills grow wool, someone else's mine must feed you iron.",
@@ -400,6 +414,98 @@ export const RULES: { title: string; body: string }[] = [
   },
   {
     title: "Twelve dawns",
-    body: "The levy is counted when you seal the twelfth day. The caravan is not always on the road. Your compact is.",
+    body: "The levy is counted when you seal the twelfth day. Creatures will come to the gate between dawns. Answer them, or let them pass.",
   },
 ];
+
+export const MILL_COST = { gold: 10, timber: 4 };
+export const SHRINE_COST = { gold: 12 };
+export const STAKE_COST = { gold: 8, iron: 2 };
+export const IRE_START = 18;
+export const IRE_STEP = 5;
+export const IRE_STEP_STAKED = 2;
+export const SCORCH_AT = 88;
+
+export const OMEN_ON_DAY: Record<number, string> = {
+  2: "drake",
+  4: "nix",
+  6: "wing",
+  8: "antler",
+  10: "serpent",
+  12: "speaks",
+};
+
+export const OMENS: Omen[] = [
+  {
+    id: "drake",
+    creature: "The mine-drake",
+    title: "Something coughs in the seam",
+    body: "A rust-scaled drake has pushed into the Highbarrow workings. It wants iron the way a hearth wants coal. Feed it, and it may show you a richer vein. Turn your back, and it will carry your name up to Vell.",
+    art: "drake",
+    choices: [
+      { id: "feed", label: "Feed it 2 iron", detail: "It pays the iron back, and a little more. Vell hears less of you." },
+      { id: "watch", label: "Let it crawl back", detail: "No goods spent. Vell's ire rises." },
+    ],
+  },
+  {
+    id: "nix",
+    creature: "The river nix",
+    title: "A figure in the millrace",
+    body: "The nix stands where the current slows, weed in its hair, and asks for grain. What it gives back is never the thing you offered.",
+    art: "nix",
+    choices: [
+      { id: "give", label: "Give 3 grain", detail: "The nix leaves salt on the bank." },
+      { id: "watch", label: "Tell it to go", detail: "It goes. One of your oathbound sleeps badly." },
+    ],
+  },
+  {
+    id: "wing",
+    creature: "Vell",
+    title: "A wing over the wagons",
+    body: "The frost-wyrm does not land. One wing covers the road, and the carters will not move until someone treats with the shadow or hides the herds.",
+    art: "wing",
+    choices: [
+      { id: "tribute", label: "Offer 2 iron", detail: "Vell's ire falls. The wagons pay you a little gold for the courage." },
+      { id: "hide", label: "Spend 6 gold to hide the herds", detail: "The wing passes. The wyrm is not appeased, only unfed." },
+    ],
+  },
+  {
+    id: "antler",
+    creature: "The antlered one",
+    title: "The wood keeps count",
+    body: "It stands at the tree-line, tall as a chapel door, and looks at your timber. Leave a gift and your kin sleep easier. Take more, and someone in the compact will not forgive the noise.",
+    art: "antler",
+    choices: [
+      { id: "offer", label: "Leave 3 timber", detail: "Every oathbound steadies." },
+      { id: "cut", label: "Cut anyway", detail: "You gain timber. One sworn neighbor sours." },
+    ],
+  },
+  {
+    id: "serpent",
+    creature: "The slate serpent",
+    title: "The first rake",
+    body: "Off Saltmere the serpent has lifted its head above the pans. The old bargain is salt. Break it, and the coast remembers.",
+    art: "serpent",
+    choices: [
+      { id: "salt", label: "Give 3 salt", detail: "The serpent sinks. Traders on the road pay you for a quiet sea." },
+      { id: "watch", label: "Keep the salt", detail: "Vell feels the insult. The wyrm and the serpent are old correspondents." },
+    ],
+  },
+  {
+    id: "speaks",
+    creature: "Vell",
+    title: "The wyrm speaks your name",
+    body: "On the twelfth morning Vell lowers that ivory head until one gold eye fills the weather. It will take a relic and sleep. Or you can tell it the road will answer.",
+    art: "speaks",
+    choices: [
+      { id: "relic", label: "Give a relic", detail: "Vell's ire collapses. The snow goes quiet." },
+      { id: "road", label: "The road will answer", detail: "You refuse the bargain. Renown, and a colder wyrm." },
+    ],
+  },
+];
+
+export function omenById(id: string): Omen {
+  const omen = OMENS.find((item) => item.id === id);
+  if (!omen) throw new Error(`Unknown omen ${id}`);
+  return omen;
+}

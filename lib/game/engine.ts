@@ -5,23 +5,33 @@ import {
   DEPOSIT_CAP,
   DRAW_CAP,
   FOUNDER_WITHDRAW_CAP,
+  IRE_START,
+  IRE_STEP,
+  IRE_STEP_STAKED,
   KEEP,
   LEAVE_AT,
   LEVY_TARGET,
+  MILL_COST,
   MOOD_DECAY,
   NEED_START,
   NEED_TARGET,
   NPC_YIELD,
+  OMEN_ON_DAY,
   PLAYER_YIELD,
+  SCORCH_AT,
   SEASON_DAYS,
   SELL_PRICE,
+  SHRINE_COST,
+  STAKE_COST,
   STARTING_GOLD,
   UNDERCROFT_CAP,
   UNDERCROFT_COST,
+  WYRM_NAME,
   emptyStash,
   factionById,
   holdById,
   isLevyGood,
+  omenById,
   pickOathbound,
   seasonOf,
   stashCount,
@@ -81,6 +91,12 @@ export function playerYieldQty(factionId: FactionId, holdId: HoldId, day: number
   let qty = PLAYER_YIELD[good];
   if (factionId === "deepwood") qty += 1;
   if (seasonOf(day) === "deepwinter") qty = Math.max(1, qty - 1);
+  return qty;
+}
+
+export function dawnYield(state: GameState, day = state.day): number {
+  let qty = playerYieldQty(state.player.factionId, state.player.holdId, day);
+  if (state.works.mill) qty += 1;
   return qty;
 }
 
@@ -415,6 +431,11 @@ export function createGame(setup: NewGameSetup): GameState {
     outcomeDismissed: false,
     outcomeRewarded: false,
     stats: { pledged: 0, gifted: 0, deposited: 0, bought: 0, sold: 0 },
+    wyrm: { ire: IRE_START, tribute: 0 },
+    works: { mill: false, shrine: false, stake: false },
+    omen: null,
+    omensSeen: [],
+    oathsKept: [],
   };
 
   const yieldQty = playerYieldQty(setup.factionId, setup.holdId, 1);
@@ -429,7 +450,7 @@ export function createGame(setup: NewGameSetup): GameState {
   if (dawn.length) note(state, dawn.join(" "));
   note(
     state,
-    `The northern road wants ${LEVY_TARGET.grain} grain, ${LEVY_TARGET.iron} iron, and ${LEVY_TARGET.salt} salt before the twelfth dusk.`,
+    `${WYRM_NAME} the frost-wyrm roosts above the pale mountains. The road wants ${LEVY_TARGET.grain} grain, ${LEVY_TARGET.iron} iron, and ${LEVY_TARGET.salt} salt before the twelfth dusk, or the wyrm comes down it.`,
   );
   return state;
 }
@@ -693,7 +714,7 @@ export function sealDay(state: GameState): Result {
   lines.push(...runDawn(next));
 
   const produced = holdById(next.player.holdId).produces;
-  const yieldQty = playerYieldQty(next.player.factionId, next.player.holdId, next.day + 1);
+  const yieldQty = dawnYield(next, next.day + 1);
   const room = capFor(next) - stashCount(next.player.stash);
   const stored = Math.max(0, Math.min(yieldQty, room));
   const spoiled = yieldQty - stored;
@@ -707,15 +728,233 @@ export function sealDay(state: GameState): Result {
   if (next.compactActed) next.player.renown += 1;
   next.compactActed = false;
   next.player.withdrawnToday = 0;
+
+  if (next.omen) {
+    lines.push(`${next.omen.creature} went unanswered.`);
+    next.omen = null;
+  }
+
+  next.wyrm.ire = Math.min(100, next.wyrm.ire + (next.works.stake ? IRE_STEP_STAKED : IRE_STEP));
+  if (next.works.shrine) {
+    for (const member of next.compact.members) {
+      if (!member.inCompact) continue;
+      member.contentment = Math.min(100, member.contentment + 3);
+    }
+  }
+  if (next.wyrm.ire >= SCORCH_AT) {
+    const scorched = LEVY_LIST.find((good) => next.compact.hall[good] > 0);
+    if (scorched) {
+      next.compact.hall[scorched] -= 1;
+      lines.push(`${WYRM_NAME}'s shadow scorched 1 ${scorched} in the hall.`);
+    } else {
+      lines.push(`${WYRM_NAME}'s shadow crossed the holds and found the hall already thin.`);
+    }
+    next.wyrm.ire = Math.max(0, next.wyrm.ire - 12);
+  }
+
   next.day = nextDay;
+  const omenId = OMEN_ON_DAY[next.day];
+  if (omenId && !next.omensSeen.includes(omenId)) {
+    next.omen = structuredClone(omenById(omenId));
+    next.omensSeen.push(omenId);
+    lines.push(`${next.omen.creature} is at the gate.`);
+  }
 
   for (const line of lines) note(next, line);
 
   let message = `Day ${next.day} begins. ${lines[lines.length - 1]}`;
+  if (next.omen) message = `${next.omen.creature} is at the gate. ${message}`;
   if (next.outcome === "lost" && !next.outcomeDismissed && next.day === SEASON_DAYS + 1) {
-    message = "The twelfth dusk passed short. The frost has the road, unless you winter on and finish late.";
+    message = `${WYRM_NAME} came down the road. The levy was short, and the frost had teeth. You can still winter on.`;
   }
   return ok(next, message);
+}
+
+function spendGood(state: GameState, good: GoodId, qty: number): string | null {
+  if (state.player.stash[good] < qty) return `You don't have ${qty} ${good}.`;
+  state.player.stash[good] -= qty;
+  return null;
+}
+
+export function offerTribute(state: GameState, kind: "iron" | "relic" | "salt"): Result {
+  const next = draft(state);
+  if (kind === "iron") {
+    const error = spendGood(next, "iron", 2);
+    if (error) return fail(state, error);
+    next.wyrm.ire = Math.max(0, next.wyrm.ire - 16);
+    next.wyrm.tribute += 2;
+    next.player.gold += 2;
+    note(next, `You laid 2 iron in the snow for ${WYRM_NAME}. The wyrm's ire eased, and a carter left 2 gold.`);
+    return ok(next, `${WYRM_NAME} took the iron. Ire falls.`);
+  }
+  if (kind === "relic") {
+    const error = spendGood(next, "relics", 1);
+    if (error) return fail(state, error);
+    next.wyrm.ire = Math.max(0, next.wyrm.ire - 28);
+    next.wyrm.tribute += 1;
+    next.player.renown += 2;
+    note(next, `You gave ${WYRM_NAME} a relic. The gold eye dimmed, and the snow went quiet.`);
+    return ok(next, `${WYRM_NAME} took the relic and looked almost gentle.`);
+  }
+  const error = spendGood(next, "salt", 3);
+  if (error) return fail(state, error);
+  next.wyrm.ire = Math.max(0, next.wyrm.ire - 12);
+  next.wyrm.tribute += 3;
+  next.player.gold += 3;
+  note(next, `You salted the high road for ${WYRM_NAME}. The wyrm licked the frost and left you 3 gold.`);
+  return ok(next, `${WYRM_NAME} tasted the salt. Ire falls.`);
+}
+
+export function raiseMill(state: GameState): Result {
+  if (state.works.mill) return fail(state, "The mill already turns.");
+  if (state.player.gold < MILL_COST.gold) return fail(state, `The mill costs ${MILL_COST.gold} gold.`);
+  if (state.player.stash.timber < MILL_COST.timber) return fail(state, `The mill needs ${MILL_COST.timber} timber.`);
+  const next = draft(state);
+  next.player.gold -= MILL_COST.gold;
+  next.player.stash.timber -= MILL_COST.timber;
+  next.works.mill = true;
+  note(next, "You raised a mill. The hold will yield one more each dawn.");
+  return ok(next, "The mill turns. Dawn yields one more.");
+}
+
+export function raiseShrine(state: GameState): Result {
+  if (state.works.shrine) return fail(state, "The shrine already burns.");
+  if (state.player.gold < SHRINE_COST.gold) return fail(state, `The shrine costs ${SHRINE_COST.gold} gold.`);
+  const next = draft(state);
+  next.player.gold -= SHRINE_COST.gold;
+  next.works.shrine = true;
+  note(next, "You raised a shrine to the things that walk the Westmark. Your oathbound sleep a little easier.");
+  return ok(next, "The shrine is lit. Kin rest easier each dawn.");
+}
+
+export function raiseStake(state: GameState): Result {
+  if (state.works.stake) return fail(state, "The wyrm-stake is already set.");
+  if (state.player.gold < STAKE_COST.gold) return fail(state, `The stake costs ${STAKE_COST.gold} gold.`);
+  if (state.player.stash.iron < STAKE_COST.iron) return fail(state, `The stake needs ${STAKE_COST.iron} iron.`);
+  const next = draft(state);
+  next.player.gold -= STAKE_COST.gold;
+  next.player.stash.iron -= STAKE_COST.iron;
+  next.works.stake = true;
+  note(next, `You drove an iron stake at the gate and rang it once. ${WYRM_NAME} will wake more slowly.`);
+  return ok(next, "The wyrm-stake is set. Vell's ire climbs more slowly.");
+}
+
+export function fulfillOath(state: GameState, memberId: string): Result {
+  const member = state.compact.members.find((item) => item.id === memberId);
+  if (!member || !member.inCompact) return fail(state, "That banner has left the compact.");
+  if (state.oathsKept.includes(memberId)) return fail(state, `${member.name} has already had their oath-gift.`);
+  const need = memberHold(member).needs[0];
+  if (!need) return fail(state, `${member.name} wants nothing you can carry.`);
+  if (state.player.stash[need] < 3) return fail(state, `${member.name} asks for 3 ${need}.`);
+  const next = draft(state);
+  const target = next.compact.members.find((item) => item.id === memberId)!;
+  next.player.stash[need] -= 3;
+  target.stash[need] += 3;
+  target.contentment = Math.min(100, target.contentment + 22);
+  target.lastNote = `Kept an old oath with 3 ${need}.`;
+  next.oathsKept.push(memberId);
+  next.player.renown += 3;
+  next.compactActed = true;
+  note(next, `You kept an oath to ${target.name}: 3 ${need}, given from your own stores.`);
+  return ok(next, `${target.name} will remember the oath.`);
+}
+
+export function dismissOmen(state: GameState): Result {
+  if (!state.omen) return fail(state, "Nothing is at the gate.");
+  const creature = state.omen.creature;
+  const next = draft(state);
+  next.omen = null;
+  note(next, `${creature} went unanswered.`);
+  return ok(next, `${creature} went unanswered.`);
+}
+
+export function chooseOmen(state: GameState, choiceId: string): Result {
+  if (!state.omen) return fail(state, "Nothing is at the gate.");
+  const omen = state.omen;
+  if (!omen.choices.some((choice) => choice.id === choiceId)) return fail(state, "That is not an answer they will hear.");
+  const next = draft(state);
+  const key = `${omen.id}:${choiceId}`;
+
+  const lack = (good: GoodId, qty: number) => next.player.stash[good] < qty;
+
+  if (key === "drake:feed") {
+    if (lack("iron", 2)) return fail(state, "You don't have 2 iron to feed the drake.");
+    next.player.stash.iron -= 2;
+    if (canFit(next, 3)) next.player.stash.iron += 3;
+    else next.player.stash.iron += 2;
+    next.wyrm.ire = Math.max(0, next.wyrm.ire - 10);
+    note(next, "The mine-drake took your iron and coughed a richer seam back into your hands.");
+  } else if (key === "drake:watch") {
+    next.wyrm.ire = Math.min(100, next.wyrm.ire + 4);
+    note(next, "You let the mine-drake crawl back into the dark. It will mention you to Vell.");
+  } else if (key === "nix:give") {
+    if (lack("grain", 3)) return fail(state, "You don't have 3 grain for the nix.");
+    next.player.stash.grain -= 3;
+    const room = capFor(next) - stashCount(next.player.stash);
+    const gained = Math.min(4, Math.max(0, room));
+    if (gained === 0) return fail(state, "Your stores are full. The nix will not leave salt on the floor.");
+    next.player.stash.salt += gained;
+    note(next, `The nix took the grain and left ${gained} salt on the bank.`);
+  } else if (key === "nix:watch") {
+    const kin = next.compact.members.find((member) => member.inCompact);
+    if (kin) {
+      kin.contentment = Math.max(0, kin.contentment - 6);
+      kin.lastNote = "Slept badly after the nix was turned away.";
+    }
+    note(next, "You told the nix to go. Someone in the compact dreamed of deep water.");
+  } else if (key === "wing:tribute") {
+    if (lack("iron", 2)) return fail(state, "You don't have 2 iron to offer the wing.");
+    next.player.stash.iron -= 2;
+    next.wyrm.ire = Math.max(0, next.wyrm.ire - 20);
+    next.wyrm.tribute += 2;
+    next.player.gold += 4;
+    note(next, "You held iron up to the wing. Vell did not land, and the carters paid you 4 gold.");
+  } else if (key === "wing:hide") {
+    if (next.player.gold < 6) return fail(state, "Hiding the herds costs 6 gold.");
+    next.player.gold -= 6;
+    note(next, "You spent 6 gold driving the herds under the trees. The wing passed over empty pasture.");
+  } else if (key === "antler:offer") {
+    if (lack("timber", 3)) return fail(state, "You don't have 3 timber to leave at the tree-line.");
+    next.player.stash.timber -= 3;
+    for (const member of next.compact.members) {
+      if (!member.inCompact) continue;
+      member.contentment = Math.min(100, member.contentment + 10);
+    }
+    note(next, "You left timber for the antlered one. The compact slept without dreams.");
+  } else if (key === "antler:cut") {
+    if (canFit(next, 3)) next.player.stash.timber += 3;
+    const kin = next.compact.members.find((member) => member.inCompact);
+    if (kin) {
+      kin.contentment = Math.max(0, kin.contentment - 10);
+      kin.lastNote = "Heard the axes and did not like it.";
+    }
+    note(next, "You cut the timber anyway. The antlered one watched, and one oathbound will not forget the sound.");
+  } else if (key === "serpent:salt") {
+    if (lack("salt", 3)) return fail(state, "You don't have 3 salt for the serpent.");
+    next.player.stash.salt -= 3;
+    next.player.gold += 8;
+    note(next, "You gave the slate serpent its rake of salt. Traders paid 8 gold for a quiet sea.");
+  } else if (key === "serpent:watch") {
+    next.wyrm.ire = Math.min(100, next.wyrm.ire + 6);
+    note(next, "You kept the salt. The serpent sank, and Vell will hear of the broken rake.");
+  } else if (key === "speaks:relic") {
+    if (lack("relics", 1)) return fail(state, "You have no relic to give Vell.");
+    next.player.stash.relics -= 1;
+    next.wyrm.ire = 10;
+    next.wyrm.tribute += 1;
+    next.player.renown += 4;
+    note(next, `${WYRM_NAME} took the relic between two ivory teeth. The snow went quiet.`);
+  } else if (key === "speaks:road") {
+    next.wyrm.ire = Math.min(100, next.wyrm.ire + 8);
+    next.player.renown += 2;
+    note(next, `You told ${WYRM_NAME} the road would answer. The gold eye did not blink.`);
+  } else {
+    return fail(state, "That answer has no weight here.");
+  }
+
+  next.omen = null;
+  next.compactActed = true;
+  return ok(next, next.chronicle[next.chronicle.length - 1]?.text ?? "The omen is answered.");
 }
 
 export function caravanPresent(caravan: Caravan | null): caravan is Caravan {

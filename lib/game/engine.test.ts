@@ -15,6 +15,11 @@ import {
   pledgePersonal,
   pledgeRoadShare,
   postOffer,
+  chooseOmen,
+  dawnYield,
+  dismissOmen,
+  offerTribute,
+  raiseMill,
   raiseUndercroft,
   sealDay,
   sell,
@@ -287,4 +292,75 @@ test("barter, undercroft, and save parsing", () => {
   const deposited = deposit(createGame(setup()), "grain", 1);
   assert.equal(deposited.error, undefined);
   assert.equal(deposited.state.compact.hall.grain, createGame(setup()).compact.hall.grain + 1);
+
+  const bare = parseSave(
+    JSON.stringify({
+      version: 1,
+      day: 3,
+      player: { stash: { grain: 1, timber: 0, iron: 0, salt: 0, wool: 0, relics: 0 } },
+      compact: {
+        members: [],
+        hall: { grain: 0, timber: 0, iron: 0, salt: 0, wool: 0, relics: 0 },
+        levy: { grain: 0, iron: 0, salt: 0 },
+        reserve: { grain: 0, iron: 0, salt: 0 },
+      },
+      chronicle: [],
+    }),
+  );
+  assert.equal(bare?.wyrm.ire, 18);
+  assert.equal(bare?.works.mill, false);
+  assert.equal(bare?.omen, null);
+  assert.deepEqual(bare?.omensSeen, []);
+  assert.deepEqual(bare?.oathsKept, []);
+});
+
+test("Vell and the mine-drake stay optional until you answer", () => {
+  const start = createGame(setup());
+  assert.equal(start.wyrm.ire, 18);
+  assert.equal(start.omen, null);
+  const iron = start.player.stash.iron;
+  const sealed = sealDay(start).state;
+  assert.equal(sealed.day, 2);
+  assert.equal(sealed.omen?.id, "drake");
+  assert.equal(sealed.player.stash.iron, iron);
+
+  assert.ok(chooseOmen(sealed, "feed").error);
+  assert.ok(offerTribute(sealed, "iron").error);
+  assert.ok(raiseMill(sealed).error);
+
+  const passed = dismissOmen(sealed);
+  assert.equal(passed.error, undefined);
+  assert.equal(passed.state.omen, null);
+  assert.equal(passed.state.player.stash.iron, iron);
+  assert.equal(passed.state.wyrm.ire, sealed.wyrm.ire);
+
+  const ignored = sealDay(sealed).state;
+  assert.equal(ignored.day, 3);
+  assert.equal(ignored.omen, null);
+  assert.equal(ignored.player.stash.iron, iron);
+  assert.ok(ignored.chronicle.some((entry) => entry.text.includes("went unanswered")));
+
+  const hungry = structuredClone(sealed);
+  hungry.player.stash.iron = 2;
+  const fed = chooseOmen(hungry, "feed");
+  assert.equal(fed.error, undefined);
+  assert.equal(fed.state.omen, null);
+  assert.equal(fed.state.player.stash.iron, 3);
+  assert.ok(fed.state.wyrm.ire < hungry.wyrm.ire);
+
+  const rich = structuredClone(sealed);
+  rich.player.gold = 40;
+  rich.player.stash.timber = 8;
+  const milled = raiseMill(rich);
+  assert.equal(milled.error, undefined);
+  assert.equal(milled.state.works.mill, true);
+  assert.equal(milled.state.player.gold, 30);
+  assert.equal(dawnYield(milled.state), dawnYield(sealed) + 1);
+
+  rich.player.stash.iron = 2;
+  const tribute = offerTribute(rich, "iron");
+  assert.equal(tribute.error, undefined);
+  assert.equal(tribute.state.player.stash.iron, 0);
+  assert.ok(tribute.state.wyrm.ire < rich.wyrm.ire);
+  assert.equal(tribute.state.player.gold, rich.player.gold + 2);
 });
