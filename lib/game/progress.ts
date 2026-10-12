@@ -13,7 +13,7 @@ import type {
   Threat,
 } from "./types";
 import { HOLD_IDS } from "./types";
-import { PACK_LIMIT, bumpQuest, rewardScene, rollGear, worldRng } from "./world";
+import { bumpQuest, carryCap, carriedWeight, gearWeight, rewardScene, rollGear, worldRng } from "./world";
 
 export const SKILLS: Record<SkillId, { name: string; blurb: string }> = {
   stores: { name: "Deep stores", blurb: "The hold yields one more at every dawn." },
@@ -31,7 +31,11 @@ export const BUILDINGS: { id: BuildingId; name: string; good: "timber" | "grain"
   { id: "yard", name: "Yard", good: "grain", blurb: "Each level adds one to the dawn yield." },
   { id: "shrine", name: "Shrine walk", good: "salt", blurb: "Each level steadies every captain at dawn." },
   { id: "market", name: "Market row", good: "wool", blurb: "At levels 2 and 4 the caravan treats you better." },
-  { id: "watch", name: "Watch", good: "iron", blurb: "Each level makes a march more likely to return with coin." },
+  { id: "watch", name: "Watch", good: "iron", blurb: "Marches come home richer. Each level also adds 15 to what you can carry." },
+  { id: "forge", name: "Forge", good: "iron", blurb: "Smith arms and rings. Higher levels take relics into the fire." },
+  { id: "still", name: "Still", good: "salt", blurb: "Brew draughts for luck, calm, purse, vigor, and haste." },
+  { id: "loom", name: "Loom", good: "wool", blurb: "Weave cloaks and charms. The third level can take a wyrm hide." },
+  { id: "strongroom", name: "Strongroom", good: "timber", blurb: "Each level adds 160 weight to the hold's storeroom." },
 ];
 
 export const CHAPTERS = [
@@ -42,7 +46,7 @@ export const CHAPTERS = [
 ];
 
 const SKILL_IDS: SkillId[] = ["stores", "step", "coin", "truce", "bargain", "eye", "wright", "scholar"];
-const BUILDING_IDS: BuildingId[] = ["hall", "yard", "shrine", "market", "watch"];
+const BUILDING_IDS: BuildingId[] = ["hall", "yard", "shrine", "market", "watch", "forge", "still", "loom", "strongroom"];
 const ORDERS = new Set<CaptainOrder>(["oath", "garrison", "march", "hunt", "trade"]);
 const MAX_LEVEL = 20;
 const MAX_BUILDING = 5;
@@ -138,7 +142,7 @@ export function blankCampaign(memberIds: string[]): Campaign {
     xp: 0,
     skills: [],
     offer: null,
-    buildings: { hall: 0, yard: 0, shrine: 0, market: 0, watch: 0 },
+    buildings: { hall: 0, yard: 0, shrine: 0, market: 0, watch: 0, forge: 0, still: 0, loom: 0, strongroom: 0 },
     project: null,
     chapter: 1,
     captains,
@@ -334,8 +338,9 @@ function steadyShrine(state: GameState) {
 }
 
 function bringTrophy(state: GameState, roll: () => number): string | null {
-  if ((state.pack ?? []).length >= PACK_LIMIT || roll() >= 0.55) return null;
+  if (roll() >= 0.55) return null;
   const gear = rollGear(state.seed ?? 0, state.day, (state.miles ?? 0) + (state.pack?.length ?? 0) + 11);
+  if (carriedWeight(state) + gearWeight(gear) > carryCap(state)) return null;
   state.pack = [...(state.pack ?? []), gear];
   bumpQuest(state, "loot", "any", 1);
   return gear.name;

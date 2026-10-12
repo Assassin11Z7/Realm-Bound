@@ -1,6 +1,7 @@
+import { emptyBrew } from "./craft";
 import { normalizeCampaign } from "./progress";
 import { WORN_SLOTS, fillGear } from "./world";
-import type { Cutscene, GameState, Gear, GearSlot, GoodId, Quest, Rumor } from "./types";
+import type { Cutscene, GameState, Gear, GearSlot, GoodId, PotionId, Quest, Rumor } from "./types";
 import { GOODS, HOLD_IDS, LEVY_GOODS } from "./types";
 
 const HOLDS_OK = new Set<string>(HOLD_IDS);
@@ -91,6 +92,18 @@ export function getServerGameSnapshot() {
   return emptySnapshot;
 }
 
+const POTION_IDS: PotionId[] = ["luck", "calm", "haste", "purse", "vigor"];
+
+function legalBrew(value: Partial<Record<PotionId, number>> | undefined): Record<PotionId, number> {
+  const next = emptyBrew();
+  if (!value || typeof value !== "object") return next;
+  for (const id of POTION_IDS) {
+    const count = value[id];
+    if (typeof count === "number" && Number.isFinite(count) && count > 0) next[id] = Math.min(99, Math.floor(count));
+  }
+  return next;
+}
+
 function legalRumor(rumor: Rumor | null | undefined): Rumor | null {
   if (!rumor || typeof rumor !== "object") return null;
   const good = rumor.good as GoodId;
@@ -127,6 +140,13 @@ export function parseSave(raw: string): GameState | null {
     if (!value.where || !HOLDS_OK.has(value.where)) value.where = value.player.holdId;
     if (typeof value.miles !== "number" || !Number.isFinite(value.miles)) value.miles = 0;
     value.pack = (Array.isArray(value.pack) ? value.pack.filter(legalGear) : []).map(fillGear);
+    value.vault = (Array.isArray(value.vault) ? value.vault.filter(legalGear) : []).map(fillGear);
+    value.brew = legalBrew(value.brew);
+    value.cellar = legalBrew(value.cellar);
+    value.tonics = {
+      luck: typeof value.tonics?.luck === "number" && value.tonics.luck > 0 ? Math.floor(value.tonics.luck) : 0,
+      purse: Boolean(value.tonics?.purse),
+    };
     value.worn = legalWorn(value.worn, value.pack);
     value.quests = Array.isArray(value.quests) ? value.quests.filter(legalQuest) : [];
     value.scene = legalScene(value.scene);

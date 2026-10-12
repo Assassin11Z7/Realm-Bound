@@ -61,6 +61,7 @@ import { useFrame } from "./frame";
 import { BannerMark } from "./marks";
 import { chapterName, powerOf, xpNeed } from "@/lib/game/progress";
 import { CaptainOrders, HoldWorks, MissionList, SkillDialog, ThreatCard } from "./Campaign";
+import { CraftBench } from "./Craft";
 import { CutsceneView, ExplorePanel } from "./Explore";
 import { FateRoll, OathRow, OmenDialog, WorksCard, WyrmCard } from "./Myth";
 import { HoldBrief, RealmMap } from "./RealmMap";
@@ -304,6 +305,7 @@ export function PlaySeason({
             </div>
             <WorksCard state={state} act={act} />
             <HoldWorks state={state} act={act} />
+            <CraftBench state={state} act={act} />
             <AmountPicker amount={amount} onChange={setAmount} />
             <div className="flex flex-col gap-2">
               {GOODS.map((item) => (

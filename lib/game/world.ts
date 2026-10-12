@@ -12,7 +12,8 @@ export function worldRng(seed: number) {
   };
 }
 
-export const PACK_LIMIT = 12;
+export const CARRY_BASE = 120;
+export const VAULT_BASE = 240;
 
 export const WORN_SLOTS: GearSlot[] = ["hand", "cloak", "charm", "ring"];
 
@@ -160,7 +161,52 @@ export function luckOf(state: GameState): number {
     if (gear) luck += gear.luck;
   }
   if (state.campaign?.skills.includes("step")) luck += 1;
+  if ((state.tonics?.luck ?? 0) > 0) luck += 2;
   return luck;
+}
+
+export function gearWeight(gear: Gear): number {
+  if (gear.slot === "cloak") return 3;
+  if (gear.slot === "hand" || gear.slot === "hoard") return 2;
+  return 1;
+}
+
+export function carryCap(state: GameState): number {
+  return CARRY_BASE + (state.campaign?.buildings.watch ?? 0) * 15;
+}
+
+export function vaultCap(state: GameState): number {
+  return VAULT_BASE + (state.campaign?.buildings.strongroom ?? 0) * 160;
+}
+
+export function stackWeight(stacks: Partial<Record<string, number>> | undefined): number {
+  let sum = 0;
+  for (const count of Object.values(stacks ?? {})) sum += count || 0;
+  return sum;
+}
+
+export function carriedWeight(state: GameState): number {
+  return (state.pack ?? []).reduce((sum, gear) => sum + gearWeight(gear), 0) + stackWeight(state.brew);
+}
+
+export function storedWeight(state: GameState): number {
+  return (state.vault ?? []).reduce((sum, gear) => sum + gearWeight(gear), 0) + stackWeight(state.cellar);
+}
+
+export function makePiece(name: string, rarity: Rarity, id: string): Gear | null {
+  const piece = TREASURES.find((item) => item.name === name);
+  if (!piece) return null;
+  const luck = rarity === "relic" ? 3 : rarity === "uncanny" ? 2 : 1;
+  return {
+    id,
+    name: piece.name,
+    slot: piece.slot,
+    rarity,
+    luck,
+    trait: piece.trait,
+    worth: worthFor(rarity, luck),
+    line: piece.line,
+  };
 }
 
 export function openingQuests(seed: number, home: HoldId): Quest[] {

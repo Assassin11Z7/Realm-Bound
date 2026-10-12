@@ -193,7 +193,13 @@ export interface Compact {
 }
 
 export type SkillId = "stores" | "step" | "coin" | "truce" | "bargain" | "eye" | "wright" | "scholar";
-export type BuildingId = "hall" | "yard" | "shrine" | "market" | "watch";
+export type BuildingId = "hall" | "yard" | "shrine" | "market" | "watch" | "forge" | "still" | "loom" | "strongroom";
+export type PotionId = "luck" | "calm" | "haste" | "purse" | "vigor";
+
+export interface Tonics {
+  luck: number;
+  purse: boolean;
+}
 export type CaptainOrder = "oath" | "garrison" | "march" | "hunt" | "trade";
 
 export interface SkillOffer {
@@ -275,6 +281,10 @@ export interface GameState {
   where: HoldId;
   miles: number;
   pack: Gear[];
+  vault: Gear[];
+  brew: Record<PotionId, number>;
+  cellar: Record<PotionId, number>;
+  tonics: Tonics;
   worn: Partial<Record<GearSlot, string>>;
   quests: Quest[];
   scene: Cutscene | null;

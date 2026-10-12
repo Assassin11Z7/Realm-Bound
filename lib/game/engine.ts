@@ -38,8 +38,9 @@ import {
   seasonOf,
   stashCount,
 } from "./content";
+import { emptyBrew } from "./craft";
 import { applyDawnProgress, blankCampaign, grantXp, syncCampaign } from "./progress";
-import { PACK_LIMIT, bumpQuest, loreBonus, luckOf, openingQuests, openingScene, purseBonus, rewardScene, roadFind, starterCloak, wardBonus } from "./world";
+import { bumpQuest, carryCap, carriedWeight, gearWeight, loreBonus, luckOf, openingQuests, openingScene, purseBonus, rewardScene, roadFind, starterCloak, wardBonus } from "./world";
 import { GOODS, LEVY_GOODS } from "./types";
 import type {
   BarterOffer,
@@ -136,6 +137,7 @@ export function sellPrice(state: GameState, good: GoodId): number {
   }
   if (state.campaign?.skills.includes("bargain")) price += 1;
   price += purseBonus(state);
+  if (state.tonics?.purse) price += 2;
   const market = state.campaign?.buildings.market ?? 0;
   if (market >= 2) price += 1;
   if (market >= 4) price += 1;
@@ -664,6 +666,10 @@ export function createGame(setup: NewGameSetup): GameState {
     where: setup.holdId,
     miles: 0,
     pack: [],
+    vault: [],
+    brew: emptyBrew(),
+    cellar: emptyBrew(),
+    tonics: { luck: 0, purse: false },
     worn: {},
     quests: [],
     scene: null,
@@ -1014,6 +1020,10 @@ export function sealDay(state: GameState): Result {
       lines.push(`${surprise.creature} is at the gate.`);
     }
   }
+  if (next.tonics?.purse) {
+    next.tonics.purse = false;
+    lines.push("The purse tincture fades with the dusk.");
+  }
   lines.push(...applyDawnProgress(next));
 
   if (!next.omen) {
@@ -1268,14 +1278,15 @@ export function travel(state: GameState, holdId: HoldId): Result {
   next.player.gold = Math.max(0, next.player.gold + found.gold);
   next.wyrm.ire = Math.max(0, Math.min(100, next.wyrm.ire + found.ire));
   if (found.gear) {
-    if ((next.pack ?? []).length >= PACK_LIMIT) {
+    if (carriedWeight(next) + gearWeight(found.gear) > carryCap(next)) {
       next.player.gold += 2;
-      note(next, `The pack is full. You leave ${found.gear.name} and take 2 gold instead.`);
+      note(next, `The bag is too heavy. You leave ${found.gear.name} and take 2 gold instead.`);
     } else {
       next.pack = [...(next.pack ?? []), found.gear];
       bumpQuest(next, "loot", "any", 1);
     }
   }
+  if ((next.tonics?.luck ?? 0) > 0) next.tonics.luck -= 1;
   bumpQuest(next, "visit", holdId, 1);
   next.scene = found.scene;
   note(next, found.line);

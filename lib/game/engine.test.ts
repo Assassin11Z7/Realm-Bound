@@ -37,7 +37,8 @@ import { parseSave } from "./storage";
 import type { FactionId, GameState, GoodId, HoldId, NewGameSetup } from "./types";
 import { GOODS, LEVY_GOODS } from "./types";
 import { chooseSkill, setCaptainOrder, startProject } from "./progress";
-import { luckOf, rollGear, treasureCount } from "./world";
+import { craft, drinkPotion, storeGear } from "./craft";
+import { carryCap, luckOf, rollGear, treasureCount, vaultCap } from "./world";
 
 function setup(partial: Partial<NewGameSetup> = {}): NewGameSetup {
   return {
@@ -610,4 +611,42 @@ test("treasures have their own names, and a hoard piece can be sold", () => {
   assert.equal(sold.error, undefined);
   assert.equal(sold.state.player.gold, gold + hoard.worth);
   assert.equal(sold.state.pack.some((gear) => gear.id === hoard.id), false);
+});
+
+test("the bag is weighed, the strongroom stores, and the benches craft", () => {
+  const state = createGame(setup());
+  assert.ok(carryCap(state) >= 120);
+  assert.ok(vaultCap(state) >= 240);
+  assert.ok(craft(state, "knife").error);
+  state.campaign.buildings.forge = 1;
+  state.player.stash.iron += 2;
+  const made = craft(state, "knife");
+  assert.equal(made.error, undefined);
+  const knife = made.state.pack.find((gear) => gear.name === "Road knife");
+  assert.ok(knife);
+  const stored = storeGear(made.state, knife.id);
+  assert.equal(stored.error, undefined);
+  assert.equal(stored.state.vault.length, 1);
+  assert.equal(
+    stored.state.pack.some((gear) => gear.name === "Road knife"),
+    false,
+  );
+  state.campaign.buildings.still = 1;
+  state.player.stash.salt += 2;
+  const brewed = craft(state, "luck");
+  assert.equal(brewed.error, undefined);
+  assert.equal(brewed.state.brew.luck, 1);
+  const drunk = drinkPotion(brewed.state, "luck");
+  assert.equal(drunk.state.tonics.luck, 3);
+  assert.ok(luckOf(drunk.state) >= luckOf(state) + 2);
+  state.campaign.project = "yard";
+  state.campaign.buildings.still = 3;
+  state.player.stash.relics += 1;
+  state.player.gold += 20;
+  const haste = craft(state, "haste");
+  assert.equal(haste.error, undefined);
+  const finished = drinkPotion(haste.state, "haste");
+  assert.equal(finished.error, undefined);
+  assert.equal(finished.state.campaign.buildings.yard, 1);
+  assert.equal(finished.state.campaign.project, null);
 });
