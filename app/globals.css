@@ -261,8 +261,55 @@
 }
 .wm-tab { animation: wm-tab 280ms ease-out both; }
 
+@keyframes wm-iso-drop {
+  0% { opacity: 0; transform: translateY(-28px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes wm-iso-pop {
+  0% { opacity: 0; transform: translateY(30px) scale(0.82); filter: brightness(1.8); }
+  60% { opacity: 1; transform: translateY(-10px) scale(1.04); filter: brightness(1.15); }
+  100% { transform: none; filter: none; }
+}
+@keyframes wm-iso-dust {
+  0% { opacity: 0.75; transform: translate(0, 0) scale(0.4); }
+  100% { opacity: 0; transform: translate(var(--dx), -28px) scale(1.4); }
+}
+@keyframes wm-iso-pad {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.28); }
+}
+@keyframes wm-iso-cloud {
+  0% { transform: translateX(-30%); }
+  100% { transform: translateX(420px); }
+}
+@keyframes wm-iso-snow {
+  0% { opacity: 0; transform: translateY(-8px); }
+  14% { opacity: 0.9; }
+  100% { opacity: 0.15; transform: translateY(460px); }
+}
+.wm-iso-drop { animation: wm-iso-drop 520ms cubic-bezier(0.16, 0.84, 0.32, 1) both; }
+.wm-iso-pop { animation: wm-iso-pop 720ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.wm-iso-dust { animation: wm-iso-dust 1.5s ease-out infinite; }
+.wm-iso-pad { animation: wm-iso-pad 1.6s ease-in-out infinite; }
+.wm-iso-cloud { animation: wm-iso-cloud 28s linear infinite; }
+.wm-iso-snow { animation: wm-iso-snow 5.5s linear infinite; }
+.wm-iso-walk {
+  width: 58px;
+  height: 95px;
+  background: url("/art/iso/walk-sheet.png") 0 0 / 100% 400% no-repeat;
+  animation: wm-iso-step 0.56s linear infinite;
+}
+@keyframes wm-iso-step {
+  0%, 24% { background-position: 0 0; }
+  25%, 49% { background-position: 0 33.333%; }
+  50%, 74% { background-position: 0 66.666%; }
+  75%, 99% { background-position: 0 100%; }
+  100% { background-position: 0 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .wm-drift, .wm-breathe, .wm-ire, .wm-hold, .wm-rise, .wm-toast, .wm-tab, .wm-stamp, .wm-press:active, .wm-tumble, .wm-scene {
+  .wm-drift, .wm-breathe, .wm-ire, .wm-hold, .wm-rise, .wm-toast, .wm-tab, .wm-stamp, .wm-press:active, .wm-tumble, .wm-scene,
+  .wm-iso-drop, .wm-iso-pop, .wm-iso-dust, .wm-iso-pad, .wm-iso-cloud, .wm-iso-snow, .wm-iso-walk {
     animation: none !important;
   }
   .wm-dawn { display: none; }

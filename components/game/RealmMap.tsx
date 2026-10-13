@@ -38,9 +38,17 @@ export function RealmMap({
             style={{ left: `${mark.x}%`, top: `${mark.y}%` }}
           >
             <span
-              className={`flex size-8 items-center justify-center rounded-full text-[10px] font-semibold text-[#f8f1e4] shadow-lg ${active ? "ring-2 ring-white" : "ring-1 ring-black/40"} ${here ? "wm-hold bg-[#6e1e22]" : "bg-[#1c1612]/80"}`}
+              className={
+                here
+                  ? `flex w-9 items-end justify-center ${active ? "rounded-full ring-2 ring-white" : ""}`
+                  : `flex size-8 items-center justify-center rounded-full bg-[#1c1612]/80 text-[10px] font-semibold text-[#f8f1e4] shadow-lg ${active ? "ring-2 ring-white" : "ring-1 ring-black/40"}`
+              }
             >
-              {here ? "You" : hold.name.slice(0, 1)}
+              {here ? (
+                <img src="/art/iso/walk-0.png" alt="" className="h-9 w-auto drop-shadow" />
+              ) : (
+                hold.name.slice(0, 1)
+              )}
             </span>
             <span className="mt-0.5 rounded bg-[#1c1612]/75 px-1 text-[9px] tracking-wide text-[#f4ead7]">
               {hold.name}

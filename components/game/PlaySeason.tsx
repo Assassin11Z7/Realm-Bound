@@ -70,6 +70,7 @@ import { FateRoll, OathRow, OmenDialog, WorksCard, WyrmCard } from "./Myth";
 import { CrossingDialog, MarksCard, PeoplePanel, PeopleStrip } from "./Rule";
 import { peopleTrouble } from "@/lib/game/realm";
 import { HoldBrief, RealmMap } from "./RealmMap";
+import { SettlementScene } from "./Settlement";
 
 type Tab = "realm" | "hold" | "compact" | "road";
 type Amount = 1 | 5 | "all";
@@ -320,6 +321,7 @@ export function PlaySeason({
         {tab === "realm" && (
           <div className="wm-tab flex flex-col gap-3">
             <RealmMap state={state} selected={holdId} onSelect={setHoldId} />
+            <SettlementScene key={holdId} state={state} holdId={holdId} />
             <PeopleStrip state={state} onOpen={() => setTab("hold")} />
             <MarksCard state={state} />
             <ThreatCard state={state} act={act} />
@@ -340,28 +342,22 @@ export function PlaySeason({
 
         {tab === "hold" && (
           <div className="wm-tab flex flex-col gap-3">
-            <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/10">
-              <div className="relative h-32">
-                <img src={`/art/hold-${hold.id}.jpg`} alt="" className="h-full w-full object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/75 to-transparent" />
-                <p className="absolute right-4 bottom-3 left-4 font-display text-2xl text-[#f4ead7]">{hold.name}</p>
-              </div>
-              <div className="p-4">
-                <p className="text-sm leading-relaxed">
-                  Sealing the day brings {dawnYield(state)} {GOOD_LABEL[hold.produces].toLowerCase()}.
-                  {state.works.mill ? " The mill is in that count." : ""} {faction.bonus}
-                </p>
-                <p className="mt-2 text-sm leading-relaxed text-[#3d4a62]">{hold.myth}</p>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Cellar {stashCount(state.player.stash)}/{cap}
-                  {state.day > 12 ? " · Deep winter has thinned the yield." : ""}
-                </p>
-                {!state.player.undercroft && (
-                  <Button type="button" variant="outline" className="mt-3 h-11" onClick={() => act(raiseUndercroft(state))}>
-                    Raise the cellar · {UNDERCROFT_COST}g
-                  </Button>
-                )}
-              </div>
+            <SettlementScene key={hold.id} state={state} holdId={hold.id} act={act} />
+            <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+              <p className="text-sm leading-relaxed">
+                Sealing the day brings {dawnYield(state)} {GOOD_LABEL[hold.produces].toLowerCase()}.
+                {state.works.mill ? " The mill is in that count." : ""} {faction.bonus}
+              </p>
+              <p className="mt-2 text-sm leading-relaxed text-[#3d4a62]">{hold.myth}</p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Cellar {stashCount(state.player.stash)}/{cap}
+                {state.day > 12 ? " · Deep winter has thinned the yield." : ""}
+              </p>
+              {!state.player.undercroft && (
+                <Button type="button" variant="outline" className="mt-3 h-11" onClick={() => act(raiseUndercroft(state))}>
+                  Raise the cellar · {UNDERCROFT_COST}g
+                </Button>
+              )}
             </div>
             <PeoplePanel state={state} act={act} />
             <WorksCard state={state} act={act} />

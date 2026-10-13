@@ -68,7 +68,7 @@ export function HoldWorks({ state, act }: { state: GameState; act: (result: Resu
     <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
       <p className="font-display text-xl">Raise the hold</p>
       <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-        {chapterName(camp.chapter)}. {chapter?.aim} One work rises at a time and finishes when you seal the day.
+        {chapterName(camp.chapter)}. {chapter?.aim} The realm above is these works. One plot rises at a time and finishes when you seal the day.
       </p>
       <ul className="mt-3 flex flex-col gap-3">
         {BUILDINGS.map((spec) => {
