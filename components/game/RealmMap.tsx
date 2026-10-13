@@ -1,5 +1,6 @@
 import { HOLDS, holdById } from "@/lib/game/content";
 import type { GameState, HoldId } from "@/lib/game/types";
+import { Figure } from "./town";
 
 const MARKS: Record<HoldId, { x: number; y: number }> = {
   highbarrow: { x: 38, y: 28 },
@@ -38,9 +39,19 @@ export function RealmMap({
             style={{ left: `${mark.x}%`, top: `${mark.y}%` }}
           >
             <span
-              className={`flex size-8 items-center justify-center rounded-full text-[10px] font-semibold text-[#f8f1e4] shadow-lg ${active ? "ring-2 ring-white" : "ring-1 ring-black/40"} ${here ? "wm-hold bg-[#6e1e22]" : "bg-[#1c1612]/80"}`}
+              className={
+                here
+                  ? `flex w-9 items-end justify-center ${active ? "rounded-full ring-2 ring-white" : ""}`
+                  : `flex size-8 items-center justify-center rounded-full bg-[#1c1612]/80 text-[10px] font-semibold text-[#f8f1e4] shadow-lg ${active ? "ring-2 ring-white" : "ring-1 ring-black/40"}`
+              }
             >
-              {here ? "You" : hold.name.slice(0, 1)}
+              {here ? (
+                <span className="wm-bob block w-8 drop-shadow">
+                  <Figure cloak={state.player.banner.field} banner={state.player.banner.charge} lord />
+                </span>
+              ) : (
+                hold.name.slice(0, 1)
+              )}
             </span>
             <span className="mt-0.5 rounded bg-[#1c1612]/75 px-1 text-[9px] tracking-wide text-[#f4ead7]">
               {hold.name}
