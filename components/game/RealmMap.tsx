@@ -1,6 +1,5 @@
 import { HOLDS, holdById } from "@/lib/game/content";
 import type { GameState, HoldId } from "@/lib/game/types";
-import { Figure } from "./town";
 
 const MARKS: Record<HoldId, { x: number; y: number }> = {
   highbarrow: { x: 38, y: 28 },
@@ -46,9 +45,7 @@ export function RealmMap({
               }
             >
               {here ? (
-                <span className="wm-bob block w-8 drop-shadow">
-                  <Figure cloak={state.player.banner.field} banner={state.player.banner.charge} lord />
-                </span>
+                <img src="/art/iso/walk-0.png" alt="" className="h-9 w-auto drop-shadow" />
               ) : (
                 hold.name.slice(0, 1)
               )}
