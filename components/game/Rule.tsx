@@ -197,7 +197,7 @@ export function CrossingDialog({ state, act }: { state: GameState; act: (result:
               <p className="mt-3 text-sm leading-relaxed">{crossing.body}</p>
               <p className="mt-3 text-xs tracking-wide text-[#8d6b2e] uppercase">The choice stays in force after they leave.</p>
               {crossing.choices.some((choice) => choice.gamble) && (
-                <p className="mt-2 text-xs tracking-wide text-[#8d6b2e] uppercase">One path rolls twelve bones. Faces 1–6 pay. 7–12 turn.</p>
+                <p className="mt-2 text-xs tracking-wide text-[#8d6b2e] uppercase">One path throws twelve bones. Faces 1–6 pay. 7–12 turn.</p>
               )}
               <div className="mt-4 flex flex-col gap-2 pb-4">
                 {crossing.choices.map((choice) => (

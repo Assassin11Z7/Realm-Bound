@@ -160,7 +160,7 @@ export function OmenDialog({ state, act }: { state: GameState; act: (result: Res
               </DialogHeader>
               <p className="mt-3 text-sm leading-relaxed">{omen.body}</p>
               {omen.choices.some((choice) => choice.gamble) && (
-                <p className="mt-3 text-xs tracking-wide text-[#8d6b2e] uppercase">One path is safe. The other rolls twelve bones. You watch them land.</p>
+                <p className="mt-3 text-xs tracking-wide text-[#8d6b2e] uppercase">One path is safe. The other throws twelve bones. You watch them land.</p>
               )}
               <div className="mt-4 flex flex-col gap-2 pb-4">
                 {omen.choices.map((choice) => (
