@@ -67,7 +67,7 @@ import { CaptainOrders, HoldWorks, MissionList, SkillDialog, ThreatCard } from "
 import { CraftBench } from "./Craft";
 import { CutsceneView, ExplorePanel } from "./Explore";
 import { FateRoll, OathRow, OmenDialog, WorksCard, WyrmCard } from "./Myth";
-import { CrossingDialog, MarksCard, PeoplePanel, PeopleStrip } from "./Rule";
+import { CrossingDialog, DecreeCard, MarksCard, PeoplePanel, PeopleStrip } from "./Rule";
 import { peopleTrouble } from "@/lib/game/realm";
 import { HoldBrief, RealmMap } from "./RealmMap";
 
@@ -194,7 +194,7 @@ export function PlaySeason({
     navigator.vibrate?.(12);
     setDawn({
       day: result.state.day,
-      title: result.state.omen?.creature ?? result.state.crossing?.creature ?? result.state.petition?.title ?? `Day ${result.state.day}`,
+      title: result.state.omen?.creature ?? result.state.crossing?.creature ?? result.state.decree?.title ?? result.state.petition?.title ?? `Day ${result.state.day}`,
     });
     onPlayed(result.state);
     if (result.message) setToast({ tone: "good", text: result.message });
@@ -226,7 +226,7 @@ export function PlaySeason({
               </p>
               {homePeople && (
                 <p className="text-[11px] text-[#f4ead7]/75">
-                  {homePeople.souls} people · mood {homePeople.mood}
+                  {homePeople.souls} people · mood {homePeople.mood} · loyalty {homePeople.loyalty}
                 </p>
               )}
               <span className="mt-1 flex items-center gap-2 text-[11px] text-[#f4ead7]/80">
@@ -320,6 +320,7 @@ export function PlaySeason({
         {tab === "realm" && (
           <div className="wm-tab flex flex-col gap-3">
             <RealmMap state={state} selected={holdId} onSelect={setHoldId} />
+            <DecreeCard state={state} act={act} />
             <PeopleStrip state={state} onOpen={() => setTab("hold")} />
             <MarksCard state={state} />
             <ThreatCard state={state} act={act} />
@@ -363,6 +364,7 @@ export function PlaySeason({
                 )}
               </div>
             </div>
+            <DecreeCard state={state} act={act} />
             <PeoplePanel state={state} act={act} />
             <WorksCard state={state} act={act} />
             <HoldWorks state={state} act={act} />
