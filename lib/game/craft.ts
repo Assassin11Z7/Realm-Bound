@@ -1,6 +1,6 @@
-import type { BuildingId, GameState, GoodId, PotionId, Result } from "./types";
+import type { BuildingId, GameState, GoodId, PotionId, Rarity, Result } from "./types";
 import { finishProject, grantXp, syncCampaign } from "./progress";
-import { carryCap, carriedWeight, gearWeight, makePiece, storedWeight, vaultCap } from "./world";
+import { carryCap, carriedWeight, gearWeight, makePiece, smithBonus, storedWeight, vaultCap } from "./world";
 
 export function emptyBrew(): Record<PotionId, number> {
   return { luck: 0, calm: 0, haste: 0, purse: 0, vigor: 0 };
@@ -67,9 +67,12 @@ export function craft(state: GameState, recipeId: string): Result {
   const level = state.campaign?.buildings[recipe.building] ?? 0;
   const bench = BENCH[recipe.building] ?? recipe.building;
   if (level < recipe.level) return fail(state, `The ${bench} must be level ${recipe.level}.`);
-  if (state.player.gold < recipe.gold) return fail(state, `That costs ${recipe.gold} gold.`);
+  const smith = smithBonus(state);
+  const goldCost = smith ? Math.max(0, recipe.gold - 2) : recipe.gold;
+  if (state.player.gold < goldCost) return fail(state, `That costs ${goldCost} gold.`);
   if (state.player.stash[recipe.good] < recipe.qty) return fail(state, `You need ${recipe.qty} ${recipe.good}.`);
-  const rarity = level >= 3 ? "relic" : level >= 2 ? "uncanny" : "common";
+  const baseRarity: Rarity = level >= 3 ? "relic" : level >= 2 ? "uncanny" : "common";
+  const rarity: Rarity = recipe.gear && smith ? (baseRarity === "common" ? "uncanny" : "relic") : baseRarity;
   const preview = recipe.gear ? makePiece(recipe.gear, rarity, "preview") : null;
   if (recipe.gear && !preview) return fail(state, "That pattern is lost.");
   const adding = preview ? gearWeight(preview) : 1;
@@ -77,7 +80,7 @@ export function craft(state: GameState, recipeId: string): Result {
     return fail(state, "The bag cannot take the weight. Move something to the strongroom.");
   }
   const next = structuredClone(state);
-  next.player.gold -= recipe.gold;
+  next.player.gold -= goldCost;
   next.player.stash[recipe.good] -= recipe.qty;
   if (recipe.potion) {
     next.brew[recipe.potion] += 1;

@@ -88,7 +88,9 @@ export function dawnsLeftLabel(day: number): string {
 /** One plain next action. Updates as visitors, the caravan, and the people change. */
 export function whatNow(state: GameState): string {
   if (state.omen || state.crossing) return "Answer the visitor.";
+  if (state.decree) return "The hall is waiting on a realm decision.";
   if (state.petition) return "Answer the people.";
+  if ((state.miles ?? 0) < 1) return "Walk a hold. The road is where the gear is found.";
   const traded = state.chronicle.some(
     (entry) => entry.day === state.day && (entry.text.includes("bought") || entry.text.includes("sold")),
   );

@@ -1,4 +1,5 @@
 import { HOLDS, holdById } from "@/lib/game/content";
+import { bondScore, bondWord } from "@/lib/game/realm";
 import type { GameState, HoldId } from "@/lib/game/types";
 
 const MARKS: Record<HoldId, { x: number; y: number }> = {
@@ -74,7 +75,7 @@ export function HoldBrief({ state, holdId }: { state: GameState; holdId: HoldId 
             ? "Your banner flies here."
             : member
               ? member.inCompact
-                ? `${member.name}, ${member.epithet}, is sworn to you.`
+                ? `${member.name}, ${member.epithet}, is sworn to you. ${bondWord(bondScore(state, state.player.holdId, hold.id))}`
                 : `${member.name} has left. This hold sends nothing.`
               : `${hold.lord} keeps ${hold.name} and is not sworn to you.`}
         </p>

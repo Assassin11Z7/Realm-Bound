@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { POTIONS, RECIPES, craft } from "@/lib/game/craft";
 import type { GameState, Result } from "@/lib/game/types";
+import { smithBonus } from "@/lib/game/world";
 
 const BENCH_NAME: Record<string, string> = {
   forge: "Forge",
@@ -11,11 +12,13 @@ const BENCH_NAME: Record<string, string> = {
 };
 
 export function CraftBench({ state, act }: { state: GameState; act: (result: Result) => void }) {
+  const smith = smithBonus(state) > 0;
   return (
     <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
       <p className="font-display text-xl">Benches</p>
       <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
         The forge smiths, the brew house makes drinks, and the loom weaves. A bench only works once you have raised it.
+        {smith ? " A smith's piece is worn: coin cost falls by 2, and the piece finishes one grade finer." : ""}
       </p>
       <ul className="mt-3 flex flex-col gap-3">
         {RECIPES.map((recipe) => {
@@ -32,7 +35,7 @@ export function CraftBench({ state, act }: { state: GameState; act: (result: Res
               </p>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{recipe.detail}</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {recipe.qty} {recipe.good} · {recipe.gold}g
+                {recipe.qty} {recipe.good} · {smith ? Math.max(0, recipe.gold - 2) : recipe.gold}g
                 {ready ? "" : ` · your ${BENCH_NAME[recipe.building].toLowerCase()} is level ${have}`}
               </p>
               <Button type="button" variant="outline" className="mt-2 h-10" disabled={!ready} onClick={() => act(craft(state, recipe.id))}>

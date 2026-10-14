@@ -19,12 +19,12 @@ import {
 } from "@/lib/game/progress";
 import type { CaptainOrder, GameState, HoldId, Result, SkillId } from "@/lib/game/types";
 
-const ORDERS: { id: CaptainOrder; label: string }[] = [
-  { id: "oath", label: "Stay" },
-  { id: "garrison", label: "Gate" },
-  { id: "march", label: "March" },
-  { id: "hunt", label: "Hunt" },
-  { id: "trade", label: "Trade" },
+const ORDERS: { id: CaptainOrder; label: string; detail: string }[] = [
+  { id: "oath", label: "Stay", detail: "No order. They mind their own oath." },
+  { id: "garrison", label: "Gate", detail: "Hold the gate. Loyalty rises where they stand." },
+  { id: "march", label: "March", detail: "Walk on a hold. Friends open the gate. A rivalry makes a quarrel and richer spoils." },
+  { id: "hunt", label: "Hunt", detail: "Hunt the road. A hunting weapon brings trophies home more often." },
+  { id: "trade", label: "Trade", detail: "Sell the compact's name. Friendship pays more. A rivalry still pays, and worsens." },
 ];
 
 export function SkillDialog({
@@ -138,6 +138,7 @@ export function CaptainOrders({
           </Button>
         ))}
       </div>
+      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{ORDERS.find((order) => order.id === captain.order)?.detail}</p>
       {aiming && (
         <div className="mt-2 flex flex-wrap gap-2">
           {HOLDS.filter((hold) => hold.id !== state.player.holdId).map((hold) => (

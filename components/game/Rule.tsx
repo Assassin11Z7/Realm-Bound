@@ -11,8 +11,8 @@ import {
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { holdById } from "@/lib/game/content";
-import { chooseCrossing, choosePetition, dismissCrossing, setEdict, stockSettlement } from "@/lib/game/engine";
-import { EDICTS, modsBlurb } from "@/lib/game/realm";
+import { chooseCrossing, chooseDecree, choosePetition, dismissCrossing, setEdict, stockSettlement } from "@/lib/game/engine";
+import { EDICTS, bondWord, modsBlurb } from "@/lib/game/realm";
 import type { EdictId, GameState, HoldId, Result } from "@/lib/game/types";
 import { useFrame } from "./frame";
 
@@ -31,7 +31,7 @@ export function PeopleStrip({ state, onOpen }: { state: GameState; onOpen: () =>
         {home.souls} people at {holdById(home.holdId).name}
       </p>
       <p className="mt-2 text-sm text-muted-foreground">
-        Mood {home.mood} · food {home.bread} · firewood {home.hearth} · {lawName(home.edict)}
+        Mood {home.mood} · loyalty {home.loyalty} · influence {home.influence} · {lawName(home.edict)}
       </p>
       {memory > 0 && (
         <p className="mt-2 text-sm">
@@ -66,6 +66,36 @@ export function MarksCard({ state }: { state: GameState }) {
   );
 }
 
+export function DecreeCard({ state, act }: { state: GameState; act: (result: Result) => void }) {
+  const decree = state.decree;
+  if (!decree) return null;
+  return (
+    <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-[#8d6b2e]/50">
+      <img src={decree.art} alt="" className="h-28 w-full object-cover" />
+      <div className="p-4">
+        <p className="text-xs tracking-wide text-[#8d6b2e] uppercase">Realm decision</p>
+        <p className="mt-1 font-display text-2xl leading-tight">{decree.title}</p>
+        <p className="mt-2 text-sm leading-relaxed">{decree.body}</p>
+        <p className="mt-2 text-xs tracking-wide text-[#8d6b2e] uppercase">This choice stays in force. Sealing the day without an answer thins loyalty.</p>
+        <div className="mt-3 flex flex-col gap-2">
+          {decree.choices.map((choice) => (
+            <Button
+              key={choice.id}
+              type="button"
+              variant="secondary"
+              className="h-auto min-h-11 flex-col items-start gap-0.5 py-2 text-left whitespace-normal"
+              onClick={() => act(chooseDecree(state, choice.id))}
+            >
+              <span>{choice.label}</span>
+              <span className="text-xs font-normal opacity-80">{choice.detail}</span>
+            </Button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function PeoplePanel({ state, act }: { state: GameState; act: (result: Result) => void }) {
   const frame = useFrame();
   const [lawFor, setLawFor] = useState<HoldId | null>(null);
@@ -76,7 +106,7 @@ export function PeoplePanel({ state, act }: { state: GameState; act: (result: Re
     <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
       <p className="font-display text-xl">The people</p>
       <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-        Laws last until you change them. Grain feeds the food store. Timber feeds the fires. Leave them be, and nothing comes out of your own stores.
+        Laws, loyalty, and influence are how the realm is governed. Grain feeds the food store. Timber feeds the fires. A sworn law cannot be replaced from the hall.
       </p>
       {blurb && <p className="mt-2 text-sm leading-relaxed">{blurb}</p>}
       {state.petition && (
@@ -118,8 +148,19 @@ export function PeoplePanel({ state, act }: { state: GameState; act: (result: Re
                 <span className={settlement.mood < 40 ? "text-primary" : ""}>{settlement.mood}</span>
               </div>
               <Progress value={settlement.mood} className="mt-1 h-1.5" />
+              <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                <span>Loyalty</span>
+                <span className={settlement.loyalty < 40 ? "text-primary" : ""}>{settlement.loyalty}</span>
+              </div>
+              <Progress value={settlement.loyalty} className="mt-1 h-1.5" />
+              <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                <span>Influence</span>
+                <span>{settlement.influence}</span>
+              </div>
+              <Progress value={settlement.influence} className="mt-1 h-1.5" />
               <p className="mt-2 text-xs text-muted-foreground">
                 Food {settlement.bread} · firewood {settlement.hearth} · {lawName(settlement.edict)}
+                {settlement.lawLocked ? " · sworn, and locked" : ""}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button type="button" variant="secondary" className="h-10" onClick={() => act(stockSettlement(state, settlement.holdId, "bread", 1))}>
@@ -136,12 +177,34 @@ export function PeoplePanel({ state, act }: { state: GameState; act: (result: Re
           );
         })}
       </div>
+      {(state.bonds ?? []).length > 0 && (
+        <div className="mt-4">
+          <p className="text-xs tracking-wide text-muted-foreground uppercase">Roads between holds</p>
+          <ul className="mt-2 flex flex-col gap-2">
+            {state.bonds.map((bond) => (
+              <li key={bond.id} className="text-sm leading-relaxed">
+                <span className="font-medium">
+                  {holdById(bond.a).name} and {holdById(bond.b).name}
+                </span>
+                <span className={bond.score < 0 ? " text-primary" : ""}>
+                  {" "}
+                  · {bond.score > 0 ? `+${bond.score}` : bond.score}. {bondWord(bond.score)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <Dialog open={Boolean(ruling)} onOpenChange={(open) => !open && setLawFor(null)}>
         <DialogContent container={frame} className="max-h-[80%] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-display text-2xl">{ruling ? `A law for ${holdById(ruling.holdId).name}` : "A law"}</DialogTitle>
-            <DialogDescription>The law you set stays until you replace it.</DialogDescription>
+            <DialogDescription>
+              {ruling?.lawLocked
+                ? "This law was sworn. The hall cannot replace it."
+                : "The law you set moves loyalty and influence, and stays until you replace it."}
+            </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-2">
             {EDICTS.map((edict) => {
@@ -152,9 +215,9 @@ export function PeoplePanel({ state, act }: { state: GameState; act: (result: Re
                   type="button"
                   variant={standing ? "secondary" : "outline"}
                   className="h-auto min-h-11 flex-col items-start gap-0.5 py-2 text-left whitespace-normal"
-                  disabled={standing}
+                  disabled={standing || Boolean(ruling?.lawLocked)}
                   onClick={() => {
-                    if (!ruling) return;
+                    if (!ruling || ruling.lawLocked) return;
                     act(setEdict(state, ruling.holdId, edict.id));
                     setLawFor(null);
                   }}
