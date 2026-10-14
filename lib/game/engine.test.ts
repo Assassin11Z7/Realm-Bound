@@ -31,7 +31,9 @@ import {
   chooseCrossing,
   choosePetition,
   dismissCrossing,
+  dismissOutcome,
   equipGear,
+  releaseExpedition,
   sellGear,
   setEdict,
   stockSettlement,
@@ -44,6 +46,7 @@ import { GOODS, LEVY_GOODS } from "./types";
 import { chooseSkill, setCaptainOrder, startProject } from "./progress";
 import { craft, drinkPotion, storeGear } from "./craft";
 import { creatureCount, forceCrossing, forcePetition } from "./realm";
+import { allianceBoard } from "./expedition";
 import { carryCap, luckOf, rollGear, treasureCount, vaultCap } from "./world";
 
 function setup(partial: Partial<NewGameSetup> = {}): NewGameSetup {
@@ -773,5 +776,58 @@ test("a creature's bargain and a settlement's law stay in force", () => {
   assert.equal(bare?.petition, null);
   assert.equal(bare?.settlements[0].edict, "custom");
   assert.equal(bare?.tutorial.step, null);
+  assert.equal(bare?.expedition.phase, "called");
+  assert.equal(bare?.expedition.dueDay, 12);
+  assert.equal(bare?.politics.awaitingSeats.length, 2);
   assert.equal(createGame(setup()).tutorial.step, "wagons");
+});
+
+test("a finished expedition leaves and the next call resets the wagons", () => {
+  let state = createGame(setup());
+  state.player.stash.grain += 30;
+  state.player.stash.iron += 20;
+  state.player.stash.salt += 20;
+  state = pledgePersonal(state, "grain", 20).state;
+  state = pledgePersonal(state, "iron", 12).state;
+  state = pledgePersonal(state, "salt", 10).state;
+  assert.equal(state.outcome, "held");
+  assert.equal(state.expedition.phase, "called");
+  assert.ok(state.expedition.rewards.includes("triumph-1"));
+  assert.ok(state.pack.some((gear) => gear.id === "expedition-triumph-1"));
+  state = dismissOutcome(state).state;
+  assert.equal(state.expedition.phase, "idle");
+  assert.equal(state.outcomeDismissed, true);
+  const refused = pledgePersonal(state, "grain", 1);
+  assert.ok(refused.error);
+  const back = state.expedition.nextCallDay ?? 0;
+  assert.ok(back > state.day);
+  while (state.day < back) state = sealDay(state).state;
+  assert.equal(state.day, back);
+  assert.equal(state.expedition.phase, "called");
+  assert.equal(state.expedition.cycle, 2);
+  assert.equal(state.outcome, null);
+  assert.equal(state.compact.levy.grain, 0);
+  assert.equal(state.compact.levy.iron, 0);
+  assert.equal(state.compact.levy.salt, 0);
+});
+
+test("letting a failed expedition go pays survival loot and keeps the seats", () => {
+  let state = createGame(setup({ holdId: "woolford", factionId: "copper" }));
+  for (let day = 0; day < 12; day += 1) state = sealDay(state).state;
+  assert.equal(state.outcome, "lost");
+  assert.equal(state.day, 13);
+  assert.equal(state.expedition.phase, "called");
+  state = releaseExpedition(state).state;
+  assert.equal(state.expedition.phase, "idle");
+  assert.equal(state.outcome, "lost");
+  assert.ok(state.expedition.rewards.includes("survival-1"));
+  assert.ok(state.pack.some((gear) => gear.id === "expedition-survival-1"));
+  assert.ok(state.politics.conflictHeat > 0);
+  const board = allianceBoard(state);
+  assert.equal(board.seats[0].holder, "you");
+  assert.ok(board.seats.some((seat) => seat.holder === "awaiting-player"));
+  assert.equal(board.goals.length, 3);
+  assert.equal(board.conflict.rivalName, null);
+  const later = pledgeFromHall(state, "iron", 1);
+  assert.ok(later.error);
 });

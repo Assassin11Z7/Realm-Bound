@@ -403,12 +403,16 @@ export const WYRM_NAME = "Vell";
 
 export const RULES: { title: string; body: string }[] = [
   {
-    title: "One view at a time",
-    body: "Realm, Hold, Neighbors, and Road each open on a single subject. The row under the banner switches that subject. The list below it scrolls.",
+    title: "The realm is the game",
+    body: "Holds, loyalty, laws, oaths, and seats continue after any one call of the wagons. Seal the day, and the valley keeps growing.",
   },
   {
-    title: "Twelve dawns",
-    body: "Fill the wagons with grain, iron, and salt before the twelfth dawn. The wagons sit under Realm, then Status. Dawns left sit beside them.",
+    title: "The wagon expedition",
+    body: "Every so often the wagons are called. You have twelve dawns to fill them with grain, iron, and salt. Meet the call and a relic comes off the wagons. Miss it and you can fill them late for a few dawns, or let them go and take a lesser spoil. Then they leave, and the call comes again.",
+  },
+  {
+    title: "Where things live",
+    body: "Realm holds the map, bonds, decrees, and the morning status. Hold holds people, loyalty, laws, works, and benches. Neighbors holds oaths, trade, captain orders, and the seats kept for a later war. Road holds the walk, your bag, gear, and loot.",
   },
   {
     title: "Seal the day",
@@ -416,19 +420,11 @@ export const RULES: { title: string; body: string }[] = [
   },
   {
     title: "Neighbors and wagons",
-    body: "Oaths, trade, and captain orders are separate views on the Neighbors tab. Shared stores feed your sworn neighbors. What you send to the wagons is gone.",
+    body: "Shared stores feed your sworn neighbors. What you send to the wagons is gone. When the wagons are off the road, the hall is still there.",
   },
   {
-    title: "The road",
-    body: "Explore, your bag, worn gear, and found loot are separate views. The caravan, when it is in town, is under Explore.",
-  },
-  {
-    title: "Vell and the road",
-    body: "Vell is a frost dragon. His anger is under Realm, then Status. Other creatures offer choices that last. Those bonds are their own view.",
-  },
-  {
-    title: "Food, firewood, and a law",
-    body: "Send grain and timber under Hold, then People. Set a law under Hold, then Laws. The law stays until you change it.",
+    title: "Vell, the people, and the seats",
+    body: "Vell is a frost dragon. His anger is one danger, under Realm then Status. Your people need food, firewood, and a law. Two march seats stay empty until other players can sit them. Heat there is the hook a later alliance war will pull.",
   },
 ];
 

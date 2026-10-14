@@ -55,6 +55,7 @@ import {
   stockSettlement as sendStores,
   tickSettlements,
 } from "./realm";
+import { blankExpedition, blankPolitics, EXPEDITION_GRACE, expeditionDue, markCalled, markDeparted, takeExpeditionPrize, wagonsOpen } from "./expedition";
 import { bumpQuest, carryCap, carriedWeight, gearWeight, loreBonus, luckOf, openingQuests, openingScene, purseBonus, rewardScene, roadFind, starterCloak, wardBonus } from "./world";
 import { GOODS, LEVY_GOODS } from "./types";
 import type {
@@ -230,8 +231,9 @@ function oathCoin(state: GameState): number {
 
 function considerVictory(state: GameState) {
   if (!isLevyMet(state)) return;
+  if (!wagonsOpen(state)) return;
   if (state.outcome === "held" || state.outcome === "held-late") return;
-  const late = state.day > SEASON_DAYS || state.outcome === "lost";
+  const late = state.day > expeditionDue(state) || state.outcome === "lost";
   state.outcome = late ? "held-late" : "held";
   state.outcomeDismissed = false;
   if (!state.outcomeRewarded) {
@@ -239,7 +241,25 @@ function considerVictory(state: GameState) {
     const stayed = state.compact.members.filter((member) => member.inCompact).length;
     state.player.renown += stayed * 2;
     state.outcomeRewarded = true;
+    const prize = takeExpeditionPrize(state, "triumph");
+    if (prize) note(state, prize);
   }
+}
+
+function wagonsClosed(state: GameState): string | null {
+  if (wagonsOpen(state)) return null;
+  const day = state.expedition?.nextCallDay;
+  return day ? `The wagons are off the road. They return on day ${day}.` : "The wagons are not on the road.";
+}
+
+function departExpedition(state: GameState, line: string) {
+  const kind = markDeparted(state);
+  if (!kind) return;
+  if (kind === "survival") {
+    const prize = takeExpeditionPrize(state, "survival");
+    if (prize) note(state, prize);
+  }
+  note(state, line);
 }
 
 function applyLoss(state: GameState) {
@@ -548,6 +568,7 @@ function runEvening(state: GameState): string[] {
       if (member.contentment <= LEAVE_AT) {
         member.inCompact = false;
         member.lastNote = "Folded their banner and left.";
+        if (state.politics) state.politics.conflictHeat = Math.min(100, state.politics.conflictHeat + 8);
         lines.push(
           `${member.name} folded their banner and left the compact. ${memberHold(member).name} will not send ${memberHold(member).produces} again.`,
         );
@@ -699,6 +720,8 @@ export function createGame(setup: NewGameSetup): GameState {
     scene: null,
     campaign: blankCampaign([]),
     tutorial: { step: "wagons" },
+    expedition: blankExpedition(),
+    politics: blankPolitics(),
   };
 
   const cloak = starterCloak();
@@ -720,12 +743,14 @@ export function createGame(setup: NewGameSetup): GameState {
   if (dawn.length) note(state, dawn.join(" "));
   note(
     state,
-    `The wagons need ${LEVY_TARGET.grain} grain, ${LEVY_TARGET.iron} iron, and ${LEVY_TARGET.salt} salt before the twelfth dawn. ${WYRM_NAME} the frost dragon is in the mountains, and other creatures walk the road. The people of ${hold.name} need food, firewood, and a law. After the wagons move, the realm stays open.`,
+    `The wagons are called. They need ${LEVY_TARGET.grain} grain, ${LEVY_TARGET.iron} iron, and ${LEVY_TARGET.salt} salt before day ${SEASON_DAYS}. ${WYRM_NAME} the frost dragon watches that road. The people of ${hold.name} need food, firewood, and a law. When the wagons leave, the realm stays open, and the call will come again.`,
   );
   return state;
 }
 
 export function pledgePersonal(state: GameState, good: GoodId, qty: number): Result {
+  const closed = wagonsClosed(state);
+  if (closed) return fail(state, closed);
   const amount = qtyOf(qty);
   if (!amount) return fail(state, "Choose how much to send to the wagons.");
   if (!isLevyGood(good)) return fail(state, `The wagons do not take ${good}.`);
@@ -776,6 +801,8 @@ export function withdraw(state: GameState, good: GoodId, qty: number): Result {
 }
 
 export function pledgeFromHall(state: GameState, good: GoodId, qty: number): Result {
+  const closed = wagonsClosed(state);
+  if (closed) return fail(state, closed);
   const amount = qtyOf(qty);
   if (!amount) return fail(state, "Choose how much to send to the wagons.");
   if (!isLevyGood(good)) return fail(state, `The wagons do not take ${good}.`);
@@ -798,6 +825,8 @@ export function pledgeFromHall(state: GameState, good: GoodId, qty: number): Res
 }
 
 export function pledgeRoadShare(state: GameState): Result {
+  const closed = wagonsClosed(state);
+  if (closed) return fail(state, closed);
   const appetite = expectedDraw(state);
   const next = draft(state);
   const parts: string[] = [];
@@ -853,6 +882,8 @@ export function offerRelic(state: GameState): Result {
   if (state.player.factionId !== "canticle") {
     return fail(state, "Only the Stone Canticle can offer a relic to the wagons.");
   }
+  const closed = wagonsClosed(state);
+  if (closed) return fail(state, closed);
   if (state.player.stash.relics < 1) return fail(state, "You have no relic to offer.");
   if (isLevyMet(state)) return fail(state, "The wagons are already full.");
   let focus: LevyGood = "grain";
@@ -972,15 +1003,33 @@ export function raiseUndercroft(state: GameState): Result {
 }
 
 export function dismissOutcome(state: GameState): Result {
-  if (!state.outcome) return fail(state, "The season has not been judged.");
+  if (!state.outcome) return fail(state, "The expedition has not been judged.");
   const next = draft(state);
   next.outcomeDismissed = true;
-  return ok(next);
+  if (next.outcome === "held" || next.outcome === "held-late") {
+    departExpedition(next, "The wagons leave the road. The hold, the oaths, and the seats stay.");
+  }
+  return ok(next, next.outcome === "lost" ? "The wagons are still late. Fill them, or let this call go." : "The expedition is over. The realm continues.");
+}
+
+/** Closes the verdict and sends the wagons off, including a missed call. */
+export function releaseExpedition(state: GameState): Result {
+  if (!state.outcome) return fail(state, "The expedition has not been judged.");
+  const next = draft(state);
+  next.outcomeDismissed = true;
+  const missed = next.outcome === "lost";
+  departExpedition(
+    next,
+    missed
+      ? "You let the wagons go. The frost keeps the shortage. The realm stays open."
+      : "The wagons leave the road. The hold, the oaths, and the seats stay.",
+  );
+  return ok(next, missed ? "The expedition is over. The realm continues." : "The wagons have gone. Keep the realm.");
 }
 
 export function sealDay(state: GameState): Result {
   const next = draft(state);
-  if (next.day === SEASON_DAYS && !isLevyMet(next)) applyLoss(next);
+  if (wagonsOpen(next) && next.day === expeditionDue(next) && !isLevyMet(next)) applyLoss(next);
 
   const lines: string[] = [];
   const trade = resolvePlayerOffer(next);
@@ -1079,8 +1128,16 @@ export function sealDay(state: GameState): Result {
   if (next.omen) message = `${next.omen.creature} is at the gate. ${message}`;
   else if (next.crossing) message = `${next.crossing.creature} is on the road. ${message}`;
   else if (next.petition) message = `${next.petition.title}. ${message}`;
-  if (next.outcome === "lost" && !next.outcomeDismissed && next.day === SEASON_DAYS + 1) {
-    message = `${WYRM_NAME} came down the road. The wagons were short, and the frost had teeth. You can still winter on.`;
+  if (wagonsOpen(next) && next.outcome === "lost" && next.day > expeditionDue(next) + EXPEDITION_GRACE) {
+    departExpedition(next, "The late wagons turn back. The frost keeps what it took, and the realm goes on.");
+    message = "The late wagons turn back. The realm goes on.";
+  }
+  if (next.expedition?.phase === "idle" && next.expedition.nextCallDay !== null && next.day >= next.expedition.nextCallDay) {
+    markCalled(next);
+    note(next, `The wagons are called again. Grain, iron, and salt are due by day ${next.expedition.dueDay}. The realm does not pause.`);
+    message = `The wagons are called again. They are due by day ${next.expedition.dueDay}. The realm does not pause.`;
+  } else if (next.outcome === "lost" && !next.outcomeDismissed && next.day === expeditionDue(next) + 1 && wagonsOpen(next)) {
+    message = `${WYRM_NAME} came down the road. The wagons were short. Fill them late, or let them go. The realm stays.`;
   }
   return ok(next, message);
 }

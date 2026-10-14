@@ -40,6 +40,7 @@ import {
   deposit,
   dismissOutcome,
   gift,
+  releaseExpedition,
   offerRelic,
   pledgeFromHall,
   pledgePersonal,
@@ -57,6 +58,7 @@ import {
   withdraw,
 } from "@/lib/game/engine";
 import { COACH, dawnsLeftLabel, whatNow } from "@/lib/game/coach";
+import { allianceBoard, expeditionDue, wagonsOpen } from "@/lib/game/expedition";
 import type { GameState, GoodId, HoldId, LevyGood, Result } from "@/lib/game/types";
 import { GOODS, LEVY_GOODS } from "@/lib/game/types";
 import { GoodThumb, Portrait } from "./art";
@@ -99,6 +101,7 @@ const SECTIONS: Record<Tab, { id: string; label: string }[]> = {
     { id: "oaths", label: "Oaths" },
     { id: "trade", label: "Trade" },
     { id: "orders", label: "Orders" },
+    { id: "alliance", label: "Seats" },
   ],
   road: [
     { id: "explore", label: "Explore" },
@@ -169,6 +172,11 @@ const INTRO: Record<string, { eyebrow: string; title: string; lede: string }> = 
     title: "Captain orders",
     lede: "Each order resolves when you seal the day.",
   },
+  alliance: {
+    eyebrow: "Neighbors",
+    title: "Seats",
+    lede: "Your chair, the oathbound, and two marches waiting for other players. No one else is on this road yet.",
+  },
   explore: {
     eyebrow: "Road",
     title: "The road",
@@ -222,6 +230,7 @@ export function PlaySeason({
   onAbandon: () => void;
 }) {
   const frame = useFrame();
+  const screenRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
   const sealing = useRef(false);
   const leaving = useRef(false);
@@ -258,7 +267,7 @@ export function PlaySeason({
   }, [tab, section]);
 
   useEffect(() => {
-    const root = mainRef.current?.parentElement ?? document.body;
+    const root = screenRef.current ?? document.body;
     root.querySelectorAll(".wm-coach-hot").forEach((node) => node.classList.remove("wm-coach-hot"));
     if (!coachTarget || state.scene) return;
     const el = root.querySelector(`[data-coach="${coachTarget}"]`);
@@ -348,14 +357,14 @@ export function PlaySeason({
   const verdictOpen = Boolean(state.outcome && !state.outcomeDismissed);
 
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col">
+    <div ref={screenRef} className="relative flex min-h-0 flex-1 flex-col">
       <header className="relative shrink-0 text-[#f4ead7]">
         <img src={`/art/hold-${hold.id}.jpg`} alt="" className="absolute inset-0 h-full w-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-b from-[#1c1612]/55 via-[#1c1612]/62 to-[#1c1612]" />
         <div className="relative flex items-center gap-3 px-4 py-3">
           <BannerMark banner={state.player.banner} className="h-11 w-9 shrink-0" title={`${state.player.title} ${state.player.name}'s banner`} />
           <div className="min-w-0 flex-1">
-            <h1 className="truncate font-display text-xl leading-none">{state.compact.name}</h1>
+            <h1 className="font-display text-lg leading-tight">{state.compact.name}</h1>
             <p className="mt-1 truncate text-xs text-[#f4ead7]/75">
               Day {state.day} · {seasonLabel(state.day)} · {chapterName(state.campaign?.chapter ?? 1)}
             </p>
@@ -447,6 +456,7 @@ export function PlaySeason({
               <TradePanel state={state} amount={amount} onAmount={setAmount} act={act} resolveQty={resolveQty} />
             )}
             {tab === "compact" && section === "orders" && <OrdersPanel state={state} act={act} />}
+            {tab === "compact" && section === "alliance" && <AlliancePanel state={state} />}
             {tab === "road" && section === "explore" && (
               <>
                 <RoadMarket state={state} act={act} />
@@ -482,14 +492,14 @@ export function PlaySeason({
         </div>
       )}
       {!coach && !state.scene && (
-        <p className="shrink-0 truncate px-4 pt-2 text-xs text-muted-foreground" data-coach="what-now">
+        <p className="line-clamp-2 shrink-0 px-4 pt-2 text-xs leading-snug text-muted-foreground" data-coach="what-now">
           <span className="font-medium text-foreground">What now. </span>
           {whatNow(state)}
         </p>
       )}
       <div className="shrink-0 px-4 pt-2">
         <Button type="button" data-coach="seal" className="h-12 w-full text-base" onClick={onSeal}>
-          {state.day === 12 ? "Seal the twelfth day" : "Seal the day"}
+          {wagonsOpen(state) && state.day === expeditionDue(state) ? "Seal the expedition's last dawn" : "Seal the day"}
         </Button>
       </div>
       <nav className="mt-2 grid shrink-0 grid-cols-4 border-t border-border pb-[max(0.25rem,env(safe-area-inset-bottom))]">
@@ -521,8 +531,8 @@ export function PlaySeason({
       <Dialog open={help} onOpenChange={setHelp}>
         <DialogContent container={frame} className="max-h-[80%] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-display text-2xl">How a season works</DialogTitle>
-            <DialogDescription>Where each part of the realm lives.</DialogDescription>
+            <DialogTitle className="font-display text-2xl">How the realm works</DialogTitle>
+            <DialogDescription>The wagons come and go. The valley stays.</DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-4">
             {RULES.map((rule) => (
@@ -539,7 +549,7 @@ export function PlaySeason({
         <DialogContent container={frame} className="max-h-[80%] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-display text-2xl">Chronicle</DialogTitle>
-            <DialogDescription>What the season has already done.</DialogDescription>
+            <DialogDescription>What the realm has already done.</DialogDescription>
           </DialogHeader>
           <ul className="flex flex-col gap-3 text-sm leading-relaxed">
             {[...state.chronicle].reverse().map((entry) => (
@@ -555,7 +565,7 @@ export function PlaySeason({
       <Dialog open={menu} onOpenChange={setMenu}>
         <DialogContent container={frame}>
           <DialogHeader>
-            <DialogTitle className="font-display text-2xl">This season</DialogTitle>
+            <DialogTitle className="font-display text-2xl">This realm</DialogTitle>
             <DialogDescription>
               {faction.name}. {hold.name} grows {hold.produces}. {state.player.title} {state.player.name}.
             </DialogDescription>
@@ -606,7 +616,7 @@ export function PlaySeason({
                 setConfirmAbandon(true);
               }}
             >
-              Abandon the season
+              Abandon the realm
             </Button>
           </div>
         </DialogContent>
@@ -615,7 +625,7 @@ export function PlaySeason({
       <Dialog open={confirmAbandon} onOpenChange={setConfirmAbandon}>
         <DialogContent container={frame}>
           <DialogHeader>
-            <DialogTitle className="font-display text-2xl">Abandon the season?</DialogTitle>
+            <DialogTitle className="font-display text-2xl">Abandon the realm?</DialogTitle>
             <DialogDescription>The save on this device will be erased.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -671,15 +681,17 @@ export function PlaySeason({
         <DialogContent container={frame} className="max-h-[85%] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-display text-2xl">
-              {state.outcome === "held" && "Wagons moved"}
-              {state.outcome === "held-late" && "Late, but the wing turned"}
+              {state.outcome === "held" && "The expedition is home"}
+              {state.outcome === "held-late" && "Late, but the wagons turned"}
               {state.outcome === "lost" && `${WYRM_NAME} came down the road`}
             </DialogTitle>
             <DialogDescription>
               {state.outcome === "held" &&
-                `The wagons moved, and ${WYRM_NAME} turned back. That was the first chapter. Your level, the hold, and the captains stay with you.`}
-              {state.outcome === "held-late" && `The wagon drivers will remember the delay. The realm does not end here. Keep sealing dawns.`}
-              {state.outcome === "lost" && `${WYRM_NAME} came down the road. The wagons were short. Winter on, raise the hold, and order the captains. The banner is still yours.`}
+                `The wagons are full, and a relic from the call is in your pack. They leave when you keep the realm. The hold, the oaths, and the seats stay.`}
+              {state.outcome === "held-late" &&
+                `The drivers will remember the delay. The spoil is still yours. The wagons leave, and the realm continues.`}
+              {state.outcome === "lost" &&
+                `${WYRM_NAME} came down the road. Let this call go and take a lesser spoil, or keep filling for a few dawns. Either way the banner is still yours.`}
             </DialogDescription>
           </DialogHeader>
           {state.outcome === "lost" && (
@@ -702,11 +714,16 @@ export function PlaySeason({
             Pledged {state.stats.pledged} · gifted {state.stats.gifted} · bought {state.stats.bought} · sold {state.stats.sold}
           </p>
           <DialogFooter>
-            <Button type="button" className="h-11" onClick={() => act(dismissOutcome(state))}>
-              {state.outcome === "lost" ? "Winter on" : "Keep the realm"}
+            <Button type="button" className="h-11" onClick={() => act(state.outcome === "lost" ? releaseExpedition(state) : dismissOutcome(state))}>
+              {state.outcome === "lost" ? "Let the wagons go" : "Keep the realm"}
             </Button>
+            {state.outcome === "lost" && (
+              <Button type="button" variant="outline" className="h-11" onClick={() => act(dismissOutcome(state))}>
+                Fill them late
+              </Button>
+            )}
             <Button type="button" variant="outline" className="h-11" onClick={() => leave(onAbandon)}>
-              New season
+              New realm
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -728,7 +745,14 @@ export function PlaySeason({
 
 function sectionAlert(state: GameState, tab: Tab, id: string): boolean {
   if (tab === "realm" && id === "decrees") return Boolean(state.petition || state.campaign?.threat || openDecree(state));
-  if (tab === "realm" && id === "status") return (state.wyrm?.ire ?? 0) >= 60;
+  if (tab === "realm" && id === "status") {
+    const called = wagonsOpen(state);
+    const full = LEVY_GOODS.every((good) => state.compact.levy[good] >= LEVY_TARGET[good]);
+    return (called && !full) || (state.wyrm?.ire ?? 0) >= 60;
+  }
+  if (tab === "compact" && id === "alliance") {
+    return state.compact.members.some((member) => !member.inCompact) || (state.politics?.conflictHeat ?? 0) >= 40;
+  }
   if (tab === "hold" && id === "people") return peopleTrouble(state);
   if (tab === "compact" && id === "oaths") return state.compact.members.some((member) => !member.inCompact || member.contentment < 25);
   if (tab === "compact" && id === "trade") return state.npcOffers.length > 0;
@@ -754,30 +778,47 @@ function StatusPanel({
 }) {
   const home = state.settlements?.find((item) => item.holdId === state.player.holdId);
   const level = state.campaign?.level ?? 1;
+  const called = wagonsOpen(state);
+  const due = expeditionDue(state);
+  const verdict = state.expedition?.lastVerdict;
   return (
     <>
       <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10" data-coach="wagons">
         <div className="flex items-baseline justify-between gap-2">
-          <p className="font-display text-xl">Wagons</p>
-          <p className="text-xs tracking-wide text-[#8d6b2e] uppercase">{dawnsLeftLabel(state.day)}</p>
+          <p className="font-display text-xl">{called ? "Wagon expedition" : "Wagons off the road"}</p>
+          <p className="text-xs tracking-wide text-[#8d6b2e] uppercase">
+            {called ? dawnsLeftLabel(state.day, due) : `Day ${state.expedition?.nextCallDay ?? "—"}`}
+          </p>
         </div>
-        <div className="mt-3 flex flex-col gap-3">
-          {LEVY_GOODS.map((item) => {
-            const have = state.compact.levy[item];
-            const target = LEVY_TARGET[item];
-            return (
-              <div key={item}>
-                <div className="flex justify-between text-sm">
-                  <span>{GOOD_LABEL[item]}</span>
-                  <span>
-                    {have}/{target}
-                  </span>
-                </div>
-                <Progress value={Math.min(100, (have / target) * 100)} className="mt-1 h-1.5" />
-              </div>
-            );
-          })}
-        </div>
+        {called ? (
+          <>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              Call {state.expedition?.cycle ?? 1}. Grain, iron, and salt by day {due}. Then the wagons leave and the realm stays.
+            </p>
+            <div className="mt-3 flex flex-col gap-3">
+              {LEVY_GOODS.map((item) => {
+                const have = state.compact.levy[item];
+                const target = LEVY_TARGET[item];
+                return (
+                  <div key={item}>
+                    <div className="flex justify-between text-sm">
+                      <span>{GOOD_LABEL[item]}</span>
+                      <span>
+                        {have}/{target}
+                      </span>
+                    </div>
+                    <Progress value={Math.min(100, (have / target) * 100)} className="mt-1 h-1.5" />
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            The last call {verdict === "held" || verdict === "held-late" ? "was met" : verdict === "lost" ? "was lost" : "has gone"}. The wagons return on day{" "}
+            {state.expedition?.nextCallDay ?? "—"}. Until then, grow the hold and keep the oaths.
+          </p>
+        )}
       </div>
       <div data-coach="anger">
         <WyrmCard state={state} act={act} />
@@ -871,6 +912,55 @@ function LoyaltyPanel({ state }: { state: GameState }) {
             <Progress value={member.contentment} className="mt-2 h-1.5" />
           </div>
         ))}
+      </section>
+    </>
+  );
+}
+
+function AlliancePanel({ state }: { state: GameState }) {
+  const board = allianceBoard(state);
+  const roleLabel = {
+    founder: "Founder",
+    oathbound: "Oathbound",
+    "awaiting-player": "Waiting for a player",
+  } as const;
+  return (
+    <>
+      <section className="flex flex-col gap-3">
+        {board.seats.map((seat) => (
+          <article key={seat.id} className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+            <p className="text-[11px] tracking-[0.16em] text-[#8d6b2e] uppercase">{roleLabel[seat.role]}</p>
+            <p className="mt-1 font-display text-xl leading-tight">{seat.name}</p>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{seat.note}</p>
+          </article>
+        ))}
+      </section>
+      <section className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+        <p className="font-display text-xl">Shared goals</p>
+        <ul className="mt-3 flex flex-col gap-4">
+          {board.goals.map((goal) => (
+            <li key={goal.id}>
+              <div className="flex items-baseline justify-between gap-2 text-sm">
+                <span className="font-medium">{goal.title}</span>
+                <span>
+                  {goal.progress}/{goal.need}
+                </span>
+              </div>
+              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{goal.detail}</p>
+              <Progress value={Math.min(100, (goal.progress / goal.need) * 100)} className="mt-2 h-1.5" />
+            </li>
+          ))}
+        </ul>
+      </section>
+      <section className="rounded-2xl bg-[#1c1612] p-4 text-[#f4ead7] ring-1 ring-[#e6c56e]/30">
+        <p className="text-[11px] tracking-[0.16em] text-[#e6c56e] uppercase">Conflict</p>
+        <p className="mt-1 font-display text-2xl leading-tight">{board.conflict.title}</p>
+        <p className="mt-2 text-sm leading-relaxed text-[#f4ead7]/80">{board.conflict.detail}</p>
+        <div className="mt-3 flex items-center justify-between text-xs">
+          <span>Heat</span>
+          <span>{board.conflict.heat}</span>
+        </div>
+        <Progress value={board.conflict.heat} className="mt-1 h-1.5 bg-white/15" />
       </section>
     </>
   );

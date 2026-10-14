@@ -82,7 +82,7 @@ function SeasonShell() {
         <p className="mt-5 text-xs tracking-[0.28em] text-[#e6c56e] uppercase">A pocket realm</p>
         <h1 className="mt-2 font-display text-5xl leading-none">Westmark</h1>
         <p className="mt-3 max-w-xs text-base leading-relaxed text-[#f4ead7]/90">
-          Twelve dawns to feed the wagons. Vell watches one road. Older things walk the others, and the people in your holds have to be ruled.
+          Rule the valley. The wagons roll every so often, and Vell watches that road. The holds, the oaths, and the empty seats are the work that stays.
         </p>
       </div>
       {loaded.corrupt && (
@@ -93,22 +93,22 @@ function SeasonShell() {
       <div className="flex flex-col gap-2">
         {game && (
           <Button type="button" className="h-12 text-base" onClick={() => setScreen("play")}>
-            Continue the season
+            Continue the realm
           </Button>
         )}
         <Button type="button" variant={game ? "outline" : "default"} className={`h-12 text-base ${game ? "border-white/30 bg-black/30 text-[#f4ead7] hover:bg-black/50" : ""}`} onClick={begin}>
-          Begin a season
+          Begin a realm
         </Button>
         <Button type="button" variant="ghost" className="h-11 text-[#f4ead7] hover:bg-white/10 hover:text-[#f4ead7]" onClick={() => setHelp(true)}>
-          How a season works
+          How the realm works
         </Button>
       </div>
       </div>
       <Dialog open={help} onOpenChange={setHelp}>
         <DialogContent container={frame} className="max-h-[80%] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-display text-2xl">How a season works</DialogTitle>
-            <DialogDescription>The wagons, the day, and where each control lives.</DialogDescription>
+            <DialogTitle className="font-display text-2xl">How the realm works</DialogTitle>
+            <DialogDescription>The wagons come and go. The valley stays.</DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-3">
             {RULES.map((rule) => (
@@ -124,7 +124,7 @@ function SeasonShell() {
         <DialogContent container={frame}>
           <DialogHeader>
             <DialogTitle className="font-display text-2xl">Begin again?</DialogTitle>
-            <DialogDescription>Planting a new banner erases the season saved on this device.</DialogDescription>
+            <DialogDescription>Planting a new banner erases the realm saved on this device.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button type="button" variant="outline" className="h-11" onClick={() => setConfirmNew(false)}>
@@ -138,7 +138,7 @@ function SeasonShell() {
                 setScreen("create");
               }}
             >
-              New season
+              New realm
             </Button>
           </DialogFooter>
         </DialogContent>
