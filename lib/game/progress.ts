@@ -40,7 +40,7 @@ export const BUILDINGS: { id: BuildingId; name: string; good: "timber" | "grain"
 ];
 
 export const CHAPTERS = [
-  { id: 1, name: "The wagons", aim: "Feed the wagons before the twelfth dawn." },
+  { id: 1, name: "The wagons", aim: "The first expedition. Feed the wagons, then the realm stays." },
   { id: 2, name: "The Open Country", aim: "Raise the hold, answer the road, and give the people a law." },
   { id: 3, name: "The Old Powers", aim: "Live with what you chose, and keep the people through another winter." },
   { id: 4, name: "The Realm Compact", aim: "Last long enough that the holds answer the banner." },

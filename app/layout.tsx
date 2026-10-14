@@ -15,7 +15,7 @@ const fraunces = Fraunces({
 export const metadata: Metadata = {
   title: "Westmark",
   description:
-    "A pocket medieval strategy game. Found a compact, share a hall, and provision the northern road before the twelfth dusk.",
+    "A pocket medieval strategy game. Rule a realm of holds and oaths. The wagons are a recurring expedition, not the whole of the valley.",
 };
 
 export const viewport: Viewport = {

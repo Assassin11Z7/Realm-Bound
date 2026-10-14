@@ -290,7 +290,7 @@ export function openingScene(name: string, holdName: string): Cutscene {
       },
       {
         speaker: WYRM_NAME,
-        line: "Twelve dawns. Feed the wagons, or I come down that road myself.",
+        line: "Twelve dawns. The wagons are called. Feed them, or I come down that road myself. Then the valley is yours again, until I call.",
         art: "/art/wyrm-vell.jpg",
       },
       {

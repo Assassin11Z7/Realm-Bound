@@ -171,6 +171,37 @@ export interface Cutscene {
 
 export type Outcome = "held" | "held-late" | "lost";
 
+export type ExpeditionPhase = "called" | "idle";
+
+/** A periodic wagon call. The realm continues between calls. */
+export interface Expedition {
+  cycle: number;
+  phase: ExpeditionPhase;
+  /** Dawn on which this call is judged. Meaningful while phase is "called". */
+  dueDay: number;
+  /** Dawn the next call begins. Meaningful while phase is "idle". */
+  nextCallDay: number | null;
+  lastVerdict: Outcome | null;
+  /** Prize ids already granted, so a call cannot pay twice. */
+  rewards: string[];
+}
+
+/** A chair reserved for another player. Empty in single player. */
+export interface AwaitingSeat {
+  id: string;
+  title: string;
+}
+
+/**
+ * Alliance politics without a network layer.
+ * Seats and heat are the hooks a later war can occupy.
+ */
+export interface Politics {
+  conflictHeat: number;
+  rivalName: string | null;
+  awaitingSeats: AwaitingSeat[];
+}
+
 export interface Player {
   name: string;
   title: Title;
@@ -370,6 +401,8 @@ export interface GameState {
   scene: Cutscene | null;
   campaign: Campaign;
   tutorial: Tutorial;
+  expedition: Expedition;
+  politics: Politics;
 }
 
 export interface NewGameSetup {

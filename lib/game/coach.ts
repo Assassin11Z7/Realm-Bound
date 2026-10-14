@@ -1,4 +1,6 @@
 import { LEVY_TARGET, SEASON_DAYS } from "./content";
+import { wagonsOpen } from "./expedition";
+import { peopleTrouble } from "./realm";
 import type { GameState, Tutorial, TutorialStep } from "./types";
 import { LEVY_GOODS, TUTORIAL_STEPS } from "./types";
 
@@ -9,7 +11,7 @@ export const COACH: Record<
   { text: string; tab: CoachTab; target: string; needsTab: boolean }
 > = {
   wagons: {
-    text: "You have twelve dawns to fill the wagons with grain, iron, and salt.",
+    text: "The wagons are an expedition. Twelve dawns to fill them with grain, iron, and salt. Then they leave, and the realm goes on.",
     tab: "realm",
     target: "wagons",
     needsTab: false,
@@ -75,12 +77,13 @@ export function nextTutorialStep(step: TutorialStep | null): TutorialStep | null
   return TUTORIAL_STEPS[index + 1];
 }
 
-export function dawnsLeft(day: number): number {
-  return Math.max(0, SEASON_DAYS + 1 - day);
+export function dawnsLeft(day: number, due = SEASON_DAYS): number {
+  return Math.max(0, due + 1 - day);
 }
 
-export function dawnsLeftLabel(day: number): string {
-  const left = dawnsLeft(day);
+export function dawnsLeftLabel(day: number, due = SEASON_DAYS): string {
+  if (day > due) return "Late on the road";
+  const left = dawnsLeft(day, due);
   if (left === 1) return "1 dawn left";
   return `${left} dawns left`;
 }
@@ -92,7 +95,13 @@ export function whatNow(state: GameState): string {
   const traded = state.chronicle.some(
     (entry) => entry.day === state.day && (entry.text.includes("bought") || entry.text.includes("sold")),
   );
+  const called = wagonsOpen(state);
   const wagonsFull = LEVY_GOODS.every((good) => state.compact.levy[good] >= LEVY_TARGET[good]);
-  if (state.caravan && !traded && !wagonsFull) return "Trade on the Road tab. The caravan is here.";
-  return "Seal the day.";
+  if (called && state.caravan && !traded && !wagonsFull) return "The expedition is out. Trade on the Road tab, then feed the wagons.";
+  if (called && !wagonsFull) return "Feed the wagons. They are under Realm, then Status.";
+  if (peopleTrouble(state)) return "See to your people on the Hold tab.";
+  if (!called && state.expedition?.nextCallDay) {
+    return `The wagons return on day ${state.expedition.nextCallDay}. Seal the day and grow the hold.`;
+  }
+  return "Seal the day. The realm keeps growing.";
 }

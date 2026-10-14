@@ -69,7 +69,7 @@ export function CreateSeason({
       return;
     }
     if (step === 3 && compactName.trim().length < 3) {
-      setError("Give this season a name of at least 3 characters.");
+      setError("Give this compact a name of at least 3 characters.");
       return;
     }
     setError(null);
@@ -248,7 +248,7 @@ export function CreateSeason({
               </div>
             </div>
             <label className="flex flex-col gap-2 text-sm">
-              Season name
+              Compact name
               <Input
                 value={compactName}
                 maxLength={28}
@@ -261,7 +261,7 @@ export function CreateSeason({
             </label>
             <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
               <p className="text-sm">
-                These three are your sworn neighbors. The wagons want {LEVY_TARGET.grain} grain, {LEVY_TARGET.iron} iron, and {LEVY_TARGET.salt} salt before the twelfth dawn. If the wagons have not moved, Vell the frost dragon comes down the road.
+                These three are your sworn neighbors. The first wagon call wants {LEVY_TARGET.grain} grain, {LEVY_TARGET.iron} iron, and {LEVY_TARGET.salt} salt before the twelfth dawn. Meet it or let it go. Vell watches that road, and the realm stays either way.
               </p>
               <ul className="mt-3 flex flex-col gap-2 text-sm">
                 {oathbound.map((hold) => (

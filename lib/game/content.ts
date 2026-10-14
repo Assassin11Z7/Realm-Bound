@@ -403,8 +403,16 @@ export const WYRM_NAME = "Vell";
 
 export const RULES: { title: string; body: string }[] = [
   {
-    title: "Twelve dawns",
-    body: "Fill the wagons with grain, iron, and salt before the twelfth dawn. The numbers at the top of the screen are the wagons. Dawns left sit beside them.",
+    title: "The realm is the game",
+    body: "Holds, loyalty, laws, oaths, and seats continue after any one call of the wagons. Seal the day, and the valley keeps growing.",
+  },
+  {
+    title: "The wagon expedition",
+    body: "Every so often the wagons are called. You have twelve dawns to fill them with grain, iron, and salt. Meet the call and a relic comes off the wagons. Miss it and you can fill them late for a few dawns, or let them go and take a lesser spoil. Then they leave, and the call comes again.",
+  },
+  {
+    title: "Where things live",
+    body: "Realm holds the map, bonds, decrees, and the morning status. Hold holds people, loyalty, laws, works, and benches. Neighbors holds oaths, trade, captain orders, and the seats kept for a later war. Road holds the walk, your bag, gear, and loot.",
   },
   {
     title: "Seal the day",
@@ -412,19 +420,11 @@ export const RULES: { title: string; body: string }[] = [
   },
   {
     title: "Neighbors and wagons",
-    body: "The shared stores on the Neighbors tab feed your sworn neighbors. What you send to the wagons is gone. You cannot take it back.",
+    body: "Shared stores feed your sworn neighbors. What you send to the wagons is gone. When the wagons are off the road, the hall is still there.",
   },
   {
-    title: "The caravan",
-    body: "The caravan is how you trade. Open the Road tab. It is not here every day. Buy what your hold does not grow.",
-  },
-  {
-    title: "Vell and the road",
-    body: "Vell is a frost dragon. His anger is one danger. Other creatures on the road offer choices that last after they leave.",
-  },
-  {
-    title: "Food, firewood, and a law",
-    body: "Your people need food and firewood, and a law. Send grain, send timber, or set a law on the Hold tab. The law stays until you change it.",
+    title: "Vell, the people, and the seats",
+    body: "Vell is a frost dragon. His anger is one danger, under Realm then Status. Your people need food, firewood, and a law. Two march seats stay empty until other players can sit them. Heat there is the hook a later alliance war will pull.",
   },
 ];
 
