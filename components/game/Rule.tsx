@@ -66,76 +66,96 @@ export function MarksCard({ state }: { state: GameState }) {
   );
 }
 
-export function PeoplePanel({ state, act }: { state: GameState; act: (result: Result) => void }) {
+export function PetitionCard({ state, act }: { state: GameState; act: (result: Result) => void }) {
+  if (!state.petition) return null;
+  return (
+    <div className="rounded-2xl bg-card p-4 ring-1 ring-gold/50">
+      <p className="text-xs tracking-wide text-[#8d6b2e] uppercase">The people ask</p>
+      <p className="mt-1 font-display text-2xl leading-tight">{state.petition.title}</p>
+      <p className="mt-2 text-sm leading-relaxed">{state.petition.body}</p>
+      <div className="mt-3 flex flex-col gap-2">
+        {state.petition.choices.map((choice) => (
+          <Button
+            key={choice.id}
+            type="button"
+            variant="secondary"
+            className="h-auto min-h-11 flex-col items-start gap-0.5 py-2 text-left whitespace-normal"
+            onClick={() => act(choosePetition(state, choice.id))}
+          >
+            <span>{choice.label}</span>
+            <span className="text-xs font-normal opacity-80">{choice.detail}</span>
+          </Button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function PeoplePanel({
+  state,
+  act,
+  focus = "people",
+}: {
+  state: GameState;
+  act: (result: Result) => void;
+  focus?: "people" | "laws";
+}) {
   const frame = useFrame();
   const [lawFor, setLawFor] = useState<HoldId | null>(null);
   const blurb = modsBlurb(state);
   const ruling = state.settlements?.find((item) => item.holdId === lawFor);
+  const laws = focus === "laws";
 
   return (
-    <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
-      <p className="font-display text-xl">The people</p>
-      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-        Laws last until you change them. Grain feeds the food store. Timber feeds the fires. Leave them be, and nothing comes out of your own stores.
-      </p>
-      {blurb && <p className="mt-2 text-sm leading-relaxed">{blurb}</p>}
-      {state.petition && (
-        <div className="mt-3 rounded-xl bg-background p-3 ring-1 ring-gold/50">
-          <p className="text-xs tracking-wide text-[#8d6b2e] uppercase">The people ask</p>
-          <p className="mt-1 font-display text-lg leading-tight">{state.petition.title}</p>
-          <p className="mt-2 text-sm leading-relaxed">{state.petition.body}</p>
-          <div className="mt-3 flex flex-col gap-2">
-            {state.petition.choices.map((choice) => (
-              <Button
-                key={choice.id}
-                type="button"
-                variant="secondary"
-                className="h-auto min-h-11 flex-col items-start gap-0.5 py-2 text-left whitespace-normal"
-                onClick={() => act(choosePetition(state, choice.id))}
-              >
-                <span>{choice.label}</span>
-                <span className="text-xs font-normal opacity-80">{choice.detail}</span>
-              </Button>
-            ))}
-          </div>
-        </div>
-      )}
-      <div className="mt-3 flex flex-col gap-3">
-        {(state.settlements ?? []).map((settlement) => {
+    <div className="flex flex-col gap-3">
+      {blurb && !laws && <p className="text-sm leading-relaxed">{blurb}</p>}
+      {(state.settlements ?? []).map((settlement) => {
           const place = holdById(settlement.holdId).name;
           const home = settlement.holdId === state.player.holdId;
           return (
-            <div key={settlement.holdId} className="rounded-xl bg-background p-3" data-coach={home ? "people" : undefined}>
+            <div key={settlement.holdId} className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10" data-coach={home && !laws ? "people" : undefined}>
               <div className="flex items-baseline justify-between gap-2">
-                <p className="font-medium">
+                <p className="font-display text-xl leading-tight">
                   {place}
                   {home ? " · your hold" : ""}
                 </p>
                 <p className="text-sm">{settlement.souls} people</p>
               </div>
-              <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-                <span>Mood</span>
-                <span className={settlement.mood < 40 ? "text-primary" : ""}>{settlement.mood}</span>
-              </div>
-              <Progress value={settlement.mood} className="mt-1 h-1.5" />
-              <p className="mt-2 text-xs text-muted-foreground">
-                Food {settlement.bread} · firewood {settlement.hearth} · {lawName(settlement.edict)}
+              {!laws && (
+                <>
+                  <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Mood</span>
+                    <span className={settlement.mood < 40 ? "text-primary" : ""}>{settlement.mood}</span>
+                  </div>
+                  <Progress value={settlement.mood} className="mt-1 h-1.5" />
+                </>
+              )}
+              <p className="mt-3 text-sm text-muted-foreground">
+                {laws ? lawName(settlement.edict) : `Food ${settlement.bread} · firewood ${settlement.hearth}`}
               </p>
+              {!laws && (
+                <p className="mt-1 text-xs text-muted-foreground">Law: {lawName(settlement.edict)}. Change it under Laws.</p>
+              )}
               <div className="mt-3 flex flex-wrap gap-2">
-                <Button type="button" variant="secondary" className="h-10" onClick={() => act(stockSettlement(state, settlement.holdId, "bread", 1))}>
-                  Send 1 grain
-                </Button>
-                <Button type="button" variant="outline" className="h-10" onClick={() => act(stockSettlement(state, settlement.holdId, "hearth", 1))}>
-                  Send 1 timber
-                </Button>
-                <Button type="button" variant="outline" className="h-10" onClick={() => setLawFor(settlement.holdId)}>
-                  Set a law
-                </Button>
+                {!laws && (
+                  <>
+                    <Button type="button" variant="secondary" className="h-11" onClick={() => act(stockSettlement(state, settlement.holdId, "bread", 1))}>
+                      Send 1 grain
+                    </Button>
+                    <Button type="button" variant="outline" className="h-11" onClick={() => act(stockSettlement(state, settlement.holdId, "hearth", 1))}>
+                      Send 1 timber
+                    </Button>
+                  </>
+                )}
+                {laws && (
+                  <Button type="button" variant="outline" className="h-11" onClick={() => setLawFor(settlement.holdId)}>
+                    {lawName(settlement.edict)} · change the law
+                  </Button>
+                )}
               </div>
             </div>
           );
         })}
-      </div>
 
       <Dialog open={Boolean(ruling)} onOpenChange={(open) => !open && setLawFor(null)}>
         <DialogContent container={frame} className="max-h-[80%] overflow-y-auto">

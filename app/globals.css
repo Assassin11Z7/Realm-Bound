@@ -260,6 +260,17 @@
   z-index: 5;
 }
 .wm-tab { animation: wm-tab 280ms ease-out both; }
+.wm-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #8d6b2e transparent;
+}
+.wm-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.wm-scroll::-webkit-scrollbar-thumb {
+  background: #8d6b2e;
+  border-radius: 999px;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .wm-drift, .wm-breathe, .wm-ire, .wm-hold, .wm-rise, .wm-toast, .wm-tab, .wm-stamp, .wm-press:active, .wm-tumble, .wm-scene {

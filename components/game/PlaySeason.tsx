@@ -1,7 +1,7 @@
 "use client";
 
 import { BookOpen, CircleHelp, Ellipsis, House, Map, Route, Users } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -67,7 +67,7 @@ import { CaptainOrders, HoldWorks, MissionList, SkillDialog, ThreatCard } from "
 import { CraftBench } from "./Craft";
 import { CutsceneView, ExplorePanel } from "./Explore";
 import { FateRoll, OathRow, OmenDialog, WorksCard, WyrmCard } from "./Myth";
-import { CrossingDialog, MarksCard, PeoplePanel, PeopleStrip } from "./Rule";
+import { CrossingDialog, MarksCard, PeoplePanel, PetitionCard } from "./Rule";
 import { peopleTrouble } from "@/lib/game/realm";
 import { HoldBrief, RealmMap } from "./RealmMap";
 
@@ -80,6 +80,135 @@ const TABS: { id: Tab; label: string; icon: typeof Map }[] = [
   { id: "compact", label: "Neighbors", icon: Users },
   { id: "road", label: "Road", icon: Route },
 ];
+
+const SECTIONS: Record<Tab, { id: string; label: string }[]> = {
+  realm: [
+    { id: "map", label: "Map" },
+    { id: "bonds", label: "Bonds" },
+    { id: "decrees", label: "Decrees" },
+    { id: "status", label: "Status" },
+  ],
+  hold: [
+    { id: "people", label: "People" },
+    { id: "loyalty", label: "Loyalty" },
+    { id: "laws", label: "Laws" },
+    { id: "works", label: "Works" },
+    { id: "craft", label: "Craft" },
+  ],
+  compact: [
+    { id: "oaths", label: "Oaths" },
+    { id: "trade", label: "Trade" },
+    { id: "orders", label: "Orders" },
+  ],
+  road: [
+    { id: "explore", label: "Explore" },
+    { id: "bag", label: "Bag" },
+    { id: "gear", label: "Gear" },
+    { id: "loot", label: "Loot" },
+  ],
+};
+
+const INTRO: Record<string, { eyebrow: string; title: string; lede: string }> = {
+  map: {
+    eyebrow: "Realm",
+    title: "The valley",
+    lede: "Tap a hold to read it. Walking there is on the Road tab.",
+  },
+  bonds: {
+    eyebrow: "Realm",
+    title: "Bonds",
+    lede: "Choices you already made. They keep working after the visitor leaves.",
+  },
+  decrees: {
+    eyebrow: "Realm",
+    title: "Decrees",
+    lede: "Work that belongs to the realm. A law for one hold is sworn under Hold.",
+  },
+  status: {
+    eyebrow: "Realm",
+    title: "This morning",
+    lede: "The wagons, the dragon, and the strength of your banner.",
+  },
+  people: {
+    eyebrow: "Hold",
+    title: "Your people",
+    lede: "Grain feeds them. Timber feeds the fires. Leave them be, and nothing leaves your own stores.",
+  },
+  loyalty: {
+    eyebrow: "Hold",
+    title: "Loyalty and influence",
+    lede: "Mood is how your people stand with you. Renown is how far your name travels.",
+  },
+  laws: {
+    eyebrow: "Hold",
+    title: "Laws",
+    lede: "A law stands until you replace it.",
+  },
+  works: {
+    eyebrow: "Hold",
+    title: "Works",
+    lede: "Mills, shrines, and the buildings that finish when you seal the day.",
+  },
+  craft: {
+    eyebrow: "Hold",
+    title: "Benches",
+    lede: "Forge, brew house, and loom. A bench works only after you have raised it.",
+  },
+  oaths: {
+    eyebrow: "Neighbors",
+    title: "Oathbound",
+    lede: "Sworn neighbors. A gift and a kept oath hold them to the compact.",
+  },
+  trade: {
+    eyebrow: "Neighbors",
+    title: "Trade",
+    lede: "The shared stores feed the compact. What the wagons take is gone.",
+  },
+  orders: {
+    eyebrow: "Neighbors",
+    title: "Captain orders",
+    lede: "Each order resolves when you seal the day.",
+  },
+  explore: {
+    eyebrow: "Road",
+    title: "The road",
+    lede: "Walk the valley. The caravan, when it comes, trades here.",
+  },
+  bag: {
+    eyebrow: "Road",
+    title: "Your bag",
+    lede: "What you carry. Send it to the shared stores, or, if the wagons take it, to the road.",
+  },
+  gear: {
+    eyebrow: "Road",
+    title: "Gear",
+    lede: "What you wear, set beside the best piece still in the pack.",
+  },
+  loot: {
+    eyebrow: "Road",
+    title: "Found loot",
+    lede: "Treasures from the road, the strongroom, and drinks you have not used.",
+  },
+};
+
+const COACH_PLACE: Partial<Record<string, { tab: Tab; section: string }>> = {
+  wagons: { tab: "realm", section: "status" },
+  anger: { tab: "realm", section: "status" },
+  creatures: { tab: "realm", section: "bonds" },
+  people: { tab: "hold", section: "people" },
+  stores: { tab: "compact", section: "trade" },
+  "wagons-take": { tab: "compact", section: "trade" },
+  caravan: { tab: "road", section: "explore" },
+};
+
+function initialSections(step: string | null | undefined): Record<Tab, string> {
+  return {
+    realm: step === "wagons" || step === "anger" ? "status" : step === "creatures" ? "bonds" : "map",
+    hold: "people",
+    compact: step === "neighbors" || step === "wagons-take" ? "trade" : "oaths",
+    road: "explore",
+  };
+}
 
 export function PlaySeason({
   state,
@@ -97,9 +226,9 @@ export function PlaySeason({
   const sealing = useRef(false);
   const leaving = useRef(false);
   const [tab, setTab] = useState<Tab>("realm");
+  const [sections, setSections] = useState<Record<Tab, string>>(() => initialSections(state.tutorial?.step));
   const [amount, setAmount] = useState<Amount>(1);
   const [holdId, setHoldId] = useState<HoldId>(state.player.holdId);
-  const [good, setGood] = useState<GoodId>(holdById(state.player.holdId).produces);
   const [toast, setToast] = useState<{ tone: "good" | "bad"; text: string } | null>(null);
   const [help, setHelp] = useState(false);
   const [chronicle, setChronicle] = useState(false);
@@ -109,6 +238,7 @@ export function PlaySeason({
   const [dawn, setDawn] = useState<{ day: number; title: string } | null>(null);
   const [fate, setFate] = useState<{ face: number; won: boolean; line: string } | null>(null);
   const [voice, setVoice] = useState(true);
+  const section = sections[tab];
 
   useEffect(() => {
     if (!toast) return;
@@ -118,12 +248,14 @@ export function PlaySeason({
 
   const lesson = state.tutorial?.step ?? null;
   const coach = lesson && !state.scene ? COACH[lesson] : null;
-  const coachReady = Boolean(coach && (!coach.needsTab || tab === coach.tab));
-  const coachTarget = coach ? (coachReady ? coach.target : `tab-${coach.tab}`) : null;
+  const place = coach ? COACH_PLACE[coach.target] : null;
+  const placeReady = !place || (tab === place.tab && section === place.section);
+  const coachReady = Boolean(coach && placeReady && (!coach.needsTab || tab === coach.tab));
+  const coachTarget = coach ? (coachReady ? coach.target : `tab-${place?.tab ?? coach.tab}`) : null;
 
   useEffect(() => {
     mainRef.current?.scrollTo({ top: 0 });
-  }, [tab]);
+  }, [tab, section]);
 
   useEffect(() => {
     const root = mainRef.current?.parentElement ?? document.body;
@@ -134,12 +266,17 @@ export function PlaySeason({
     el.classList.add("wm-coach-hot");
     if (mainRef.current?.contains(el)) el.scrollIntoView({ block: "center", inline: "nearest" });
     return () => el.classList.remove("wm-coach-hot");
-  }, [coachTarget, tab, state.scene, state.day]);
+  }, [coachTarget, tab, section, state.scene, state.day]);
+
+  function go(nextTab: Tab, nextSection?: string) {
+    setTab(nextTab);
+    if (nextSection) setSections((prev) => ({ ...prev, [nextTab]: nextSection }));
+  }
 
   function onCoach() {
     if (!coach) return;
     if (!coachReady) {
-      setTab(coach.tab);
+      go(place?.tab ?? coach.tab, place?.section);
       return;
     }
     act(advanceTutorial(state));
@@ -207,226 +344,155 @@ export function PlaySeason({
   const trouble = state.compact.members.some((member) => !member.inCompact || member.contentment < 25);
   const faction = factionById(state.player.factionId);
   const hold = holdById(state.player.holdId);
-  const homePeople = state.settlements?.find((item) => item.holdId === state.player.holdId);
-  const cap = state.player.undercroft ? UNDERCROFT_CAP : BASE_CAP;
+  const intro = INTRO[section] ?? INTRO.map;
   const verdictOpen = Boolean(state.outcome && !state.outcomeDismissed);
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
-      <header className="relative text-[#f4ead7]">
+      <header className="relative shrink-0 text-[#f4ead7]">
         <img src={`/art/hold-${hold.id}.jpg`} alt="" className="absolute inset-0 h-full w-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#1c1612]/50 via-[#1c1612]/45 to-[#1c1612]" />
-        <div className="relative px-4 pt-3 pb-3">
-          <div className="flex items-center gap-3">
-            <BannerMark banner={state.player.banner} className="h-12 w-10 shrink-0" title={`${state.player.title} ${state.player.name}'s banner`} />
-            <div className="min-w-0 flex-1">
-              <h1 className="truncate font-display text-xl leading-none">{state.compact.name}</h1>
-              <p className="mt-1 text-xs text-[#f4ead7]/75">
-                Day {state.day} · {seasonLabel(state.day)} · {chapterName(state.campaign?.chapter ?? 1)}
-              </p>
-              {homePeople && (
-                <p className="text-[11px] text-[#f4ead7]/75">
-                  {homePeople.souls} people · mood {homePeople.mood}
-                </p>
-              )}
-              <span className="mt-1 flex items-center gap-2 text-[11px] text-[#f4ead7]/80">
-                <span>Lv {state.campaign?.level ?? 1}</span>
-                <Progress
-                  value={Math.min(100, ((state.campaign?.xp ?? 0) / xpNeed(state.campaign?.level ?? 1)) * 100)}
-                  className="h-1.5 flex-1 bg-white/20"
-                />
-                <span>{powerOf(state)} power</span>
-              </span>
-            </div>
-            <div className="text-right">
-              <p className="font-display text-xl leading-none text-[#e6c56e]">{state.player.gold}g</p>
-              <p className="mt-1 text-[11px] text-[#f4ead7]/70">
-                {renownTitle(state.player.renown)} · fame {state.player.renown}
-              </p>
-            </div>
-          </div>
-          <div className="mt-2 flex gap-2">
-            <IconButton label="Chronicle" onClick={() => setChronicle(true)} tone="night">
-              <BookOpen className="size-4" />
-            </IconButton>
-            <IconButton label="How a season works" onClick={() => setHelp(true)} tone="night">
-              <CircleHelp className="size-4" />
-            </IconButton>
-            <IconButton label="Season menu" onClick={() => setMenu(true)} tone="night">
-              <Ellipsis className="size-4" />
-            </IconButton>
-            <p className="ml-auto self-center truncate text-xs text-[#f4ead7]/75">
-              {state.player.title} {state.player.name}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#1c1612]/55 via-[#1c1612]/62 to-[#1c1612]" />
+        <div className="relative flex items-center gap-3 px-4 py-3">
+          <BannerMark banner={state.player.banner} className="h-11 w-9 shrink-0" title={`${state.player.title} ${state.player.name}'s banner`} />
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate font-display text-xl leading-none">{state.compact.name}</h1>
+            <p className="mt-1 truncate text-xs text-[#f4ead7]/75">
+              Day {state.day} · {seasonLabel(state.day)} · {chapterName(state.campaign?.chapter ?? 1)}
             </p>
           </div>
-          <button
-            type="button"
-            data-coach="wagons"
-            className="mt-3 flex w-full flex-col gap-1.5 text-left"
-            onClick={() => setTab("compact")}
-          >
-            <span className="flex justify-between text-[11px] tracking-wide text-[#e6c56e] uppercase">
-              <span>Wagons</span>
-              <span>{dawnsLeftLabel(state.day)}</span>
-            </span>
-            <span className="grid grid-cols-3 gap-2">
-              {LEVY_GOODS.map((item) => {
-                const have = state.compact.levy[item];
-                const target = LEVY_TARGET[item];
-                return (
-                  <span key={item} className="min-w-0">
-                    <span className="flex justify-between text-[11px]">
-                      <span>{GOOD_LABEL[item]}</span>
-                      <span>
-                        {have}/{target}
-                      </span>
-                    </span>
-                    <Progress value={Math.min(100, (have / target) * 100)} className="mt-1 h-1.5 bg-white/20" />
-                  </span>
-                );
-              })}
-            </span>
-          </button>
-          <button type="button" data-coach="anger" className="mt-2 flex w-full items-center gap-2 text-left" onClick={() => setTab("realm")}>
-            <img src="/art/wyrm-vell.jpg" alt="" className={`size-8 rounded-full object-cover ring-1 ring-[#e6c56e] wm-ire${state.wyrm.ire >= 60 ? " wm-ire-hot" : ""}`} />
-            <span className="min-w-0 flex-1">
-              <span className="flex justify-between text-[11px]">
-                <span>{WYRM_NAME}</span>
-                <span>anger {state.wyrm.ire}</span>
-              </span>
-              <Progress value={state.wyrm.ire} className="mt-1 h-1.5 bg-white/20" />
-            </span>
-          </button>
+          <div className="flex shrink-0 flex-col items-end gap-1.5">
+            <p className="font-display text-xl leading-none text-[#e6c56e]">{state.player.gold}g</p>
+            <div className="flex gap-1.5">
+              <IconButton label="Chronicle" onClick={() => setChronicle(true)} tone="night">
+                <BookOpen className="size-4" />
+              </IconButton>
+              <IconButton label="How a season works" onClick={() => setHelp(true)} tone="night">
+                <CircleHelp className="size-4" />
+              </IconButton>
+              <IconButton label="Season menu" onClick={() => setMenu(true)} tone="night">
+                <Ellipsis className="size-4" />
+              </IconButton>
+            </div>
+          </div>
         </div>
       </header>
 
-      <div aria-live="polite" className="px-4">
+      <div role="tablist" aria-label={`${TABS.find((item) => item.id === tab)?.label} sections`} className="flex shrink-0 gap-1.5 overflow-x-auto border-b border-border/80 bg-[#fbf6ec] px-4 py-2.5 [scrollbar-width:thin]">
+        {SECTIONS[tab].map((item) => {
+          const active = section === item.id;
+          const alert = sectionAlert(state, tab, item.id);
+          return (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setSections((prev) => ({ ...prev, [tab]: item.id }))}
+              className={`relative shrink-0 rounded-full px-3 py-1.5 text-xs tracking-wide ${active ? "bg-[#1c1612] text-[#f4ead7]" : "text-muted-foreground ring-1 ring-border"}`}
+            >
+              {item.label}
+              {alert && !active && <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-primary" />}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="relative min-h-0 flex-1">
+        <div ref={mainRef} role="tabpanel" aria-label={intro.title} className="wm-scroll h-full overflow-y-auto overscroll-y-contain px-4 py-4">
+          <div key={`${tab}-${section}`} className="wm-tab flex flex-col gap-4 pb-8">
+            <header>
+              <p className="text-[11px] tracking-[0.18em] text-[#8d6b2e] uppercase">{intro.eyebrow}</p>
+              <h2 className="mt-1 font-display text-[1.7rem] leading-none">{intro.title}</h2>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{section === "explore" ? seasonNote(state.day) : intro.lede}</p>
+            </header>
+            {tab === "realm" && section === "map" && (
+              <>
+                <RealmMap state={state} selected={holdId} onSelect={setHoldId} />
+                <HoldBrief state={state} holdId={holdId} />
+              </>
+            )}
+            {tab === "realm" && section === "bonds" && <MarksCard state={state} />}
+            {tab === "realm" && section === "decrees" && (
+              <>
+                <PetitionCard state={state} act={act} />
+                <ThreatCard state={state} act={act} />
+                <MissionList state={state} act={act} />
+                {!state.petition && !state.campaign?.threat && !openDecree(state) && (
+                  <p className="rounded-2xl bg-card p-4 text-sm leading-relaxed text-muted-foreground ring-1 ring-foreground/10">
+                    No decree is waiting. The long work appears as the realm grows. Laws for a single hold are under Hold.
+                  </p>
+                )}
+              </>
+            )}
+            {tab === "realm" && section === "status" && (
+              <StatusPanel state={state} onChronicle={() => setChronicle(true)} act={act} />
+            )}
+            {tab === "hold" && section === "people" && (
+              <>
+                <HoldYield state={state} act={act} />
+                <PeoplePanel state={state} act={act} focus="people" />
+              </>
+            )}
+            {tab === "hold" && section === "loyalty" && <LoyaltyPanel state={state} />}
+            {tab === "hold" && section === "laws" && <PeoplePanel state={state} act={act} focus="laws" />}
+            {tab === "hold" && section === "works" && (
+              <>
+                <WorksCard state={state} act={act} />
+                <HoldWorks state={state} act={act} />
+              </>
+            )}
+            {tab === "hold" && section === "craft" && <CraftBench state={state} act={act} />}
+            {tab === "compact" && section === "oaths" && <OathPanel state={state} act={act} onGift={setGiftFor} />}
+            {tab === "compact" && section === "trade" && (
+              <TradePanel state={state} amount={amount} onAmount={setAmount} act={act} resolveQty={resolveQty} />
+            )}
+            {tab === "compact" && section === "orders" && <OrdersPanel state={state} act={act} />}
+            {tab === "road" && section === "explore" && (
+              <>
+                <RoadMarket state={state} act={act} />
+                <ExplorePanel state={state} holdId={holdId} act={act} part="explore" />
+              </>
+            )}
+            {tab === "road" && section === "bag" && (
+              <BagPanel state={state} amount={amount} onAmount={setAmount} act={act} resolveQty={resolveQty} move={move} />
+            )}
+            {tab === "road" && section === "gear" && <ExplorePanel state={state} holdId={holdId} act={act} part="gear" />}
+            {tab === "road" && section === "loot" && <ExplorePanel state={state} holdId={holdId} act={act} part="loot" />}
+          </div>
+        </div>
+        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-[#f3eadb] to-transparent" />
+      </div>
+
+      <div aria-live="polite" className="pointer-events-none absolute inset-x-4 top-16 z-30">
         {toast && (
-          <p key={toast.text} className={`wm-toast mt-2 rounded-xl px-3 py-2 text-sm leading-snug ${toast.tone === "bad" ? "bg-primary text-primary-foreground" : "bg-moss text-[#f3eadb]"}`}>
+          <p key={toast.text} className={`wm-toast pointer-events-auto rounded-xl px-3 py-2 text-sm leading-snug shadow-lg ${toast.tone === "bad" ? "bg-primary text-primary-foreground" : "bg-moss text-[#f3eadb]"}`}>
             {toast.text}
           </p>
         )}
-        {coach && (
-          <div className="wm-rise mt-2 rounded-2xl bg-[#1c1612] p-3 text-[#f4ead7] ring-2 ring-[#e6c56e]" data-coach="lesson">
+      </div>
+
+      {coach && (
+        <div className="wm-rise shrink-0 px-4 pt-2" data-coach="lesson">
+          <div className="rounded-2xl bg-[#1c1612] p-3 text-[#f4ead7] ring-2 ring-[#e6c56e]">
             <p className="text-sm leading-snug">{coach.text}</p>
             <Button type="button" className="mt-2 h-11 w-full" onClick={onCoach}>
               {coachReady ? "Got it" : "Show me"}
             </Button>
           </div>
-        )}
-      </div>
-
-      <div ref={mainRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-        {tab === "realm" && (
-          <div className="wm-tab flex flex-col gap-3">
-            <RealmMap state={state} selected={holdId} onSelect={setHoldId} />
-            <PeopleStrip state={state} onOpen={() => setTab("hold")} />
-            <MarksCard state={state} />
-            <ThreatCard state={state} act={act} />
-            <ExplorePanel state={state} holdId={holdId} act={act} />
-            <MissionList state={state} act={act} />
-            <HoldBrief state={state} holdId={holdId} />
-            <WyrmCard state={state} act={act} />
-            <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
-              <p className="text-xs tracking-wide text-muted-foreground uppercase">This morning</p>
-              <ul className="mt-2 flex flex-col gap-2 text-sm leading-relaxed">
-                {[...state.chronicle].slice(-3).reverse().map((entry) => (
-                  <li key={entry.id}>{entry.text}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        )}
-
-        {tab === "hold" && (
-          <div className="wm-tab flex flex-col gap-3">
-            <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/10">
-              <div className="relative h-32">
-                <img src={`/art/hold-${hold.id}.jpg`} alt="" className="h-full w-full object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/75 to-transparent" />
-                <p className="absolute right-4 bottom-3 left-4 font-display text-2xl text-[#f4ead7]">{hold.name}</p>
-              </div>
-              <div className="p-4">
-                <p className="text-sm leading-relaxed">
-                  Sealing the day brings {dawnYield(state)} {GOOD_LABEL[hold.produces].toLowerCase()}.
-                  {state.works.mill ? " The mill is in that count." : ""} {faction.bonus}
-                </p>
-                <p className="mt-2 text-sm leading-relaxed text-[#3d4a62]">{hold.myth}</p>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Cellar {stashCount(state.player.stash)}/{cap}
-                  {state.day > 12 ? " · Deep winter has thinned the yield." : ""}
-                </p>
-                {!state.player.undercroft && (
-                  <Button type="button" variant="outline" className="mt-3 h-11" onClick={() => act(raiseUndercroft(state))}>
-                    Raise the cellar · {UNDERCROFT_COST}g
-                  </Button>
-                )}
-              </div>
-            </div>
-            <PeoplePanel state={state} act={act} />
-            <WorksCard state={state} act={act} />
-            <HoldWorks state={state} act={act} />
-            <CraftBench state={state} act={act} />
-            <AmountPicker amount={amount} onChange={setAmount} />
-            <div className="flex flex-col gap-2">
-              {GOODS.map((item) => (
-                <div key={item} className={`rounded-2xl ring-1 ${good === item ? "bg-accent ring-gold" : "bg-card ring-foreground/10"}`}>
-                  <button type="button" className="flex min-h-12 w-full items-center gap-3 px-3 text-left" onClick={() => setGood(item)} aria-pressed={good === item}>
-                    <GoodThumb good={item} />
-                    <span className="flex-1 text-sm">{GOOD_LABEL[item]}</span>
-                    <span className="font-display text-xl">{state.player.stash[item]}</span>
-                  </button>
-                  {good === item && (
-                    <div className="flex flex-wrap gap-2 px-3 pb-3">
-                      <Button type="button" variant="secondary" className="h-11" onClick={() => move(resolveQty(state.player.stash[item]), (qty) => act(deposit(state, item, qty)))}>
-                        To the shared stores
-                      </Button>
-                      {isLevy(item) ? (
-                        <Button type="button" className="h-11" onClick={() => move(resolveQty(state.player.stash[item]), (qty) => act(pledgePersonal(state, item, qty)))}>
-                          To the wagons
-                        </Button>
-                      ) : (
-                        <p className="self-center text-xs text-muted-foreground">The wagons do not take {GOOD_LABEL[item].toLowerCase()}. Sell it, or give it away.</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-            {state.player.factionId === "canticle" && (
-              <Button type="button" variant="outline" className="h-11" onClick={() => act(offerRelic(state))}>
-                Offer a relic to the saints
-              </Button>
-            )}
-          </div>
-        )}
-
-        {tab === "compact" && (
-          <CompactPanel
-            state={state}
-            amount={amount}
-            onAmount={setAmount}
-            act={act}
-            onGift={setGiftFor}
-            resolveQty={resolveQty}
-          />
-        )}
-
-        {tab === "road" && <RoadPanel state={state} act={act} />}
-      </div>
-
+        </div>
+      )}
       {!coach && !state.scene && (
-        <p className="mx-4 mt-2 rounded-xl bg-card px-3 py-2 text-sm leading-snug ring-1 ring-foreground/10" data-coach="what-now">
-          <span className="font-medium">What now. </span>
+        <p className="shrink-0 truncate px-4 pt-2 text-xs text-muted-foreground" data-coach="what-now">
+          <span className="font-medium text-foreground">What now. </span>
           {whatNow(state)}
         </p>
       )}
-      <div className="px-4 pt-1">
+      <div className="shrink-0 px-4 pt-2">
         <Button type="button" data-coach="seal" className="h-12 w-full text-base" onClick={onSeal}>
           {state.day === 12 ? "Seal the twelfth day" : "Seal the day"}
         </Button>
       </div>
-      <nav className="mt-2 grid grid-cols-4 border-t border-border pb-[max(0.25rem,env(safe-area-inset-bottom))]">
+      <nav className="mt-2 grid shrink-0 grid-cols-4 border-t border-border pb-[max(0.25rem,env(safe-area-inset-bottom))]">
         {TABS.map((item) => {
           const Icon = item.icon;
           const active = tab === item.id;
@@ -456,9 +522,9 @@ export function PlaySeason({
         <DialogContent container={frame} className="max-h-[80%] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-display text-2xl">How a season works</DialogTitle>
-            <DialogDescription>The season, the road, and the people.</DialogDescription>
+            <DialogDescription>Where each part of the realm lives.</DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-4">
             {RULES.map((rule) => (
               <div key={rule.title}>
                 <p className="font-medium">{rule.title}</p>
@@ -491,7 +557,7 @@ export function PlaySeason({
           <DialogHeader>
             <DialogTitle className="font-display text-2xl">This season</DialogTitle>
             <DialogDescription>
-              {faction.name}. {hold.name} grows {hold.produces}.
+              {faction.name}. {hold.name} grows {hold.produces}. {state.player.title} {state.player.name}.
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-2">
@@ -500,7 +566,7 @@ export function PlaySeason({
               className="h-11"
               onClick={() => {
                 setMenu(false);
-                setTab("realm");
+                go("realm", "status");
                 act(replayTutorial(state));
               }}
             >
@@ -660,37 +726,249 @@ export function PlaySeason({
   );
 }
 
-function CompactPanel({
+function sectionAlert(state: GameState, tab: Tab, id: string): boolean {
+  if (tab === "realm" && id === "decrees") return Boolean(state.petition || state.campaign?.threat || openDecree(state));
+  if (tab === "realm" && id === "status") return (state.wyrm?.ire ?? 0) >= 60;
+  if (tab === "hold" && id === "people") return peopleTrouble(state);
+  if (tab === "compact" && id === "oaths") return state.compact.members.some((member) => !member.inCompact || member.contentment < 25);
+  if (tab === "compact" && id === "trade") return state.npcOffers.length > 0;
+  if (tab === "road" && id === "explore") return Boolean(state.caravan);
+  if (tab === "road" && id === "loot") return (state.quests ?? []).some((quest) => quest.status === "ready");
+  return false;
+}
+
+function openDecree(state: GameState): boolean {
+  const camp = state.campaign;
+  if (!camp) return false;
+  return camp.missions.some((mission) => mission.chapter <= camp.chapter && mission.status === "ready");
+}
+
+function StatusPanel({
+  state,
+  act,
+  onChronicle,
+}: {
+  state: GameState;
+  act: (result: Result) => void;
+  onChronicle: () => void;
+}) {
+  const home = state.settlements?.find((item) => item.holdId === state.player.holdId);
+  const level = state.campaign?.level ?? 1;
+  return (
+    <>
+      <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10" data-coach="wagons">
+        <div className="flex items-baseline justify-between gap-2">
+          <p className="font-display text-xl">Wagons</p>
+          <p className="text-xs tracking-wide text-[#8d6b2e] uppercase">{dawnsLeftLabel(state.day)}</p>
+        </div>
+        <div className="mt-3 flex flex-col gap-3">
+          {LEVY_GOODS.map((item) => {
+            const have = state.compact.levy[item];
+            const target = LEVY_TARGET[item];
+            return (
+              <div key={item}>
+                <div className="flex justify-between text-sm">
+                  <span>{GOOD_LABEL[item]}</span>
+                  <span>
+                    {have}/{target}
+                  </span>
+                </div>
+                <Progress value={Math.min(100, (have / target) * 100)} className="mt-1 h-1.5" />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <div data-coach="anger">
+        <WyrmCard state={state} act={act} />
+      </div>
+      <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+        <p className="text-[11px] tracking-[0.16em] text-[#8d6b2e] uppercase">Banner</p>
+        <p className="mt-1 font-display text-2xl leading-none">
+          Level {level} · {powerOf(state)} power
+        </p>
+        <Progress value={Math.min(100, ((state.campaign?.xp ?? 0) / xpNeed(level)) * 100)} className="mt-3 h-1.5" />
+        <p className="mt-3 text-sm text-muted-foreground">
+          {renownTitle(state.player.renown)} · fame {state.player.renown}
+          {home ? ` · ${home.souls} people, mood ${home.mood}` : ""}
+        </p>
+      </div>
+      <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+        <div className="flex items-baseline justify-between gap-2">
+          <p className="font-display text-xl">Chronicle</p>
+          <button type="button" className="text-xs text-[#8d6b2e] underline-offset-2 hover:underline" onClick={onChronicle}>
+            Open all
+          </button>
+        </div>
+        <ul className="mt-3 flex flex-col gap-3 text-sm leading-relaxed">
+          {[...state.chronicle].slice(-2).reverse().map((entry) => (
+            <li key={entry.id}>{entry.text}</li>
+          ))}
+        </ul>
+      </div>
+    </>
+  );
+}
+
+function HoldYield({ state, act }: { state: GameState; act: (result: Result) => void }) {
+  const hold = holdById(state.player.holdId);
+  const faction = factionById(state.player.factionId);
+  const cap = state.player.undercroft ? UNDERCROFT_CAP : BASE_CAP;
+  return (
+    <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/10">
+      <div className="relative h-28">
+        <img src={`/art/hold-${hold.id}.jpg`} alt="" className="h-full w-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/75 to-transparent" />
+        <p className="absolute right-4 bottom-3 left-4 font-display text-2xl text-[#f4ead7]">{hold.name}</p>
+      </div>
+      <div className="p-4">
+        <p className="text-sm leading-relaxed">
+          Sealing the day brings {dawnYield(state)} {GOOD_LABEL[hold.produces].toLowerCase()}.
+          {state.works.mill ? " The mill is in that count." : ""} {faction.bonus}
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-[#3d4a62]">{hold.myth}</p>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Cellar {stashCount(state.player.stash)}/{cap}. The bag itself is on the Road tab.
+          {state.day > 12 ? " Deep winter has thinned the yield." : ""}
+        </p>
+        {!state.player.undercroft && (
+          <Button type="button" variant="outline" className="mt-3 h-11" onClick={() => act(raiseUndercroft(state))}>
+            Raise the cellar · {UNDERCROFT_COST}g
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function LoyaltyPanel({ state }: { state: GameState }) {
+  const home = state.settlements?.find((item) => item.holdId === state.player.holdId);
+  return (
+    <>
+      <section className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+        <p className="text-[11px] tracking-[0.16em] text-[#8d6b2e] uppercase">Loyalty</p>
+        <p className="mt-1 font-display text-4xl leading-none">{home?.mood ?? "—"}</p>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          Your hold&apos;s mood. It thins when food or firewood runs out. Feed them under People.
+        </p>
+        <Progress value={home?.mood ?? 0} className="mt-3 h-2" />
+      </section>
+      <section className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+        <p className="text-[11px] tracking-[0.16em] text-[#8d6b2e] uppercase">Influence</p>
+        <p className="mt-1 font-display text-4xl leading-none">{state.player.renown}</p>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          {renownTitle(state.player.renown)}. Pledges, gifts, and answered roads raise your name.
+        </p>
+      </section>
+      <section className="flex flex-col gap-3">
+        <p className="text-[11px] tracking-[0.16em] text-[#8d6b2e] uppercase">How the oathbound stand</p>
+        {state.compact.members.map((member) => (
+          <div key={member.id} className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="font-display text-lg leading-tight">{member.name}</p>
+              <p className="text-sm">{contentWord(member.contentment, member.inCompact)}</p>
+            </div>
+            <Progress value={member.contentment} className="mt-2 h-1.5" />
+          </div>
+        ))}
+      </section>
+    </>
+  );
+}
+
+function OathPanel({
+  state,
+  act,
+  onGift,
+}: {
+  state: GameState;
+  act: (result: Result) => void;
+  onGift: (id: string) => void;
+}) {
+  return (
+    <>
+      {state.compact.members.map((member) => {
+        const home = holdById(member.holdId);
+        return (
+          <div key={member.id} className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+            <div className="flex items-start gap-3">
+              <Portrait holdId={member.holdId} className="size-12" />
+              <div className="min-w-0 flex-1">
+                <p className="font-display text-xl leading-tight">{member.name}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {home.name} · {PERSONALITY_LABEL[member.personality]} · {contentWord(member.contentment, member.inCompact)}
+                </p>
+              </div>
+              {member.inCompact && (
+                <Button type="button" variant="outline" className="h-11" onClick={() => onGift(member.id)}>
+                  Gift
+                </Button>
+              )}
+            </div>
+            <OathRow state={state} memberId={member.id} act={act} />
+            <Progress value={member.contentment} className="mt-3 h-1.5" />
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{member.lastNote}</p>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+function OrdersPanel({ state, act }: { state: GameState; act: (result: Result) => void }) {
+  const sworn = state.compact.members.filter((member) => member.inCompact);
+  if (sworn.length === 0) {
+    return <p className="text-sm leading-relaxed text-muted-foreground">No captain still answers. The oaths have gone quiet.</p>;
+  }
+  return (
+    <>
+      {sworn.map((member) => (
+        <div key={member.id} className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+          <p className="font-display text-xl leading-tight">{member.name}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{holdById(member.holdId).name}</p>
+          <CaptainOrders state={state} memberId={member.id} act={act} />
+        </div>
+      ))}
+    </>
+  );
+}
+
+function TradePanel({
   state,
   amount,
   onAmount,
   act,
-  onGift,
   resolveQty,
 }: {
   state: GameState;
   amount: Amount;
   onAmount: (amount: Amount) => void;
   act: (result: Result) => void;
-  onGift: (id: string) => void;
   resolveQty: (available: number) => number;
 }) {
   const [hallGood, setHallGood] = useState<GoodId>("grain");
+  const [giveGood, setGiveGood] = useState<GoodId>(holdById(state.player.holdId).produces);
+  const [wantGood, setWantGood] = useState<GoodId>("iron");
+  const [giveQty, setGiveQty] = useState(2);
+  const [wantQty, setWantQty] = useState(2);
   const drawRoom = FOUNDER_WITHDRAW_CAP - state.player.withdrawnToday;
 
   return (
-    <div className="wm-tab flex flex-col gap-3">
+    <>
       <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10" data-coach="wagons-take">
-        <p className="text-sm leading-relaxed">
-          Leave enough in the shared stores for your sworn neighbors. Send the rest to the wagons. What the wagons take is gone.
-        </p>
+        <p className="text-sm leading-relaxed">Leave enough in the shared stores for your sworn neighbors. Send the rest to the wagons.</p>
         <Button type="button" className="mt-3 h-11 w-full" onClick={() => act(pledgeRoadShare(state))}>
           Keep a share, send the rest
         </Button>
+        {state.player.factionId === "canticle" && (
+          <Button type="button" variant="outline" className="mt-2 h-11 w-full" onClick={() => act(offerRelic(state))}>
+            Offer a relic to the saints
+          </Button>
+        )}
       </div>
       <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
-        <p className="text-xs tracking-wide text-muted-foreground uppercase">Reserve</p>
-        <div className="mt-2 flex flex-col gap-2">
+        <p className="text-[11px] tracking-[0.16em] text-muted-foreground uppercase">Reserve</p>
+        <div className="mt-3 flex flex-col gap-3">
           {LEVY_GOODS.map((item) => (
             <div key={item} className="flex items-center justify-between gap-2">
               <span className="text-sm">{GOOD_LABEL[item]}</span>
@@ -770,96 +1048,6 @@ function CompactPanel({
           </div>
         ))}
       </div>
-      <div className="flex flex-col gap-2">
-        {state.compact.members.map((member) => {
-          const home = holdById(member.holdId);
-          return (
-            <div key={member.id} className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
-              <div className="flex items-start gap-3">
-                <Portrait holdId={member.holdId} className="size-12" />
-                <div className="min-w-0 flex-1">
-                  <p className="font-display text-lg leading-tight">{member.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {home.name} · {PERSONALITY_LABEL[member.personality]} · {contentWord(member.contentment, member.inCompact)}
-                  </p>
-                </div>
-                {member.inCompact && (
-                  <Button type="button" variant="outline" className="h-11" onClick={() => onGift(member.id)}>
-                    Gift
-                  </Button>
-                )}
-              </div>
-              <OathRow state={state} memberId={member.id} act={act} />
-              <CaptainOrders state={state} memberId={member.id} act={act} />
-              <Progress value={member.contentment} className="mt-3 h-1.5" />
-              <p className="mt-2 text-sm text-muted-foreground">{member.lastNote}</p>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function RoadPanel({ state, act }: { state: GameState; act: (result: Result) => void }) {
-  const [giveGood, setGiveGood] = useState<GoodId>(holdById(state.player.holdId).produces);
-  const [wantGood, setWantGood] = useState<GoodId>("iron");
-  const [giveQty, setGiveQty] = useState(2);
-  const [wantQty, setWantQty] = useState(2);
-  const market = nextMarketDay(state.day);
-
-  return (
-    <div className="wm-tab flex flex-col gap-3">
-      <p className="text-sm text-muted-foreground">{seasonNote(state.day)}</p>
-      {state.caravan ? (
-        <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/10" data-coach="caravan">
-          <div className="relative h-28">
-            <img src="/art/caravan.jpg" alt="" className="h-full w-full object-cover" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-            <p className="absolute right-4 bottom-3 left-4 font-display text-2xl text-[#f4ead7]">The caravan</p>
-          </div>
-          <div className="p-4">
-          <p className="text-sm text-muted-foreground">
-            {visitKey(state.day + 1) !== null ? "It stays through tomorrow, then the road goes quiet." : "It leaves when you seal the day."}
-          </p>
-          {state.rumor && state.rumor.day === state.day && <p className="mt-2 text-sm leading-relaxed">{state.rumor.text}</p>}
-          <ul className="mt-3 flex flex-col gap-3">
-            {GOODS.map((item) => (
-              <li key={item} className="flex items-center gap-2">
-                <GoodThumb good={item} className="size-8" />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm">{GOOD_LABEL[item]}</span>
-                  <span className="block text-[11px] text-muted-foreground">
-                    {state.caravan?.stock[item]} in the wagon · buy {buyPrice(state, item)}g · sell {sellPrice(state, item)}g
-                    {state.rumor?.day === state.day && state.rumor.good === item ? " · rumor" : ""}
-                  </span>
-                </span>
-                <Button type="button" variant="outline" className="h-11 px-3" onClick={() => act(buy(state, item, 1))}>
-                  Buy
-                </Button>
-                <Button type="button" variant="secondary" className="h-11 px-3" onClick={() => act(sell(state, item, 1))}>
-                  Sell
-                </Button>
-              </li>
-            ))}
-          </ul>
-          </div>
-        </div>
-      ) : (
-        <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/10" data-coach="caravan">
-          <div className="relative h-28">
-            <img src="/art/caravan.jpg" alt="" className="h-full w-full object-cover brightness-75" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/75 to-transparent" />
-            <p className="absolute right-4 bottom-3 left-4 font-display text-2xl text-[#f4ead7]">The road is empty</p>
-          </div>
-          <div className="p-4">
-          <p className="text-sm leading-relaxed">
-            No caravan today.{market ? ` It returns on day ${market}.` : ""} Until then, trade with your neighbors.
-          </p>
-          </div>
-        </div>
-      )}
-
       <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
         <p className="font-display text-xl">Neighbor barter</p>
         {state.npcOffers.length === 0 && <p className="mt-2 text-sm text-muted-foreground">No neighbor offered a trade this morning.</p>}
@@ -876,12 +1064,11 @@ function RoadPanel({ state, act }: { state: GameState; act: (result: Result) => 
           ))}
         </ul>
       </div>
-
       <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
         <p className="font-display text-xl">Your offer</p>
         {state.playerOffer ? (
           <>
-            <p className="mt-2 text-sm">
+            <p className="mt-2 text-sm leading-relaxed">
               {state.playerOffer.give.qty} {state.playerOffer.give.good} for {state.playerOffer.want.qty} {state.playerOffer.want.good}. Neighbors look it over when you seal the day.
             </p>
             <Button type="button" variant="outline" className="mt-3 h-11" onClick={() => act(cancelOffer(state))}>
@@ -926,6 +1113,113 @@ function RoadPanel({ state, act }: { state: GameState; act: (result: Result) => 
           </form>
         )}
       </div>
+    </>
+  );
+}
+
+function BagPanel({
+  state,
+  amount,
+  onAmount,
+  act,
+  resolveQty,
+  move,
+}: {
+  state: GameState;
+  amount: Amount;
+  onAmount: (amount: Amount) => void;
+  act: (result: Result) => void;
+  resolveQty: (available: number) => number;
+  move: (qty: number, run: (qty: number) => void) => void;
+}) {
+  const [good, setGood] = useState<GoodId>(holdById(state.player.holdId).produces);
+  const cap = state.player.undercroft ? UNDERCROFT_CAP : BASE_CAP;
+  return (
+    <>
+      <p className="text-xs text-muted-foreground">
+        Cellar {stashCount(state.player.stash)}/{cap}
+      </p>
+      <AmountPicker amount={amount} onChange={onAmount} />
+      <div className="flex flex-col gap-2">
+        {GOODS.map((item) => (
+          <div key={item} className={`rounded-2xl ring-1 ${good === item ? "bg-accent ring-gold" : "bg-card ring-foreground/10"}`}>
+            <button type="button" className="flex min-h-12 w-full items-center gap-3 px-3 text-left" onClick={() => setGood(item)} aria-pressed={good === item}>
+              <GoodThumb good={item} />
+              <span className="flex-1 text-sm">{GOOD_LABEL[item]}</span>
+              <span className="font-display text-xl">{state.player.stash[item]}</span>
+            </button>
+            {good === item && (
+              <div className="flex flex-wrap gap-2 px-3 pb-3">
+                <Button type="button" variant="secondary" className="h-11" onClick={() => move(resolveQty(state.player.stash[item]), (qty) => act(deposit(state, item, qty)))}>
+                  To the shared stores
+                </Button>
+                {isLevy(item) ? (
+                  <Button type="button" className="h-11" onClick={() => move(resolveQty(state.player.stash[item]), (qty) => act(pledgePersonal(state, item, qty)))}>
+                    To the wagons
+                  </Button>
+                ) : (
+                  <p className="self-center text-xs text-muted-foreground">The wagons do not take {GOOD_LABEL[item].toLowerCase()}.</p>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function RoadMarket({ state, act }: { state: GameState; act: (result: Result) => void }) {
+  const market = nextMarketDay(state.day);
+  if (state.caravan) {
+    return (
+      <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/10" data-coach="caravan">
+        <div className="relative h-28">
+          <img src="/art/caravan.jpg" alt="" className="h-full w-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+          <p className="absolute right-4 bottom-3 left-4 font-display text-2xl text-[#f4ead7]">The caravan</p>
+        </div>
+        <div className="p-4">
+          <p className="text-sm text-muted-foreground">
+            {visitKey(state.day + 1) !== null ? "It stays through tomorrow, then the road goes quiet." : "It leaves when you seal the day."}
+          </p>
+          {state.rumor && state.rumor.day === state.day && <p className="mt-2 text-sm leading-relaxed">{state.rumor.text}</p>}
+          <ul className="mt-3 flex flex-col gap-3">
+            {GOODS.map((item) => (
+              <li key={item} className="flex items-center gap-2">
+                <GoodThumb good={item} className="size-8" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm">{GOOD_LABEL[item]}</span>
+                  <span className="block text-[11px] text-muted-foreground">
+                    {state.caravan?.stock[item]} in the wagon · buy {buyPrice(state, item)}g · sell {sellPrice(state, item)}g
+                    {state.rumor?.day === state.day && state.rumor.good === item ? " · rumor" : ""}
+                  </span>
+                </span>
+                <Button type="button" variant="outline" className="h-11 px-3" onClick={() => act(buy(state, item, 1))}>
+                  Buy
+                </Button>
+                <Button type="button" variant="secondary" className="h-11 px-3" onClick={() => act(sell(state, item, 1))}>
+                  Sell
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/10" data-coach="caravan">
+      <div className="relative h-28">
+        <img src="/art/caravan.jpg" alt="" className="h-full w-full object-cover brightness-75" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/75 to-transparent" />
+        <p className="absolute right-4 bottom-3 left-4 font-display text-2xl text-[#f4ead7]">The road is empty</p>
+      </div>
+      <div className="p-4">
+        <p className="text-sm leading-relaxed">
+          No caravan today.{market ? ` It returns on day ${market}.` : ""} Until then, trade with your neighbors.
+        </p>
+      </div>
     </div>
   );
 }
@@ -955,14 +1249,14 @@ function IconButton({
   onClick,
   tone = "day",
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   label: string;
   onClick: () => void;
   tone?: "day" | "night";
 }) {
   const face = tone === "night" ? "bg-black/40 text-[#f4ead7] ring-white/30" : "bg-card ring-border";
   return (
-    <button type="button" aria-label={label} onClick={onClick} className={`flex size-10 items-center justify-center rounded-full ring-1 ${face}`}>
+    <button type="button" aria-label={label} onClick={onClick} className={`flex size-9 items-center justify-center rounded-full ring-1 ${face}`}>
       {children}
     </button>
   );

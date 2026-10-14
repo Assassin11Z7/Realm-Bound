@@ -403,8 +403,12 @@ export const WYRM_NAME = "Vell";
 
 export const RULES: { title: string; body: string }[] = [
   {
+    title: "One view at a time",
+    body: "Realm, Hold, Neighbors, and Road each open on a single subject. The row under the banner switches that subject. The list below it scrolls.",
+  },
+  {
     title: "Twelve dawns",
-    body: "Fill the wagons with grain, iron, and salt before the twelfth dawn. The numbers at the top of the screen are the wagons. Dawns left sit beside them.",
+    body: "Fill the wagons with grain, iron, and salt before the twelfth dawn. The wagons sit under Realm, then Status. Dawns left sit beside them.",
   },
   {
     title: "Seal the day",
@@ -412,19 +416,19 @@ export const RULES: { title: string; body: string }[] = [
   },
   {
     title: "Neighbors and wagons",
-    body: "The shared stores on the Neighbors tab feed your sworn neighbors. What you send to the wagons is gone. You cannot take it back.",
+    body: "Oaths, trade, and captain orders are separate views on the Neighbors tab. Shared stores feed your sworn neighbors. What you send to the wagons is gone.",
   },
   {
-    title: "The caravan",
-    body: "The caravan is how you trade. Open the Road tab. It is not here every day. Buy what your hold does not grow.",
+    title: "The road",
+    body: "Explore, your bag, worn gear, and found loot are separate views. The caravan, when it is in town, is under Explore.",
   },
   {
     title: "Vell and the road",
-    body: "Vell is a frost dragon. His anger is one danger. Other creatures on the road offer choices that last after they leave.",
+    body: "Vell is a frost dragon. His anger is under Realm, then Status. Other creatures offer choices that last. Those bonds are their own view.",
   },
   {
     title: "Food, firewood, and a law",
-    body: "Your people need food and firewood, and a law. Send grain, send timber, or set a law on the Hold tab. The law stays until you change it.",
+    body: "Send grain and timber under Hold, then People. Set a law under Hold, then Laws. The law stays until you change it.",
   },
 ];
 
