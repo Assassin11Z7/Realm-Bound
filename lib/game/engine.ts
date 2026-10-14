@@ -56,7 +56,26 @@ import {
   tickSettlements,
 } from "./realm";
 import { blankExpedition, blankPolitics, EXPEDITION_GRACE, expeditionDue, markCalled, markDeparted, takeExpeditionPrize, wagonsOpen } from "./expedition";
-import { bumpQuest, carryCap, carriedWeight, gearWeight, loreBonus, luckOf, openingQuests, openingScene, purseBonus, rewardScene, roadFind, starterCloak, wardBonus } from "./world";
+import {
+  awardUniqueRelic,
+  bumpQuest,
+  carryCap,
+  carriedWeight,
+  gearWeight,
+  loreBonus,
+  luckOf,
+  openingQuests,
+  openingScene,
+  pardonReady,
+  purseBonus,
+  relicSpec,
+  rewardScene,
+  roadFind,
+  spendPardon,
+  starterCloak,
+  wardBonus,
+  wornRelic,
+} from "./world";
 import { GOODS, LEVY_GOODS } from "./types";
 import type {
   BarterOffer,
@@ -123,6 +142,10 @@ export function dawnYield(state: GameState, day = state.day): number {
   qty += state.campaign?.buildings.yard ?? 0;
   if (state.campaign?.skills.includes("stores")) qty += 1;
   qty += realmYieldBonus(state);
+  if (wornRelic(state, "barrow-band")) {
+    const good = holdById(state.player.holdId).produces;
+    if (good === "grain" || good === "iron") qty *= 2;
+  }
   return qty;
 }
 
@@ -243,6 +266,13 @@ function considerVictory(state: GameState) {
     state.outcomeRewarded = true;
     const prize = takeExpeditionPrize(state, "triumph");
     if (prize) note(state, prize);
+    const found = awardUniqueRelic(state, "expedition");
+    if (found?.packed) note(state, `${found.gear.name} was under the wagon bench. ${found.gear.line}`);
+    else if (found) note(state, `${found.gear.name} was under the wagon bench, and the bag could not take it.`);
+    if (wornRelic(state, "carter-knot")) {
+      state.player.gold += 6;
+      note(state, "Carter's Knot sweetens the drivers' pay by 6 gold.");
+    }
   }
 }
 
@@ -518,11 +548,19 @@ function makeMember(holdId: HoldId): Member {
 
 function runDawn(state: GameState): string[] {
   const lines: string[] = [];
+  const homeGood = holdById(state.player.holdId).produces;
+  let doubled = false;
   for (const member of state.compact.members) {
     if (!member.inCompact) continue;
     const hold = memberHold(member);
     const good = hold.produces;
-    member.stash[good] += NPC_YIELD[good];
+    let qty = NPC_YIELD[good];
+    if (!doubled && wornRelic(state, "barrow-band") && homeGood !== "grain" && homeGood !== "iron" && (good === "grain" || good === "iron")) {
+      qty += NPC_YIELD[good];
+      doubled = true;
+      lines.push(`${member.name}'s ${good} yield doubles under the Barrow Band.`);
+    }
+    member.stash[good] += qty;
     const surplus = member.stash[good] - KEEP;
     const deposit = Math.max(0, Math.min(surplus, DEPOSIT_CAP[member.personality]));
     if (deposit <= 0) continue;
@@ -536,6 +574,13 @@ function runDawn(state: GameState): string[] {
 
 function runEvening(state: GameState): string[] {
   const lines: string[] = [];
+  if (wornRelic(state, "barrow-band")) {
+    const bonded = [...state.compact.members].filter((member) => member.inCompact).sort((a, b) => b.contentment - a.contentment)[0];
+    if (bonded) {
+      bonded.contentment = Math.max(0, bonded.contentment - 4);
+      lines.push(`${bonded.name}'s bond cools under the Barrow Band.`);
+    }
+  }
   const order = [...state.compact.members].sort((a, b) => {
     const rank = { generous: 0, steady: 1, lean: 2 };
     return rank[a.personality] - rank[b.personality];
@@ -722,6 +767,7 @@ export function createGame(setup: NewGameSetup): GameState {
     tutorial: { step: "wagons" },
     expedition: blankExpedition(),
     politics: blankPolitics(),
+    pardonCall: null,
   };
 
   const cloak = starterCloak();
@@ -1063,6 +1109,10 @@ export function sealDay(state: GameState): Result {
   let ireStep = next.works.stake ? IRE_STEP_STAKED : IRE_STEP;
   if (next.campaign?.skills.includes("truce")) ireStep = Math.max(1, ireStep - 1);
   ireStep = Math.max(1, ireStep - wardBonus(next));
+  if (wornRelic(next, "barrow-band")) {
+    ireStep += 1;
+    lines.push("The Barrow Band stirs Vell. Anger climbs one faster.");
+  }
   next.wyrm.ire = Math.min(100, next.wyrm.ire + ireStep);
   if (next.works.shrine) {
     for (const member of next.compact.members) {
@@ -1267,11 +1317,17 @@ export function chooseOmen(state: GameState, choiceId: string): Result {
       const won = roll < 0.5;
       fate = { face, won };
       const outcome = won ? play.bold.win : play.bold.lose;
-      const net = goodNet([play.bold.stake, outcome]);
+      const mercy = !won && pardonReady(next);
+      const net = goodNet(mercy ? [play.bold.stake] : [play.bold.stake, outcome]);
       if (net > 0 && !canFit(next, net)) return fail(state, "The cellar is full.");
       applyShift(next, play.bold.stake);
-      applyShift(next, outcome);
-      note(next, outcome.note);
+      if (mercy) {
+        spendPardon(next);
+        note(next, "The Unspoken Hem takes the failed bargain. The harm does not land. It will not do so again until the wagons are called.");
+      } else {
+        applyShift(next, outcome);
+        note(next, outcome.note);
+      }
     }
     next.omen = null;
     next.compactActed = true;
@@ -1384,11 +1440,27 @@ export function travel(state: GameState, holdId: HoldId): Result {
     }
   }
   if ((next.tonics?.luck ?? 0) > 0) next.tonics.luck -= 1;
+  const relic = awardUniqueRelic(next, "walk");
+  if (relic?.packed) {
+    const blurb = relic.gear.relic ? relicSpec(relic.gear.relic)?.blurb : "";
+    const spoken = blurb ? `${blurb.charAt(0).toUpperCase()}${blurb.slice(1)}` : "";
+    found.scene.beats.push({
+      speaker: relic.gear.name,
+      line: spoken ? `${relic.gear.line} ${spoken}.` : relic.gear.line,
+      art: "/art/good-relics.jpg",
+    });
+    note(next, `The walk left ${relic.gear.name}. ${relic.gear.line}`);
+  } else if (relic) {
+    note(next, `${relic.gear.name} lay on the track, and the bag could not take it.`);
+  }
   bumpQuest(next, "visit", holdId, 1);
   next.scene = found.scene;
   note(next, found.line);
-  grantDeed(next, 3 + (next.campaign?.skills.includes("scholar") ? 2 : 0) + loreBonus(next));
-  return ok(next, found.line);
+  let teach = 3 + (next.campaign?.skills.includes("scholar") ? 2 : 0) + loreBonus(next);
+  if (wornRelic(next, "ford-bell")) teach += 3;
+  grantDeed(next, teach);
+  const walked = relic?.packed ? `${found.line} ${relic.gear.name} came with you.` : found.line;
+  return ok(next, walked);
 }
 
 export function advanceTutorial(state: GameState): Result {

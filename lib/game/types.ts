@@ -129,6 +129,7 @@ export interface Rumor {
 export type GearSlot = "hand" | "cloak" | "charm" | "ring" | "hoard";
 export type Rarity = "common" | "uncanny" | "relic";
 export type GearTrait = "luck" | "purse" | "ward" | "lore";
+export type RelicId = "unspoken-hem" | "barrow-band" | "salt-charter" | "carter-knot" | "ford-bell";
 
 export interface Gear {
   id: string;
@@ -139,6 +140,8 @@ export interface Gear {
   trait: GearTrait;
   worth: number;
   line: string;
+  /** Set only on unique relics. Ordinary relic-rarity crafts and wagon prizes leave this empty. */
+  relic?: RelicId;
 }
 
 export type QuestKind = "visit" | "pledge" | "loot" | "tribute";
@@ -264,7 +267,7 @@ export interface Threat {
   art: string;
 }
 
-export type EdictId = "custom" | "dole" | "tithe" | "close-rolls" | "open-rolls" | "hearth-rite";
+export type EdictId = "custom" | "dole" | "tithe" | "close-rolls" | "open-rolls" | "hearth-rite" | "salt-road";
 
 export interface Lasting {
   yield?: number;
@@ -403,6 +406,8 @@ export interface GameState {
   tutorial: Tutorial;
   expedition: Expedition;
   politics: Politics;
+  /** Expedition cycle in which the Unspoken Hem already swallowed a failure. */
+  pardonCall: number | null;
 }
 
 export interface NewGameSetup {

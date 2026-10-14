@@ -65,6 +65,7 @@ import { GoodThumb, Portrait } from "./art";
 import { useFrame } from "./frame";
 import { BannerMark } from "./marks";
 import { chapterName, powerOf, xpNeed } from "@/lib/game/progress";
+import { bandYieldNote } from "@/lib/game/world";
 import { CaptainOrders, HoldWorks, MissionList, SkillDialog, ThreatCard } from "./Campaign";
 import { CraftBench } from "./Craft";
 import { CutsceneView, ExplorePanel } from "./Explore";
@@ -867,6 +868,7 @@ function HoldYield({ state, act }: { state: GameState; act: (result: Result) => 
           Sealing the day brings {dawnYield(state)} {GOOD_LABEL[hold.produces].toLowerCase()}.
           {state.works.mill ? " The mill is in that count." : ""} {faction.bonus}
         </p>
+        {bandYieldNote(state) && <p className="mt-2 text-sm leading-relaxed text-[#6a4a12]">{bandYieldNote(state)}</p>}
         <p className="mt-2 text-sm leading-relaxed text-[#3d4a62]">{hold.myth}</p>
         <p className="mt-2 text-xs text-muted-foreground">
           Cellar {stashCount(state.player.stash)}/{cap}. The bag itself is on the Road tab.
