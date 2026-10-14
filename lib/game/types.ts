@@ -128,7 +128,7 @@ export interface Rumor {
 
 export type GearSlot = "hand" | "cloak" | "charm" | "ring" | "hoard";
 export type Rarity = "common" | "uncanny" | "relic";
-export type GearTrait = "luck" | "purse" | "ward" | "lore";
+export type GearTrait = "luck" | "purse" | "ward" | "lore" | "haul" | "voice" | "smith" | "hunt";
 
 export interface Gear {
   id: string;
@@ -244,6 +244,16 @@ export interface Lasting {
   soulDawn?: number;
   ireDawn?: number;
   blockGrowth?: boolean;
+  /** Home loyalty drifts by this much each dawn. */
+  loyaltyDawn?: number;
+  /** Home influence drifts by this much each dawn. */
+  influenceDawn?: number;
+  /** Sworn holds, not your own, drift in loyalty each dawn. */
+  neighborLoyalty?: number;
+  /** A sworn hold produces this many extra of its good each dawn. */
+  kinYield?: number;
+  yieldHold?: HoldId;
+  lockLaw?: boolean;
 }
 
 export interface Settlement {
@@ -253,6 +263,34 @@ export interface Settlement {
   bread: number;
   hearth: number;
   edict: EdictId;
+  /** How firmly the people keep your banner. */
+  loyalty: number;
+  /** How far your word reaches in this hold. */
+  influence: number;
+  /** A sworn law cannot be replaced from the hall. */
+  lawLocked: boolean;
+}
+
+export interface Bond {
+  id: string;
+  a: HoldId;
+  b: HoldId;
+  /** Negative is a rivalry. Positive is a friendship. */
+  score: number;
+}
+
+export interface DecreeChoice {
+  id: string;
+  label: string;
+  detail: string;
+}
+
+export interface Decree {
+  id: string;
+  title: string;
+  body: string;
+  art: string;
+  choices: DecreeChoice[];
 }
 
 export interface CrossingChoice {
@@ -355,6 +393,9 @@ export interface GameState {
   settlements: Settlement[];
   petition: Petition | null;
   petitionsSeen: string[];
+  bonds: Bond[];
+  decree: Decree | null;
+  decreesSeen: string[];
   seed: number;
   rumor: Rumor | null;
   surprisesSeen: string[];

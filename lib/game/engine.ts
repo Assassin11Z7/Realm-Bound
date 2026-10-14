@@ -42,20 +42,28 @@ import { nextTutorialStep } from "./coach";
 import { emptyBrew } from "./craft";
 import { applyDawnProgress, blankCampaign, grantXp, syncCampaign } from "./progress";
 import {
+  blankBonds,
   blankSettlements,
   chooseCrossing as answerCrossing,
+  chooseDecree as answerDecree,
   choosePetition as answerPetition,
   clearUnansweredCrossing,
+  clearUnansweredDecree,
+  coldestBond,
   dismissCrossing as passCrossing,
+  friendliestBond,
+  kinYieldFor,
   offerCrossing,
+  offerDecree,
   offerPetition,
   realmIreDelta,
   realmYieldBonus,
   setEdict as enactEdict,
+  sharpestRivalry,
   stockSettlement as sendStores,
   tickSettlements,
 } from "./realm";
-import { bumpQuest, carryCap, carriedWeight, gearWeight, loreBonus, luckOf, openingQuests, openingScene, purseBonus, rewardScene, roadFind, starterCloak, wardBonus } from "./world";
+import { bumpQuest, carryCap, carriedWeight, gearWeight, huntBonus, loreBonus, luckOf, openingQuests, openingScene, purseBonus, rewardScene, roadFind, starterCloak, wardBonus } from "./world";
 import { GOODS, LEVY_GOODS } from "./types";
 import type {
   BarterOffer,
@@ -140,6 +148,7 @@ export function buyPrice(state: GameState, good: GoodId): number {
     price += state.rumor.delta;
   }
   if (state.campaign?.skills.includes("bargain")) price -= 1;
+  if (friendliestBond(state) >= 24) price -= 1;
   const market = state.campaign?.buildings.market ?? 0;
   if (market >= 2) price -= 1;
   if (market >= 4) price -= 1;
@@ -154,6 +163,7 @@ export function sellPrice(state: GameState, good: GoodId): number {
   }
   if (state.campaign?.skills.includes("bargain")) price += 1;
   price += purseBonus(state);
+  if (coldestBond(state) <= -25 || sharpestRivalry(state) <= -30) price -= 1;
   if (state.tonics?.purse) price += 2;
   const market = state.campaign?.buildings.market ?? 0;
   if (market >= 2) price += 1;
@@ -502,7 +512,7 @@ function runDawn(state: GameState): string[] {
     if (!member.inCompact) continue;
     const hold = memberHold(member);
     const good = hold.produces;
-    member.stash[good] += NPC_YIELD[good];
+    member.stash[good] += NPC_YIELD[good] + kinYieldFor(state, member.holdId);
     const surplus = member.stash[good] - KEEP;
     const deposit = Math.max(0, Math.min(surplus, DEPOSIT_CAP[member.personality]));
     if (deposit <= 0) continue;
@@ -684,6 +694,9 @@ export function createGame(setup: NewGameSetup): GameState {
     settlements: blankSettlements(setup.holdId, sworn, 1),
     petition: null,
     petitionsSeen: [],
+    bonds: blankBonds(setup.holdId, sworn),
+    decree: null,
+    decreesSeen: [],
     seed: seasonSeed(name || "Ash", setup.holdId, setup.factionId),
     rumor: null,
     surprisesSeen: [],
@@ -1010,6 +1023,8 @@ export function sealDay(state: GameState): Result {
   }
   const leftBehind = clearUnansweredCrossing(next);
   if (leftBehind) lines.push(leftBehind);
+  const lapsed = clearUnansweredDecree(next);
+  if (lapsed) lines.push(lapsed);
 
   let ireStep = next.works.stake ? IRE_STEP_STAKED : IRE_STEP;
   if (next.campaign?.skills.includes("truce")) ireStep = Math.max(1, ireStep - 1);
@@ -1058,6 +1073,8 @@ export function sealDay(state: GameState): Result {
     const asked = offerPetition(next);
     if (asked) lines.push(asked);
   }
+  const writ = offerDecree(next);
+  if (writ) lines.push(writ);
   if (next.tonics?.purse) {
     next.tonics.purse = false;
     lines.push("The coin drink fades with the dusk.");
@@ -1078,6 +1095,7 @@ export function sealDay(state: GameState): Result {
   let message = `Day ${next.day} begins. ${lines[lines.length - 1]}`;
   if (next.omen) message = `${next.omen.creature} is at the gate. ${message}`;
   else if (next.crossing) message = `${next.crossing.creature} is on the road. ${message}`;
+  else if (next.decree) message = `${next.decree.title}. ${message}`;
   else if (next.petition) message = `${next.petition.title}. ${message}`;
   if (next.outcome === "lost" && !next.outcomeDismissed && next.day === SEASON_DAYS + 1) {
     message = `${WYRM_NAME} came down the road. The wagons were short, and the frost had teeth. You can still winter on.`;
@@ -1312,7 +1330,7 @@ export function travel(state: GameState, holdId: HoldId): Result {
   const here = state.where ?? state.player.holdId;
   if (holdId === here) return fail(state, "You are already standing there.");
   const next = draft(state);
-  const found = roadFind(next.seed ?? 0, next.day, next.miles ?? 0, holdId, luckOf(next));
+  const found = roadFind(next.seed ?? 0, next.day, next.miles ?? 0, holdId, luckOf(next), huntBonus(next));
   next.where = holdId;
   next.miles = (next.miles ?? 0) + 1;
   next.player.gold = Math.max(0, next.player.gold + found.gold);
@@ -1330,7 +1348,7 @@ export function travel(state: GameState, holdId: HoldId): Result {
   bumpQuest(next, "visit", holdId, 1);
   next.scene = found.scene;
   note(next, found.line);
-  grantDeed(next, 3 + (next.campaign?.skills.includes("scholar") ? 2 : 0) + loreBonus(next));
+  grantDeed(next, 4 + (next.campaign?.skills.includes("scholar") ? 2 : 0) + loreBonus(next));
   return ok(next, found.line);
 }
 
@@ -1439,6 +1457,10 @@ export function dismissCrossing(state: GameState): Result {
 
 export function choosePetition(state: GameState, choiceId: string): Result {
   return remembered(answerPetition(state, choiceId));
+}
+
+export function chooseDecree(state: GameState, choiceId: string): Result {
+  return remembered(answerDecree(state, choiceId));
 }
 
 export function setEdict(state: GameState, holdId: HoldId, edict: EdictId): Result {

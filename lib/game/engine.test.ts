@@ -29,6 +29,7 @@ import {
   advanceScene,
   claimQuest,
   chooseCrossing,
+  chooseDecree,
   choosePetition,
   dismissCrossing,
   equipGear,
@@ -43,8 +44,8 @@ import type { FactionId, GameState, GoodId, HoldId, NewGameSetup } from "./types
 import { GOODS, LEVY_GOODS } from "./types";
 import { chooseSkill, setCaptainOrder, startProject } from "./progress";
 import { craft, drinkPotion, storeGear } from "./craft";
-import { creatureCount, forceCrossing, forcePetition } from "./realm";
-import { carryCap, luckOf, rollGear, treasureCount, vaultCap } from "./world";
+import { bondScore, creatureCount, forceCrossing, forceDecree, forcePetition, kinYieldFor } from "./realm";
+import { carryCap, luckOf, makePiece, roadFind, rollGear, treasureCount, vaultCap } from "./world";
 
 function setup(partial: Partial<NewGameSetup> = {}): NewGameSetup {
   return {
@@ -774,4 +775,86 @@ test("a creature's bargain and a settlement's law stay in force", () => {
   assert.equal(bare?.settlements[0].edict, "custom");
   assert.equal(bare?.tutorial.step, null);
   assert.equal(createGame(setup()).tutorial.step, "wagons");
+});
+
+test("gear changes the day, and realm choices keep their consequences", () => {
+  const start = createGame(setup());
+  const cloak = makePiece("Ford cloak", "uncanny", "haul-cloak");
+  assert.ok(cloak);
+  assert.equal(cloak.trait, "haul");
+  start.pack.push(cloak);
+  const worn = equipGear(start, cloak.id);
+  assert.equal(worn.error, undefined);
+  assert.equal(carryCap(worn.state), carryCap(start) + 18);
+
+  const smith = createGame(setup());
+  const thumb = makePiece("Iron thumb", "common", "smith-ring");
+  assert.ok(thumb);
+  smith.pack.push(thumb);
+  smith.worn = { ...smith.worn, ring: thumb.id };
+  smith.campaign.buildings.forge = 1;
+  smith.player.stash.iron += 1;
+  const made = craft(smith, "knife");
+  assert.equal(made.error, undefined);
+  const knife = made.state.pack.find((gear) => gear.name === "Road knife");
+  assert.equal(knife?.rarity, "uncanny");
+  assert.equal(made.state.player.gold, smith.player.gold);
+
+  let spared = false;
+  for (let miles = 0; miles < 40 && !spared; miles += 1) {
+    const found = roadFind(3, 4, miles, "woolford", 0, 1);
+    if (found.kind === "shadow") {
+      assert.ok(found.ire <= 0);
+      spared = true;
+    }
+  }
+  assert.equal(spared, true);
+
+  const plain = chooseCrossing(forceCrossing(createGame(setup()), "toll-hag"), "trick");
+  const armed = createGame(setup());
+  const spear = makePiece("Ford spear", "uncanny", "hunt-spear");
+  assert.ok(spear);
+  armed.pack.push(spear);
+  armed.worn = { ...armed.worn, hand: spear.id };
+  const favoredHunt = chooseCrossing(forceCrossing(armed, "toll-hag"), "trick");
+  assert.equal(plain.fate?.face, favoredHunt.fate?.face);
+  if (plain.fate?.won) assert.equal(favoredHunt.fate?.won, true);
+
+  const fed = chooseCrossing(forceCrossing(createGame(setup()), "millwife"), "loaf");
+  assert.ok(fed.state.pack.some((gear) => gear.name === "Greenmere weave"));
+
+  const home = createGame(setup());
+  const loyalty = home.settlements[0].loyalty;
+  const ruled = setEdict(home, "greenmere", "dole");
+  assert.equal(ruled.error, undefined);
+  assert.ok((ruled.state.settlements[0].loyalty ?? 0) > loyalty);
+
+  const vowed = chooseCrossing(forceCrossing(createGame(setup()), "salt-saint"), "vow");
+  assert.equal(vowed.error, undefined);
+  assert.equal(vowed.state.settlements[0].lawLocked, true);
+  assert.equal(vowed.state.settlements[0].edict, "close-rolls");
+  assert.ok(setEdict(vowed.state, "greenmere", "tithe").error);
+
+  const compact = chooseDecree(forceDecree(createGame(setup()), "salt-compact"), "favor");
+  assert.equal(compact.error, undefined);
+  const weak = [...compact.state.settlements].filter((item) => item.holdId !== "greenmere").sort((a, b) => a.souls - b.souls)[0];
+  assert.ok(weak.loyalty > 58);
+  assert.equal(kinYieldFor(compact.state, weak.holdId), 1);
+  assert.ok(bondScore(compact.state, "greenmere", weak.holdId) > 16);
+  assert.ok(buyPrice(compact.state, "iron") < buyPrice(createGame(setup()), "iron"));
+  const kept = sealDay(compact.state).state;
+  assert.equal(kinYieldFor(kept, weak.holdId), 1);
+  assert.ok(kept.marks.some((mark) => mark.id === "decree:salt-compact:favor"));
+
+  const rival = chooseDecree(forceDecree(createGame(setup()), "salt-compact"), "rival");
+  assert.equal(rival.error, undefined);
+  assert.ok(sellPrice(rival.state, "wool") < sellPrice(createGame(setup()), "wool"));
+
+  const waiting = forceDecree(createGame(setup()), "banner-seat");
+  const gold = waiting.player.gold;
+  const lapsed = sealDay(waiting).state;
+  assert.equal(lapsed.player.gold, gold);
+  assert.equal(lapsed.decree, null);
+  assert.ok(lapsed.marks.some((mark) => mark.id === "decree:banner-seat:lapsed"));
+  assert.ok(lapsed.settlements[0].loyalty < waiting.settlements[0].loyalty);
 });

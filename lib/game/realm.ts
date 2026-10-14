@@ -1,7 +1,9 @@
 import { holdById, seasonOf } from "./content";
 import type {
+  Bond,
   Crossing,
   CrossingChoice,
+  Decree,
   EdictId,
   GameState,
   HoldId,
@@ -12,19 +14,28 @@ import type {
   Settlement,
 } from "./types";
 import { GOODS, HOLD_IDS } from "./types";
-import { worldRng } from "./world";
+import { carryCap, carriedWeight, gearWeight, huntBonus, makePiece, voiceBonus, worldRng } from "./world";
 
 const HOLDS_OK = new Set<string>(HOLD_IDS);
 const EDICT_SET = new Set<EdictId>(["custom", "dole", "tithe", "close-rolls", "open-rolls", "hearth-rite"]);
 
 export const EDICTS: { id: EdictId; name: string; detail: string }[] = [
-  { id: "custom", name: "Leave them be", detail: "Food and firewood fall by one each dawn. While both last, the people stay as they are." },
-  { id: "dole", name: "Free bread", detail: "The food store empties faster. Mood rises while bread remains, and falls hard when it does not." },
-  { id: "tithe", name: "Grain tax", detail: "While the food store is above 10, one grain comes to your stash each dawn and the people like you less." },
-  { id: "close-rolls", name: "Shut the gates", detail: "Mood rises. New people do not arrive from this law." },
-  { id: "open-rolls", name: "Open the gates", detail: "People arrive while the food store holds. Bread falls faster, and an empty store drives people out." },
-  { id: "hearth-rite", name: "Feed the fires", detail: "Firewood burns faster. Mood rises, and more so in frost." },
+  { id: "custom", name: "Leave them be", detail: "Food and firewood fall by one each dawn. Loyalty and influence drift toward the middle. You are not governing." },
+  { id: "dole", name: "Free bread", detail: "The food store empties faster. While bread remains, mood and loyalty rise. An empty store breaks both." },
+  { id: "tithe", name: "Grain tax", detail: "While the food store is above 10, one grain comes to your stash each dawn. Influence rises. Loyalty falls." },
+  { id: "close-rolls", name: "Shut the gates", detail: "Mood and loyalty rise. Influence falls. New people do not arrive from this law." },
+  { id: "open-rolls", name: "Open the gates", detail: "People arrive while the food store holds, and influence grows. Bread falls faster. An empty store drives people out and loyalty with them." },
+  { id: "hearth-rite", name: "Feed the fires", detail: "Firewood burns faster. Mood and loyalty rise, and more so in frost. The hold feels kept." },
 ];
+
+const EDICT_SHIFT: Record<EdictId, { loyalty: number; influence: number }> = {
+  custom: { loyalty: -1, influence: -2 },
+  dole: { loyalty: 6, influence: 1 },
+  tithe: { loyalty: -6, influence: 5 },
+  "close-rolls": { loyalty: 4, influence: -3 },
+  "open-rolls": { loyalty: -2, influence: 6 },
+  "hearth-rite": { loyalty: 5, influence: 2 },
+};
 
 interface Effect {
   gold?: number;
@@ -39,6 +50,15 @@ interface Effect {
   allMood?: number;
   edict?: EdictId;
   target?: "home" | "weakest" | "all";
+  loyalty?: number;
+  influence?: number;
+  /** Shift the bond between your hold and each targeted hold. */
+  bond?: number;
+  /** Shift the bond between the first two sworn holds. Negative names a rivalry. */
+  rivalShift?: number;
+  /** The targeted sworn hold produces this many extra of its good each dawn. */
+  kinYield?: number;
+  lockLaw?: boolean;
   lasting?: Lasting;
   summary: string;
 }
@@ -190,12 +210,15 @@ const CREATURES: CreatureDef[] = [
       {
         id: "vow",
         label: "Swear the coast",
-        detail: "Shut the gates becomes the law at your hold. Fame, and a quieter gate.",
+        detail: "Shut the gates becomes the law, and the vow locks it. Loyalty rises. Influence falls. The hall cannot replace that law.",
         effect: {
           renown: 2,
           mood: 2,
+          loyalty: 8,
+          influence: -4,
           edict: "close-rolls",
-          summary: "You swore to the salt saint. The gates at your hold are shut.",
+          lockLaw: true,
+          summary: "You swore to the salt saint. The gates are shut, and that law will not be replaced from the hall.",
         },
       },
     ],
@@ -386,13 +409,16 @@ const CREATURES: CreatureDef[] = [
       {
         id: "settle",
         label: "Settle them outward",
-        detail: "The smallest sworn hold gains the people. Your own gate stays as it is.",
+        detail: "The smallest sworn hold gains the people, a rise in loyalty, and one more of its good at every dawn. The road between you sweetens.",
         effect: {
           target: "weakest",
           souls: 10,
           bread: -3,
           mood: 1,
-          summary: "You settled the ash shepherd's people on a sworn hold, not your own gate.",
+          loyalty: 10,
+          bond: 12,
+          kinYield: 1,
+          summary: "You settled the ash shepherd's people on a sworn hold. Their loyalty rose, and that hold yields one more.",
         },
       },
       {
@@ -707,13 +733,16 @@ const CREATURES: CreatureDef[] = [
       {
         id: "seat",
         label: "Give her the seat",
-        detail: "Shut the gates at your hold. Mood rises. A few restless souls are sent off.",
+        detail: "Shut the gates, and lock that law. Loyalty rises with her seat. A few restless souls are sent off. The hall cannot undo it.",
         effect: {
           edict: "close-rolls",
+          lockLaw: true,
           mood: 6,
           souls: -2,
-          lasting: { moodDawn: 1 },
-          summary: "The banner widow sits the hall. The gates are shut, and the mood holds.",
+          loyalty: 8,
+          influence: 4,
+          lasting: { moodDawn: 1, loyaltyDawn: 1 },
+          summary: "The banner widow sits the hall. The gates are shut and sworn. Loyalty holds with her.",
         },
       },
       {
@@ -730,12 +759,15 @@ const CREATURES: CreatureDef[] = [
       {
         id: "refuse",
         label: "Refuse the seat",
-        detail: "Fame. The mood falls and keeps a grudge.",
+        detail: "Fame. Every sworn hold loses loyalty, and the roads between you cool. The grudge stays.",
         effect: {
+          target: "all",
           mood: -8,
+          loyalty: -8,
+          bond: -12,
           renown: 2,
-          lasting: { moodDawn: -1 },
-          summary: "You refused the banner widow. She is telling it in every yard.",
+          lasting: { moodDawn: -1, neighborLoyalty: -1 },
+          summary: "You refused the banner widow. She is telling it in every yard, and sworn loyalty keeps cooling.",
         },
       },
     ],
@@ -934,13 +966,16 @@ const PETITIONS: {
       {
         id: "out",
         label: "Settle them outward",
-        detail: "The smallest sworn hold receives them.",
+        detail: "The smallest sworn hold receives them, gains loyalty, and yields one more of its good at every dawn.",
         effect: {
           target: "weakest",
           souls: 10,
           bread: -3,
           mood: 1,
-          summary: "You sent the column to a sworn hold. Your own gate did not swell.",
+          loyalty: 8,
+          bond: 10,
+          kinYield: 1,
+          summary: "You sent the column to a sworn hold. Their loyalty rose, and that hold yields one more.",
         },
       },
       {
@@ -1031,6 +1066,203 @@ const PETITIONS: {
       },
     ],
   },
+  {
+    id: "rival-yards",
+    title: "Two yards, one road",
+    body: (place) => `The sworn holds are snarling over the road into ${place}. Favor the smaller yard, tax them both, or write a truce.`,
+    choices: [
+      {
+        id: "favor",
+        label: "Favor the smaller yard",
+        detail: "The smallest sworn hold gains loyalty and one more of its good at every dawn. That road sweetens.",
+        effect: {
+          target: "weakest",
+          loyalty: 12,
+          influence: 4,
+          bond: 16,
+          kinYield: 1,
+          summary: "You favored the smaller yard. It yields more of its good, and its loyalty is yours.",
+        },
+      },
+      {
+        id: "tax",
+        label: "Tax both yards",
+        detail: "Grain tax becomes the law at your hold and is sworn in place. Influence rises. Loyalty falls. The hall cannot replace it.",
+        effect: {
+          edict: "tithe",
+          lockLaw: true,
+          loyalty: -8,
+          influence: 8,
+          lasting: { yield: 1 },
+          summary: "You taxed the yards. The grain tax is sworn, the hold yields more, and loyalty paid for it.",
+        },
+      },
+      {
+        id: "truce",
+        label: "Bind a truce",
+        detail: "Loyalty rises across the banner, and the roads between you warm.",
+        effect: {
+          target: "all",
+          loyalty: 6,
+          bond: 14,
+          mood: 2,
+          summary: "You bound a truce between the yards. Loyalty rose across the banner.",
+        },
+      },
+    ],
+  },
+];
+
+const DECREES: {
+  id: string;
+  day: number;
+  title: string;
+  art: string;
+  body: (place: string) => string;
+  choices: ChoiceDef[];
+}[] = [
+  {
+    id: "salt-compact",
+    day: 5,
+    title: "The salt compact",
+    art: "/art/hold-saltmere.jpg",
+    body: (place) =>
+      `Two sworn holds want the salt road that feeds ${place}. Favor one and its yards will yield more. Name a rivalry and your word will carry. Take the toll and the people will remember the coin.`,
+    choices: [
+      {
+        id: "favor",
+        label: "Favor the smaller hold",
+        detail: "The smallest sworn hold gains loyalty and one more of its good at every dawn. The road between you warms for good.",
+        effect: {
+          target: "weakest",
+          loyalty: 12,
+          influence: 4,
+          bond: 22,
+          kinYield: 1,
+          summary: "You favored the smaller hold in the salt compact. It yields more, and the friendship will last.",
+        },
+      },
+      {
+        id: "rival",
+        label: "Name the rivalry",
+        detail: "The first two sworn holds are set against each other. Your influence rises. Their loyalty falls. Marches along that quarrel pay in trouble.",
+        effect: {
+          target: "all",
+          loyalty: -6,
+          influence: 8,
+          rivalShift: -28,
+          summary: "You named the rivalry. Two holds will not trade kindly, and your word carries further.",
+        },
+      },
+      {
+        id: "toll",
+        label: "Take the toll",
+        detail: "Six gold now. Loyalty at your hold falls, and keeps falling a little each dawn.",
+        effect: {
+          gold: 6,
+          loyalty: -8,
+          influence: 2,
+          lasting: { loyaltyDawn: -1 },
+          summary: "You took the salt toll. The purse is heavier, and loyalty thins each dawn.",
+        },
+      },
+    ],
+  },
+  {
+    id: "banner-seat",
+    day: 7,
+    title: "Who speaks for the banner",
+    art: "/art/hall.jpg",
+    body: (place) =>
+      `The hall at ${place} wants a voice that outlasts the wagons. Seat yourself, seat a neighbor, or silence the argument and live with the cold.`,
+    choices: [
+      {
+        id: "self",
+        label: "Seat your own hall",
+        detail: "Loyalty and influence rise at your hold, and influence keeps a little of that lift each dawn.",
+        effect: {
+          loyalty: 10,
+          influence: 8,
+          lasting: { influenceDawn: 1 },
+          summary: "Your hall speaks for the banner. Influence keeps growing.",
+        },
+      },
+      {
+        id: "neighbor",
+        label: "Seat the smaller hold",
+        detail: "The smallest sworn hold gains a great rise in loyalty and one more of its good at every dawn. Your own influence steps back.",
+        effect: {
+          target: "weakest",
+          loyalty: 14,
+          influence: 6,
+          bond: 18,
+          kinYield: 1,
+          lasting: { influenceDawn: -1 },
+          summary: "A sworn hold speaks for the banner. It yields more, and your own influence steps back each dawn.",
+        },
+      },
+      {
+        id: "silence",
+        label: "Silence the hall",
+        detail: "Fame. Loyalty falls across the banner and keeps falling on the sworn holds.",
+        effect: {
+          target: "all",
+          loyalty: -8,
+          renown: 2,
+          lasting: { neighborLoyalty: -1 },
+          summary: "You silenced the hall. Sworn loyalty keeps cooling.",
+        },
+      },
+    ],
+  },
+  {
+    id: "winter-writ",
+    day: 11,
+    title: "The winter writ",
+    art: "/art/title-valley.jpg",
+    body: (place) =>
+      `Before the last wagon dawn, ${place} must choose how the realm eats. Open the stores, swear a grain tax that also raises the yield, or bind the rivalry into a truce.`,
+    choices: [
+      {
+        id: "stores",
+        label: "Open the stores",
+        detail: "Free bread becomes the law and is sworn in place. Spend 2 grain. Loyalty jumps. The hall cannot replace that law.",
+        effect: {
+          goods: { grain: -2 },
+          edict: "dole",
+          lockLaw: true,
+          loyalty: 12,
+          mood: 4,
+          summary: "You opened the stores under the winter writ. Free bread is sworn, and loyalty rose.",
+        },
+      },
+      {
+        id: "tax",
+        label: "Swear the grain tax",
+        detail: "Grain tax is sworn and cannot be replaced. The hold yields one more at dawn. Loyalty falls. Influence rises.",
+        effect: {
+          edict: "tithe",
+          lockLaw: true,
+          loyalty: -10,
+          influence: 8,
+          lasting: { yield: 1 },
+          summary: "You swore the grain tax. The hold yields more, the law is locked, and loyalty paid for it.",
+        },
+      },
+      {
+        id: "truce",
+        label: "Bind the truce",
+        detail: "The first two sworn holds are pulled out of their quarrel. Loyalty rises on both sides of the road.",
+        effect: {
+          target: "all",
+          loyalty: 6,
+          rivalShift: 36,
+          bond: 8,
+          summary: "You bound the winter truce. The rivalry eased, and loyalty rose.",
+        },
+      },
+    ],
+  },
 ];
 
 interface RealmMods {
@@ -1042,6 +1274,9 @@ interface RealmMods {
   soulDawn: number;
   ireDawn: number;
   blockGrowth: boolean;
+  loyaltyDawn: number;
+  influenceDawn: number;
+  neighborLoyalty: number;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -1082,6 +1317,9 @@ export function blankSettlements(home: HoldId, sworn: HoldId[], day: number): Se
     bread: Math.max(6, (isHome ? 24 : 20) - spent),
     hearth: Math.max(6, (isHome ? 24 : 20) - spent),
     edict: "custom",
+    loyalty: isHome ? 70 : 58,
+    influence: isHome ? 48 : 36,
+    lawLocked: false,
   });
   const seen = new Set<HoldId>();
   const list: Settlement[] = [];
@@ -1197,6 +1435,13 @@ function afford(state: GameState, effect: Effect): string | null {
   return null;
 }
 
+function voiceNudge(state: GameState, amount: number | undefined): number {
+  if (!amount) return 0;
+  const voice = voiceBonus(state);
+  if (!voice) return amount;
+  return amount > 0 ? amount + 3 : amount + 2;
+}
+
 function applyEffect(state: GameState, effect: Effect) {
   if (effect.gold) state.player.gold = Math.max(0, state.player.gold + effect.gold);
   if (effect.goods) {
@@ -1216,13 +1461,35 @@ function applyEffect(state: GameState, effect: Effect) {
   if (effect.allMood) {
     for (const settlement of state.settlements ?? []) settlement.mood = clamp(settlement.mood + effect.allMood, 0, 100);
   }
-  for (const settlement of targetsOf(state, effect.target)) {
+  const targets = targetsOf(state, effect.target);
+  for (const settlement of targets) {
     if (effect.souls) settlement.souls = clamp(settlement.souls + effect.souls, 8, 400);
     if (effect.mood) settlement.mood = clamp(settlement.mood + effect.mood, 0, 100);
     if (effect.bread) settlement.bread = clamp(settlement.bread + effect.bread, 0, 40);
     if (effect.hearth) settlement.hearth = clamp(settlement.hearth + effect.hearth, 0, 40);
     if (effect.edict && EDICT_SET.has(effect.edict)) settlement.edict = effect.edict;
+    if (effect.loyalty) settlement.loyalty = clamp((settlement.loyalty ?? 50) + voiceNudge(state, effect.loyalty), 0, 100);
+    if (effect.influence) settlement.influence = clamp((settlement.influence ?? 40) + voiceNudge(state, effect.influence), 0, 100);
+    if (effect.lockLaw) settlement.lawLocked = true;
+    if (effect.bond && settlement.holdId !== state.player.holdId) shiftBond(state, state.player.holdId, settlement.holdId, effect.bond);
   }
+  if (effect.rivalShift) {
+    const holds = state.compact.members.filter((member) => member.inCompact).map((member) => member.holdId);
+    if (holds.length >= 2) shiftBond(state, holds[0], holds[1], effect.rivalShift);
+  }
+}
+
+function stampedLasting(state: GameState, effect: Effect): Lasting {
+  const lasting: Lasting = { ...(effect.lasting ?? {}) };
+  if (effect.kinYield) {
+    const hold = targetsOf(state, effect.target).find((item) => item.holdId !== state.player.holdId)?.holdId;
+    if (hold) {
+      lasting.kinYield = effect.kinYield;
+      lasting.yieldHold = hold;
+    }
+  }
+  if (effect.lockLaw) lasting.lockLaw = true;
+  return lasting;
 }
 
 function pushMark(state: GameState, id: string, creature: string, choice: string, effect: Effect) {
@@ -1234,9 +1501,42 @@ function pushMark(state: GameState, id: string, creature: string, choice: string
     choice,
     day: state.day,
     summary: effect.summary,
-    lasting: legalLasting(effect.lasting),
+    lasting: legalLasting(stampedLasting(state, effect)),
   });
   if (state.marks.length > 40) state.marks.splice(0, state.marks.length - 40);
+}
+
+const CREATURE_TROPHY: Record<string, string> = {
+  "lantern-hart": "Deer spear",
+  millwife: "Greenmere weave",
+  "salt-saint": "Salt pearl",
+  "kindling-child": "Candle stub",
+  "orchard-wight": "Ash staff",
+  "drowned-choir": "Tide glass",
+  "ash-shepherd": "Ash cloak",
+  "mirror-stag": "Deer ring",
+  "toll-hag": "Ford ring",
+  "barrow-hound": "Bone ring",
+  "frost-nun": "Snow cloak",
+  "root-colossus": "Antler chip",
+  "coin-wyrm": "Guild weight",
+  "banner-widow": "Old crown bit",
+  "pit-cricket": "Mine whistle",
+  starveling: "Saint's thumb",
+};
+
+function grantCreatureTrophy(state: GameState, creatureId: string, creature: string) {
+  const name = CREATURE_TROPHY[creatureId];
+  if (!name) return;
+  const rarity = huntBonus(state) > 0 ? "relic" : "uncanny";
+  const gear = makePiece(name, rarity, `trophy-${creatureId}-${state.day}-${state.nextId++}`);
+  if (!gear) return;
+  if (carriedWeight(state) + gearWeight(gear) > carryCap(state)) {
+    note(state, `${creature} left ${gear.name}, and the bag could not lift it.`);
+    return;
+  }
+  state.pack = [...(state.pack ?? []), gear];
+  note(state, `${creature} left ${gear.name} in your hands. ${gear.line}`);
 }
 
 function rememberPass(state: GameState, crossing: Crossing) {
@@ -1259,6 +1559,9 @@ function sumMods(marks: Mark[] | undefined): RealmMods {
     soulDawn: 0,
     ireDawn: 0,
     blockGrowth: false,
+    loyaltyDawn: 0,
+    influenceDawn: 0,
+    neighborLoyalty: 0,
   };
   for (const mark of marks ?? []) {
     const lasting = mark.lasting ?? {};
@@ -1269,6 +1572,9 @@ function sumMods(marks: Mark[] | undefined): RealmMods {
     totals.hearthDecay += lasting.hearthDecay ?? 0;
     totals.soulDawn += lasting.soulDawn ?? 0;
     totals.ireDawn += lasting.ireDawn ?? 0;
+    totals.loyaltyDawn += lasting.loyaltyDawn ?? 0;
+    totals.influenceDawn += lasting.influenceDawn ?? 0;
+    totals.neighborLoyalty += lasting.neighborLoyalty ?? 0;
     if (lasting.blockGrowth) totals.blockGrowth = true;
   }
   return {
@@ -1280,6 +1586,9 @@ function sumMods(marks: Mark[] | undefined): RealmMods {
     soulDawn: clamp(totals.soulDawn, -3, 3),
     ireDawn: clamp(totals.ireDawn, -2, 2),
     blockGrowth: totals.blockGrowth,
+    loyaltyDawn: clamp(totals.loyaltyDawn, -3, 3),
+    influenceDawn: clamp(totals.influenceDawn, -3, 3),
+    neighborLoyalty: clamp(totals.neighborLoyalty, -3, 3),
   };
 }
 
@@ -1309,8 +1618,22 @@ export function modsBlurb(state: GameState): string | null {
   if (mods.ireDawn < 0) bits.push("the dragon stirs more slowly");
   if (mods.ireDawn > 0) bits.push("the dragon stirs faster");
   if (mods.blockGrowth) bits.push("the gates will not open");
+  if (mods.loyaltyDawn > 0) bits.push("loyalty keeps rising");
+  if (mods.loyaltyDawn < 0) bits.push("loyalty thins each dawn");
+  if (mods.influenceDawn > 0) bits.push("your word reaches further");
+  if (mods.influenceDawn < 0) bits.push("your word reaches less");
+  if (mods.neighborLoyalty > 0) bits.push("sworn loyalty warms");
+  if (mods.neighborLoyalty < 0) bits.push("sworn loyalty cools");
   if (bits.length === 0) return null;
   return `Still in force: ${bits.join(", ")}.`;
+}
+
+export function kinYieldFor(state: GameState, holdId: HoldId): number {
+  let extra = 0;
+  for (const mark of state.marks ?? []) {
+    if (mark.lasting?.yieldHold === holdId) extra += mark.lasting.kinYield ?? 0;
+  }
+  return clamp(extra, -1, 2);
 }
 
 export function peopleTrouble(state: GameState): boolean {
@@ -1323,7 +1646,7 @@ export function offerCrossing(state: GameState): string | null {
   const seen = state.creaturesSeen ?? [];
   const rng = worldRng((state.seed ^ Math.imul(state.day, 0x6c078965)) >>> 0);
   if (seen.length > 0) {
-    const gate = state.day <= 12 ? 0.72 : 0.86;
+    const gate = state.day <= 12 ? 0.9 : 0.74;
     if (rng() >= gate) return null;
   }
   const ids = markIdsOf(state.marks ?? []);
@@ -1356,11 +1679,12 @@ export function dismissCrossing(state: GameState): Result {
   return ok(next, line);
 }
 
-function finishChoice(state: GameState, id: string, creature: string, choiceId: string, effect: Effect, fate?: Result["fate"]): Result {
+function finishChoice(state: GameState, id: string, creature: string, choiceId: string, effect: Effect, fate?: Result["fate"], trophyId?: string): Result {
   const next = structuredClone(state);
   applyEffect(next, effect);
   pushMark(next, id, creature, choiceId, effect);
-  if (next.campaign) next.campaign.xp += 2;
+  if (trophyId) grantCreatureTrophy(next, trophyId, creature);
+  if (next.campaign) next.campaign.xp += 3;
   next.crossing = null;
   note(next, effect.summary);
   return ok(next, effect.summary, fate);
@@ -1377,26 +1701,27 @@ export function chooseCrossing(state: GameState, choiceId: string): Result {
     const price = afford(state, spec.gamble.stake);
     if (price) return fail(state, price);
     const roll = worldRng((state.seed ^ Math.imul(state.day + 17, 0x45d9f3b) ^ choiceId.length) >>> 0)();
-    const won = roll < 0.5;
+    const won = roll < (huntBonus(state) > 0 ? 0.64 : 0.5);
     const face = 1 + Math.floor(roll * 12);
     const outcome = won ? spec.gamble.win : spec.gamble.lose;
     const next = structuredClone(state);
     applyEffect(next, spec.gamble.stake);
     applyEffect(next, outcome);
     pushMark(next, `${crossing.id}:${choiceId}`, crossing.creature, choiceId, outcome);
-    if (next.campaign) next.campaign.xp += 2;
+    if (next.campaign) next.campaign.xp += 3;
     next.crossing = null;
+    grantCreatureTrophy(next, crossing.id, crossing.creature);
     note(next, outcome.summary);
     return ok(next, outcome.summary, { face, won });
   }
   const effect = shown.branch === "alt" && spec.alt ? spec.alt : spec.effect;
   const price = afford(state, effect);
   if (price) return fail(state, price);
-  return finishChoice(state, `${crossing.id}:${choiceId}`, crossing.creature, choiceId, effect);
+  return finishChoice(state, `${crossing.id}:${choiceId}`, crossing.creature, choiceId, effect, undefined, crossing.id);
 }
 
 export function offerPetition(state: GameState): string | null {
-  if (state.petition || state.omen || state.crossing || state.day < 9) return null;
+  if (state.petition || state.omen || state.crossing || state.day < 5) return null;
   const low = (state.settlements ?? []).some((item) => item.bread <= 6 || item.hearth <= 4 || item.mood <= 35);
   const first = (state.petitionsSeen ?? []).length === 0;
   const scheduled = state.day >= 14 && state.day % 5 === 0;
@@ -1425,7 +1750,7 @@ export function choosePetition(state: GameState, choiceId: string): Result {
   const next = structuredClone(state);
   applyEffect(next, effect);
   pushMark(next, `petition:${petition.id}:${choiceId}`, petition.title, choiceId, effect);
-  if (next.campaign) next.campaign.xp += 2;
+  if (next.campaign) next.campaign.xp += 3;
   next.petition = null;
   note(next, effect.summary);
   return ok(next, effect.summary);
@@ -1470,10 +1795,37 @@ export function tickSettlements(state: GameState): string[] {
     if (settlement.hearth === 0) mood -= 2;
     settlement.mood = clamp(settlement.mood + mood, 0, 100);
     settlement.souls = clamp(settlement.souls + souls, 8, 400);
+    let loyalty = 0;
+    let influence = 0;
+    if (settlement.edict === "dole") loyalty += settlement.bread > 0 ? 1 : -2;
+    if (settlement.edict === "tithe") {
+      loyalty -= 1;
+      influence += 1;
+    }
+    if (settlement.edict === "close-rolls") {
+      loyalty += 1;
+      influence -= 1;
+    }
+    if (settlement.edict === "open-rolls") {
+      influence += 1;
+      if (settlement.bread === 0) loyalty -= 2;
+    }
+    if (settlement.edict === "hearth-rite" && settlement.hearth > 0) loyalty += 1;
+    if (settlement.edict === "custom" && settlement.loyalty > 64) loyalty -= 1;
+    if (settlement.holdId === state.player.holdId) {
+      loyalty += mods.loyaltyDawn;
+      influence += mods.influenceDawn;
+    } else {
+      loyalty += mods.neighborLoyalty;
+    }
+    const beforeLoyalty = settlement.loyalty;
+    settlement.loyalty = clamp(settlement.loyalty + loyalty, 0, 100);
+    settlement.influence = clamp(settlement.influence + influence, 0, 100);
     const name = holdById(settlement.holdId).name;
     if (beforeBread > 0 && settlement.bread === 0) lines.push(`${name} has no bread in the food store.`);
     if (beforeHearth > 0 && settlement.hearth === 0) lines.push(`${name}'s fires are cold.`);
     if (beforeMood >= 30 && settlement.mood < 30) lines.push(`${name} is close to breaking.`);
+    if (beforeLoyalty >= 40 && settlement.loyalty < 40) lines.push(`${name}'s loyalty to the banner is failing.`);
   }
   if (mods.goldDawn) {
     state.player.gold = Math.max(0, state.player.gold + mods.goldDawn);
@@ -1486,13 +1838,18 @@ export function setEdict(state: GameState, holdId: HoldId, edict: EdictId): Resu
   if (!EDICT_SET.has(edict)) return fail(state, "That is not a law.");
   const found = state.settlements?.find((item) => item.holdId === holdId);
   if (!found) return fail(state, "That settlement is not under your banner.");
+  if (found.lawLocked) return fail(state, "That law was sworn in the hall. It will not be replaced.");
   if (found.edict === edict) return fail(state, "That law already stands.");
   const next = structuredClone(state);
   const settlement = next.settlements.find((item) => item.holdId === holdId);
   if (!settlement) return fail(state, "That settlement is not under your banner.");
   settlement.edict = edict;
+  const shift = EDICT_SHIFT[edict];
+  const voice = voiceBonus(next);
+  settlement.loyalty = clamp(settlement.loyalty + shift.loyalty + (shift.loyalty >= 0 ? voice * 2 : voice), 0, 100);
+  settlement.influence = clamp(settlement.influence + shift.influence + voice, 0, 100);
   const name = EDICTS.find((item) => item.id === edict)?.name ?? "The law";
-  const line = `${name} is the law at ${holdById(holdId).name}. It holds until you change it.`;
+  const line = `${name} is the law at ${holdById(holdId).name}. Loyalty is ${settlement.loyalty}. Influence is ${settlement.influence}.`;
   note(next, line);
   return ok(next, line);
 }
@@ -1512,8 +1869,11 @@ export function stockSettlement(state: GameState, holdId: HoldId, kind: "bread" 
   const gain = qty * 4;
   if (kind === "bread") settlement.bread = Math.min(40, settlement.bread + gain);
   else settlement.hearth = Math.min(40, settlement.hearth + gain);
+  settlement.loyalty = clamp(settlement.loyalty + 2, 0, 100);
   const place = holdById(holdId).name;
-  const line = kind === "bread" ? `You sent ${qty} grain to ${place}. The food store can last longer.` : `You sent ${qty} timber to ${place}. The fires are fed.`;
+  const line = kind === "bread"
+    ? `You sent ${qty} grain to ${place}. The food store can last longer, and loyalty edges up.`
+    : `You sent ${qty} timber to ${place}. The fires are fed, and loyalty edges up.`;
   note(next, line);
   return ok(next, line);
 }
@@ -1553,6 +1913,10 @@ function legalLasting(value: Lasting | undefined): Lasting {
   const hearth = num(value.hearthDecay);
   const souls = num(value.soulDawn);
   const ire = num(value.ireDawn);
+  const loyalty = num(value.loyaltyDawn);
+  const influence = num(value.influenceDawn);
+  const neighbor = num(value.neighborLoyalty);
+  const kin = num(value.kinYield);
   if (yieldN) lasting.yield = yieldN;
   if (gold) lasting.goldDawn = gold;
   if (mood) lasting.moodDawn = mood;
@@ -1560,7 +1924,13 @@ function legalLasting(value: Lasting | undefined): Lasting {
   if (hearth) lasting.hearthDecay = hearth;
   if (souls) lasting.soulDawn = souls;
   if (ire) lasting.ireDawn = ire;
+  if (loyalty) lasting.loyaltyDawn = loyalty;
+  if (influence) lasting.influenceDawn = influence;
+  if (neighbor) lasting.neighborLoyalty = neighbor;
+  if (kin) lasting.kinYield = kin;
+  if (value.yieldHold && HOLDS_OK.has(value.yieldHold)) lasting.yieldHold = value.yieldHold;
   if (value.blockGrowth) lasting.blockGrowth = true;
+  if (value.lockLaw) lasting.lockLaw = true;
   return lasting;
 }
 
@@ -1627,6 +1997,163 @@ function legalPetition(value: Petition | null | undefined, home: HoldId): Petiti
   };
 }
 
+export function bondId(a: HoldId, b: HoldId): string {
+  return [a, b].sort().join("|");
+}
+
+export function blankBonds(home: HoldId, sworn: HoldId[]): Bond[] {
+  const bonds: Bond[] = [];
+  const scores = [16, -18, 6];
+  sworn.forEach((holdId, index) => {
+    if (holdId === home) return;
+    bonds.push({ id: bondId(home, holdId), a: home, b: holdId, score: scores[index] ?? 0 });
+  });
+  if (sworn.length >= 2 && sworn[0] !== sworn[1]) {
+    bonds.push({ id: bondId(sworn[0], sworn[1]), a: sworn[0], b: sworn[1], score: -12 });
+  }
+  return bonds;
+}
+
+export function bondScore(state: GameState, a: HoldId, b: HoldId): number {
+  if (a === b) return 0;
+  const id = bondId(a, b);
+  return state.bonds?.find((bond) => bond.id === id)?.score ?? 0;
+}
+
+export function shiftBond(state: GameState, a: HoldId, b: HoldId, delta: number) {
+  if (!delta || a === b || !HOLDS_OK.has(a) || !HOLDS_OK.has(b)) return;
+  if (!Array.isArray(state.bonds)) state.bonds = [];
+  const id = bondId(a, b);
+  const found = state.bonds.find((bond) => bond.id === id);
+  if (found) found.score = clamp(found.score + delta, -80, 80);
+  else state.bonds.push({ id, a, b, score: clamp(delta, -80, 80) });
+}
+
+export function bondWord(score: number): string {
+  if (score >= 20) return "They trade with you gladly.";
+  if (score >= 8) return "The road between you is friendly.";
+  if (score <= -20) return "A rivalry. Trade is colder, and a march is a quarrel.";
+  if (score <= -8) return "They are cool toward your banner.";
+  return "No special tie.";
+}
+
+export function friendliestBond(state: GameState): number {
+  const home = state.player?.holdId;
+  const scores = (state.bonds ?? []).filter((bond) => bond.a === home || bond.b === home).map((bond) => bond.score);
+  return scores.length ? Math.max(...scores) : 0;
+}
+
+export function coldestBond(state: GameState): number {
+  const home = state.player?.holdId;
+  const scores = (state.bonds ?? []).filter((bond) => bond.a === home || bond.b === home).map((bond) => bond.score);
+  return scores.length ? Math.min(...scores) : 0;
+}
+
+export function sharpestRivalry(state: GameState): number {
+  const scores = (state.bonds ?? []).map((bond) => bond.score);
+  return scores.length ? Math.min(...scores) : 0;
+}
+
+function decreeById(id: string) {
+  return DECREES.find((item) => item.id === id);
+}
+
+function buildDecree(id: string, place: HoldId): Decree | null {
+  const spec = decreeById(id);
+  if (!spec) return null;
+  return {
+    id: spec.id,
+    title: spec.title,
+    body: spec.body(holdById(place).name),
+    art: spec.art,
+    choices: spec.choices.map((choice) => ({ id: choice.id, label: choice.label, detail: choice.detail })),
+  };
+}
+
+export function offerDecree(state: GameState): string | null {
+  if (state.decree) return null;
+  const spec = DECREES.find((item) => item.day === state.day && !(state.decreesSeen ?? []).includes(item.id));
+  if (!spec) return null;
+  const decree = buildDecree(spec.id, state.player.holdId);
+  if (!decree) return null;
+  state.decree = decree;
+  state.decreesSeen = [...(state.decreesSeen ?? []), spec.id];
+  return `${decree.title} is before the hall.`;
+}
+
+export function clearUnansweredDecree(state: GameState): string | null {
+  if (!state.decree) return null;
+  const decree = state.decree;
+  state.decree = null;
+  const home = state.settlements?.find((item) => item.holdId === state.player.holdId);
+  if (home) {
+    home.loyalty = clamp((home.loyalty ?? 50) - 3, 0, 100);
+    home.influence = clamp((home.influence ?? 40) - 2, 0, 100);
+  }
+  pushMark(state, `decree:${decree.id}:lapsed`, decree.title, "lapsed", {
+    summary: `${decree.title} went unanswered. Loyalty and influence both slipped.`,
+  });
+  return `${decree.title} went unanswered. Loyalty is thinner for it.`;
+}
+
+export function chooseDecree(state: GameState, choiceId: string): Result {
+  const decree = state.decree;
+  if (!decree) return fail(state, "The hall is not waiting on a realm decision.");
+  const spec = decreeById(decree.id)?.choices.find((choice) => choice.id === choiceId);
+  if (!spec) return fail(state, "That is not a choice the hall will hear.");
+  const price = afford(state, spec.effect);
+  if (price) return fail(state, price);
+  const next = structuredClone(state);
+  applyEffect(next, spec.effect);
+  pushMark(next, `decree:${decree.id}:${choiceId}`, decree.title, choiceId, spec.effect);
+  if (next.campaign) next.campaign.xp += 4;
+  next.decree = null;
+  note(next, spec.effect.summary);
+  return ok(next, spec.effect.summary);
+}
+
+export function forceDecree(state: GameState, id: string): GameState {
+  const next = structuredClone(state);
+  const decree = buildDecree(id, next.player.holdId);
+  if (!decree) return state;
+  next.decree = decree;
+  if (!(next.decreesSeen ?? []).includes(id)) next.decreesSeen = [...(next.decreesSeen ?? []), id];
+  return next;
+}
+
+function legalBonds(raw: Bond[] | undefined, home: HoldId, sworn: HoldId[]): Bond[] {
+  const bonds: Bond[] = [];
+  if (Array.isArray(raw)) {
+    for (const bond of raw) {
+      if (!bond || !HOLDS_OK.has(bond.a) || !HOLDS_OK.has(bond.b) || bond.a === bond.b) continue;
+      const id = bondId(bond.a, bond.b);
+      if (bonds.some((item) => item.id === id)) continue;
+      bonds.push({ id, a: bond.a, b: bond.b, score: clampInt(bond.score, -80, 80, 0) });
+    }
+  }
+  if (bonds.length === 0) return blankBonds(home, sworn);
+  return bonds;
+}
+
+function legalDecree(value: Decree | null | undefined): Decree | null {
+  if (!value || typeof value !== "object" || typeof value.id !== "string") return null;
+  const spec = decreeById(value.id);
+  if (!spec) return null;
+  const known = new Set(spec.choices.map((choice) => choice.id));
+  const choices = (value.choices ?? []).filter((choice) => choice && known.has(choice.id)).map((choice) => {
+    const match = spec.choices.find((item) => item.id === choice.id);
+    return { id: choice.id, label: match?.label ?? choice.label, detail: match?.detail ?? choice.detail };
+  });
+  if (choices.length === 0) return null;
+  return {
+    id: spec.id,
+    title: spec.title,
+    body: typeof value.body === "string" ? value.body.slice(0, 500) : spec.body(holdById("greenmere").name),
+    art: spec.art,
+    choices,
+  };
+}
+
 export function normalizeRealm(state: GameState) {
   const home = state.player?.holdId && HOLDS_OK.has(state.player.holdId) ? state.player.holdId : "greenmere";
   const sworn = (state.compact?.members ?? []).map((member) => member.holdId).filter((id): id is HoldId => HOLDS_OK.has(id));
@@ -1640,6 +2167,9 @@ export function normalizeRealm(state: GameState) {
       bread: clampInt(item.bread, 0, 40, 12),
       hearth: clampInt(item.hearth, 0, 40, 12),
       edict: EDICT_SET.has(item.edict) ? item.edict : "custom",
+      loyalty: clampInt(item.loyalty, 0, 100, item.holdId === home ? 70 : 58),
+      influence: clampInt(item.influence, 0, 100, item.holdId === home ? 48 : 36),
+      lawLocked: Boolean(item.lawLocked),
     }));
     if (!state.settlements.some((item) => item.holdId === home)) {
       state.settlements.unshift(blankSettlements(home, [], state.day || 1)[0]);
@@ -1650,4 +2180,7 @@ export function normalizeRealm(state: GameState) {
   state.petitionsSeen = Array.isArray(state.petitionsSeen) ? state.petitionsSeen.filter((item) => typeof item === "string").slice(0, 20) : [];
   state.crossing = legalCrossing(state.crossing);
   state.petition = legalPetition(state.petition, home);
+  state.bonds = legalBonds(state.bonds, home, sworn);
+  state.decreesSeen = Array.isArray(state.decreesSeen) ? state.decreesSeen.filter((item) => typeof item === "string").slice(0, 8) : [];
+  state.decree = legalDecree(state.decree);
 }

@@ -23,22 +23,22 @@ const TREASURES: Piece[] = [
   { name: "Road knife", slot: "hand", trait: "luck", line: "Short, chipped, and honest about both." },
   { name: "Salt hook", slot: "hand", trait: "purse", line: "Salt workers use it to drag salt ashore." },
   { name: "Ash staff", slot: "hand", trait: "lore", line: "It has walked more timber roads than you have." },
-  { name: "Mine pick", slot: "hand", trait: "luck", line: "Highbarrow iron still smells on the head." },
-  { name: "Ford spear", slot: "hand", trait: "ward", line: "A watchman's spear, notched where a shield met it." },
-  { name: "Bell hammer", slot: "hand", trait: "lore", line: "Small enough for a shrine bell, heavy enough for a nail." },
-  { name: "Deer spear", slot: "hand", trait: "luck", line: "The point is pale, as if it had been left in snow." },
-  { name: "Dragon needle", slot: "hand", trait: "ward", line: "A sliver of pale horn longer than a hand. It hums in frost." },
-  { name: "Wool cloak", slot: "cloak", trait: "luck", line: "Woolford weight. It keeps the mist on the outside." },
-  { name: "Ford cloak", slot: "cloak", trait: "ward", line: "Oiled against the river. The hem is darker than the rest." },
+  { name: "Mine pick", slot: "hand", trait: "smith", line: "Highbarrow iron still smells on the head. The forge answers it." },
+  { name: "Ford spear", slot: "hand", trait: "hunt", line: "A watchman's spear, notched where a shield met it. Hunts come home with it." },
+  { name: "Bell hammer", slot: "hand", trait: "smith", line: "Small enough for a shrine bell, heavy enough for a nail. Benches finish finer." },
+  { name: "Deer spear", slot: "hand", trait: "hunt", line: "The point is pale, as if it had been left in snow. Wings think twice." },
+  { name: "Dragon needle", slot: "hand", trait: "hunt", line: "A sliver of pale horn longer than a hand. Bones and hunts both favor it." },
+  { name: "Wool cloak", slot: "cloak", trait: "haul", line: "Woolford weight. The bag rides higher on your shoulders." },
+  { name: "Ford cloak", slot: "cloak", trait: "haul", line: "Oiled against the river. You can carry a ditch-find the whole way home." },
   { name: "Snow cloak", slot: "cloak", trait: "ward", line: "Pale wool lined with something that used to be warmer." },
   { name: "Salt cloak", slot: "cloak", trait: "purse", line: "Stiff with salt. Traders know the cut." },
   { name: "Greenmere weave", slot: "cloak", trait: "lore", line: "Grain-colored, and it still smells of the mill." },
-  { name: "Vesper veil", slot: "cloak", trait: "lore", line: "Thin as candle smoke. The saints are stitched in the hem." },
+  { name: "Vesper veil", slot: "cloak", trait: "voice", line: "Thin as candle smoke. A law spoken in it is harder to refuse." },
   { name: "Ash cloak", slot: "cloak", trait: "luck", line: "Timber-soot in the folds. It does not show the road." },
   { name: "Dragon hide", slot: "cloak", trait: "ward", line: "A scale-cloak. Vell would know the beast it came from." },
-  { name: "Crow bead", slot: "charm", trait: "lore", line: "Black glass. It clicks when a lie is close." },
+  { name: "Crow bead", slot: "charm", trait: "voice", line: "Black glass. It clicks when a lie is close, and halls listen." },
   { name: "Bell shard", slot: "charm", trait: "ward", line: "A cracked piece of a tide-bell. It still wants salt." },
-  { name: "Saint nail", slot: "charm", trait: "lore", line: "Bent, blessed, and too warm for the weather." },
+  { name: "Saint nail", slot: "charm", trait: "voice", line: "Bent, blessed, and too warm for the weather. Loyalty moves when you wear it." },
   { name: "Deer tooth", slot: "charm", trait: "luck", line: "The white deer leaves these when it is not caught." },
   { name: "Salt pearl", slot: "charm", trait: "purse", line: "Not a pearl. A grain of salt that forgot how to dissolve." },
   { name: "Mine whistle", slot: "charm", trait: "luck", line: "Highbarrow miners hear it before the mine shifts." },
@@ -46,8 +46,8 @@ const TREASURES: Piece[] = [
   { name: "Dragon scale", slot: "charm", trait: "ward", line: "Pale as river ice. The gold crack is real." },
   { name: "Copper band", slot: "ring", trait: "purse", line: "Guild-marked. The weight is slightly kind." },
   { name: "Salt ring", slot: "ring", trait: "purse", line: "A hoop of pale metal that crusts in wet air." },
-  { name: "Iron thumb", slot: "ring", trait: "luck", line: "Too big for a gentle hand. The mine likes it." },
-  { name: "Saint loop", slot: "ring", trait: "lore", line: "A ring of braided wire from a Vesper candle stand." },
+  { name: "Iron thumb", slot: "ring", trait: "smith", line: "Too big for a gentle hand. The forge takes less coin when it is worn." },
+  { name: "Saint loop", slot: "ring", trait: "voice", line: "A ring of braided wire from a Vesper candle stand. Edicts land cleaner." },
   { name: "Dragon ring", slot: "ring", trait: "ward", line: "Cold even in a fist. Frost does not stick to it." },
   { name: "Deer ring", slot: "ring", trait: "luck", line: "Antler polished down to a circle. It points at fords." },
   { name: "Bone ring", slot: "ring", trait: "lore", line: "Someone was buried with the rest of the set." },
@@ -84,9 +84,9 @@ function pickSlot(roll: number): GearSlot {
   return "hoard";
 }
 
-export function rollGear(seed: number, day: number, miles: number): Gear {
+export function rollGear(seed: number, day: number, miles: number, bias = 0): Gear {
   const roll = worldRng((seed ^ Math.imul(day + 3, 0x9e3779b1) ^ Math.imul(miles + 5, 0x85ebca6b)) >>> 0);
-  const rarityRoll = roll();
+  const rarityRoll = roll() - Math.max(0, bias) * 0.08;
   const rarity: Rarity = rarityRoll > 0.93 ? "relic" : rarityRoll > 0.66 ? "uncanny" : "common";
   const slot = pickSlot(roll());
   const pool = TREASURES.filter((piece) => piece.slot === slot);
@@ -118,12 +118,45 @@ export function starterCloak(): Gear {
   };
 }
 
+const TRAIT_PLAY: Record<Gear["trait"], string> = {
+  luck: "Luck on the road, and kinder finds in the ditch.",
+  purse: "Worn, the caravan pays 1 more for your goods.",
+  ward: "Worn, Vell's anger climbs more slowly.",
+  lore: "Worn, a walk teaches more.",
+  haul: "Worn, the bag holds 18 more weight. Ditch-finds come home.",
+  voice: "Worn, laws and bargains move loyalty further.",
+  smith: "Worn, benches cost 2 less gold and finish one grade finer.",
+  hunt: "Worn, wings spare you, hunts land more often, and bones favor you.",
+};
+
+export function traitName(trait: Gear["trait"]): string {
+  if (trait === "purse") return "Coin";
+  if (trait === "ward") return "Guard";
+  if (trait === "lore") return "Learning";
+  if (trait === "haul") return "Haul";
+  if (trait === "voice") return "Voice";
+  if (trait === "smith") return "Smith";
+  if (trait === "hunt") return "Hunt";
+  return "Luck";
+}
+
 export function traitText(gear: Gear): string {
-  if (gear.slot === "hoard") return `Treasure · sell for ${gear.worth}g`;
-  if (gear.trait === "purse") return `Coin · worn, the caravan pays 1 more · sell ${gear.worth}g`;
-  if (gear.trait === "ward") return `Guard · worn, Vell's anger climbs more slowly · sell ${gear.worth}g`;
-  if (gear.trait === "lore") return `Learning · worn, the road teaches more · sell ${gear.worth}g`;
-  return `Luck ${gear.luck} · sell ${gear.worth}g`;
+  if (gear.slot === "hoard") return `Treasure · not worn · sell for ${gear.worth}g`;
+  return `${traitName(gear.trait)} · ${TRAIT_PLAY[gear.trait]} · luck ${gear.luck} · sell ${gear.worth}g`;
+}
+
+export function compareText(candidate: Gear, equipped: Gear | null): string {
+  if (candidate.slot === "hoard") return "Treasure stays in the pack. Sell it when the wagons need coin.";
+  if (!equipped) return "That slot is empty. Wearing this changes how the day plays.";
+  if (equipped.id === candidate.id) return "This is what you have on.";
+  const bits = [`Against ${equipped.name} (${equipped.rarity}).`];
+  const luck = candidate.luck - equipped.luck;
+  if (luck !== 0) bits.push(luck > 0 ? `Luck +${luck}.` : `Luck ${luck}.`);
+  if (candidate.trait !== equipped.trait) bits.push(`Swaps ${traitName(equipped.trait)} for ${traitName(candidate.trait)}.`);
+  else bits.push(`Same power: ${traitName(candidate.trait)}.`);
+  const worth = candidate.worth - equipped.worth;
+  if (worth !== 0) bits.push(worth > 0 ? `Sells for ${worth} more.` : `Sells for ${-worth} less.`);
+  return bits.join(" ");
 }
 
 function wornGear(state: GameState): Gear[] {
@@ -146,8 +179,26 @@ export function loreBonus(state: GameState): number {
   return Math.min(2, wornGear(state).filter((gear) => gear.trait === "lore").length);
 }
 
+export function haulBonus(state: GameState): number {
+  return Math.min(2, wornGear(state).filter((gear) => gear.trait === "haul").length);
+}
+
+export function voiceBonus(state: GameState): number {
+  return wornGear(state).some((gear) => gear.trait === "voice") ? 1 : 0;
+}
+
+export function smithBonus(state: GameState): number {
+  return wornGear(state).some((gear) => gear.trait === "smith") ? 1 : 0;
+}
+
+export function huntBonus(state: GameState): number {
+  return wornGear(state).some((gear) => gear.trait === "hunt") ? 1 : 0;
+}
+
+const TRAITS = new Set<Gear["trait"]>(["luck", "purse", "ward", "lore", "haul", "voice", "smith", "hunt"]);
+
 export function fillGear(gear: Gear): Gear {
-  const trait = gear.trait === "purse" || gear.trait === "ward" || gear.trait === "lore" || gear.trait === "luck" ? gear.trait : "luck";
+  const trait = TRAITS.has(gear.trait) ? gear.trait : "luck";
   const worth = typeof gear.worth === "number" && gear.worth > 0 ? gear.worth : worthFor(gear.rarity, gear.luck);
   return { ...gear, trait, worth };
 }
@@ -172,7 +223,7 @@ export function gearWeight(gear: Gear): number {
 }
 
 export function carryCap(state: GameState): number {
-  return CARRY_BASE + (state.campaign?.buildings.watch ?? 0) * 15;
+  return CARRY_BASE + (state.campaign?.buildings.watch ?? 0) * 15 + haulBonus(state) * 18;
 }
 
 export function vaultCap(state: GameState): number {
@@ -311,32 +362,33 @@ export type RoadFind = {
   scene: Cutscene;
 };
 
-export function roadFind(seed: number, day: number, miles: number, dest: HoldId, luck: number): RoadFind {
+export function roadFind(seed: number, day: number, miles: number, dest: HoldId, luck: number, favor = 0): RoadFind {
   const roll = worldRng((seed ^ Math.imul(day + 11, 0xc2b2ae35) ^ Math.imul(miles + 2, 0x27d4eb2d)) >>> 0);
   const tilted = Math.min(0.99, Math.max(0, roll() - luck * 0.04));
-  const kind: RoadFind["kind"] = tilted < 0.3 ? "cache" : tilted < 0.56 ? "merchant" : tilted < 0.8 ? "shadow" : "kin";
+  const kind: RoadFind["kind"] = tilted < 0.34 ? "cache" : tilted < 0.58 ? "merchant" : tilted < 0.78 ? "shadow" : "kin";
   const place = holdById(dest).name;
+  const bias = Math.min(4, Math.floor(miles / 2) + Math.max(0, favor));
   const goldRoll = 2 + Math.floor(roll() * (4 + luck));
   if (kind === "cache") {
-    const gear = rollGear(seed, day, miles);
+    const gear = rollGear(seed, day, miles, bias + 1);
     return {
       kind,
       gold: 0,
       ire: 0,
       gear,
-      line: `The ditch outside ${place} kept ${gear.name}.`,
+      line: `The ditch outside ${place} kept ${gear.name}. ${traitName(gear.trait)}.`,
       scene: {
         id: `road-${miles}`,
         index: 0,
         beats: [
           { speaker: "The road", line: `Between gates, the mud gives something up.`, art: "/art/caravan.jpg" },
-          { speaker: gear.name, line: gear.line, art: rarityArt(gear.rarity) },
+          { speaker: gear.name, line: `${gear.line} ${TRAIT_PLAY[gear.trait]}`, art: rarityArt(gear.rarity) },
         ],
       },
     };
   }
   if (kind === "merchant") {
-    const gear = roll() < 0.5 ? rollGear(seed, day, miles + 40) : null;
+    const gear = roll() < 0.78 ? rollGear(seed, day, miles + 40, bias) : null;
     return {
       kind,
       gold: goldRoll,
@@ -352,7 +404,7 @@ export function roadFind(seed: number, day: number, miles: number, dest: HoldId,
           { speaker: "A walker", line: `I will pay for a true word about ${place}.`, art: "/art/caravan.jpg" },
           {
             speaker: gear ? gear.name : "The road",
-            line: gear ? gear.line : `${goldRoll} gold changes hands. The walker does not give a name.`,
+            line: gear ? `${gear.line} ${TRAIT_PLAY[gear.trait]}` : `${goldRoll} gold changes hands. The walker does not give a name.`,
             art: gear ? rarityArt(gear.rarity) : "/art/good-relics.jpg",
           },
         ],
@@ -360,25 +412,37 @@ export function roadFind(seed: number, day: number, miles: number, dest: HoldId,
     };
   }
   if (kind === "shadow") {
-    const ire = luck >= 3 ? -4 : 3;
+    const spared = luck >= 3 || favor > 0;
+    const gear = spared || roll() < 0.62 ? rollGear(seed, day, miles + 90, bias + (favor > 0 ? 2 : 0)) : null;
+    const ire = spared ? -4 : gear ? 1 : 3;
     return {
       kind,
       gold: 0,
       ire,
-      gear: null,
-      line: ire < 0 ? `A wing passes over and does not dive. ${WYRM_NAME} looks away.` : `A wing shadow crosses the track. ${WYRM_NAME} notices.`,
+      gear,
+      line: gear
+        ? spared
+          ? `A wing passes and drops ${gear.name}. ${WYRM_NAME} looks away.`
+          : `A wing shadow crosses the track and leaves ${gear.name}. ${WYRM_NAME} still notices.`
+        : spared
+          ? `A wing passes over and does not dive. ${WYRM_NAME} looks away.`
+          : `A wing shadow crosses the track. ${WYRM_NAME} notices.`,
       scene: {
         id: `road-${miles}`,
         index: 0,
         beats: [
-          { speaker: WYRM_NAME, line: ire < 0 ? "Not today." : "I see the track you took.", art: "/art/wyrm-wing.jpg" },
-          { speaker: "The road", line: ire < 0 ? "The snow goes quiet." : "The gold eye stays open a little longer.", art: "/art/wyrm-vell.jpg" },
+          { speaker: WYRM_NAME, line: spared ? "Not today." : "I see the track you took.", art: "/art/wyrm-wing.jpg" },
+          {
+            speaker: gear ? gear.name : "The road",
+            line: gear ? `${gear.line} ${TRAIT_PLAY[gear.trait]}` : spared ? "The snow goes quiet." : "The gold eye stays open a little longer.",
+            art: gear ? rarityArt(gear.rarity) : "/art/wyrm-vell.jpg",
+          },
         ],
       },
     };
   }
   const kinGold = 1 + Math.floor(roll() * 3);
-  const gear = roll() < 0.45 ? rollGear(seed, day, miles + 70) : null;
+  const gear = roll() < 0.7 ? rollGear(seed, day, miles + 70, bias) : null;
   return {
     kind,
     gold: kinGold,
@@ -394,7 +458,7 @@ export function roadFind(seed: number, day: number, miles: number, dest: HoldId,
         { speaker: "A traveler", line: `The compact's banner is known on this stretch.`, art: "/art/portrait-torin.jpg" },
         {
           speaker: gear ? gear.name : "The road",
-          line: gear ? gear.line : "You leave the fire with warmer hands and a coin you did not earn.",
+          line: gear ? `${gear.line} ${TRAIT_PLAY[gear.trait]}` : "You leave the fire with warmer hands and a coin you did not earn.",
           art: gear ? rarityArt(gear.rarity) : "/art/hall.jpg",
         },
       ],

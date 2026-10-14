@@ -1,5 +1,5 @@
 import { WYRM_NAME, holdById } from "./content";
-import { rememberStance } from "./realm";
+import { bondScore, rememberStance, shiftBond } from "./realm";
 import type {
   BuildingId,
   Campaign,
@@ -14,7 +14,7 @@ import type {
   Threat,
 } from "./types";
 import { HOLD_IDS } from "./types";
-import { bumpQuest, carryCap, carriedWeight, gearWeight, rewardScene, rollGear, worldRng } from "./world";
+import { bumpQuest, carryCap, carriedWeight, gearWeight, huntBonus, rewardScene, rollGear, worldRng } from "./world";
 
 export const SKILLS: Record<SkillId, { name: string; blurb: string }> = {
   stores: { name: "Deep stores", blurb: "The hold yields one more at every dawn." },
@@ -101,6 +101,8 @@ const THREATS: Omit<Threat, "id">[] = [
 ];
 
 export function xpNeed(level: number): number {
+  if (level < 3) return 6;
+  if (level < 6) return 8 + level * 2;
   return 8 + level * 5;
 }
 
@@ -119,7 +121,7 @@ export function powerOf(state: GameState): number {
 export function buildingCost(state: GameState, id: BuildingId): { gold: number; good: (typeof BUILDINGS)[number]["good"]; qty: number } {
   const spec = BUILDINGS.find((item) => item.id === id) ?? BUILDINGS[0];
   const level = state.campaign?.buildings[id] ?? 0;
-  let gold = 6 + level * 4;
+  let gold = 4 + level * 4;
   const qty = 1 + Math.floor(level / 2);
   if (state.campaign?.skills.includes("wright")) gold = Math.max(2, gold - 3);
   return { gold, good: spec.good, qty };
@@ -359,8 +361,8 @@ function steadyShrine(state: GameState) {
   }
 }
 
-function bringTrophy(state: GameState, roll: () => number): string | null {
-  if (roll() >= 0.55) return null;
+function bringTrophy(state: GameState, roll: () => number, chance = 0.55): string | null {
+  if (roll() >= chance) return null;
   const gear = rollGear(state.seed ?? 0, state.day, (state.miles ?? 0) + (state.pack?.length ?? 0) + 11);
   if (carriedWeight(state) + gearWeight(gear) > carryCap(state)) return null;
   state.pack = [...(state.pack ?? []), gear];
@@ -391,20 +393,37 @@ export function resolveCaptains(state: GameState): string[] {
     if (!captain || captain.order === "oath") continue;
     const roll = worldRng((state.seed ^ Math.imul(state.day + captain.rank, 0x85ebca6b) ^ member.id.length) >>> 0);
     if (captain.order === "garrison") {
-      member.contentment = Math.min(100, member.contentment + 3);
-      lines.push(`${member.name} held the gate.`, ...growCaptain(captain, 2, member.name));
+      member.contentment = Math.min(100, member.contentment + 4);
+      const seat = state.settlements?.find((item) => item.holdId === member.holdId);
+      if (seat) {
+        seat.loyalty = Math.min(100, seat.loyalty + 3);
+        seat.influence = Math.min(100, seat.influence + 1);
+      }
+      lines.push(`${member.name} held the gate. Loyalty at ${holdById(member.holdId).name} rose.`, ...growCaptain(captain, 2, member.name));
     } else if (captain.order === "march") {
-      const place = holdById(captain.target ?? member.holdId).name;
-      const success = roll() < Math.min(0.92, 0.5 + captain.rank * 0.05 + watch * 0.04 + eye * 0.08);
+      const aim = captain.target ?? member.holdId;
+      const place = holdById(aim).name;
+      const score = bondScore(state, state.player.holdId, aim);
+      const quarrel = score <= -10 ? -0.08 : 0;
+      const friend = score >= 15 ? 0.06 : 0;
+      const success = roll() < Math.min(0.92, 0.5 + captain.rank * 0.05 + watch * 0.04 + eye * 0.08 + friend + quarrel);
       if (success) {
-        const gold = 1 + Math.floor(roll() * (2 + captain.rank));
+        let gold = 1 + Math.floor(roll() * (2 + captain.rank));
+        if (score <= -10 || score >= 15) gold += 1;
         state.player.gold += gold;
         camp.marches += 1;
-        const trophy = bringTrophy(state, roll);
+        const home = state.settlements?.find((item) => item.holdId === state.player.holdId);
+        if (home) home.influence = Math.min(100, home.influence + 2);
+        if (score <= -10) {
+          member.contentment = Math.max(0, member.contentment - 2);
+          shiftBond(state, state.player.holdId, aim, -2);
+        }
+        const trophy = bringTrophy(state, roll, huntBonus(state) ? 0.72 : 0.55);
+        const quarrelNote = score <= -10 ? " The rivalry made it a quarrel." : "";
         lines.push(
           trophy
-            ? `${member.name} marched to ${place} and returned with ${gold} gold and ${trophy}.`
-            : `${member.name} marched to ${place} and returned with ${gold} gold.`,
+            ? `${member.name} marched to ${place} and returned with ${gold} gold and ${trophy}.${quarrelNote}`
+            : `${member.name} marched to ${place} and returned with ${gold} gold.${quarrelNote}`,
         );
       } else {
         member.contentment = Math.max(0, member.contentment - 4);
@@ -412,11 +431,11 @@ export function resolveCaptains(state: GameState): string[] {
       }
       lines.push(...growCaptain(captain, 3, member.name));
     } else if (captain.order === "hunt") {
-      const success = roll() < Math.min(0.9, 0.42 + captain.rank * 0.06 + eye * 0.1);
+      const success = roll() < Math.min(0.92, 0.42 + captain.rank * 0.06 + eye * 0.1 + huntBonus(state) * 0.14);
       if (success) {
         state.wyrm.ire = Math.max(0, state.wyrm.ire - 3);
         camp.hunts += 1;
-        const trophy = bringTrophy(state, roll);
+        const trophy = bringTrophy(state, roll, huntBonus(state) ? 0.82 : 0.55);
         lines.push(
           trophy
             ? `${member.name} turned a hunt aside and brought back ${trophy}. ${WYRM_NAME}'s anger eases.`
@@ -428,9 +447,20 @@ export function resolveCaptains(state: GameState): string[] {
       }
       lines.push(...growCaptain(captain, 3, member.name));
     } else if (captain.order === "trade") {
-      const gold = 1 + captain.rank;
+      const score = bondScore(state, state.player.holdId, member.holdId);
+      let gold = 1 + captain.rank;
+      if (score >= 20) gold += 1;
+      if (score <= -10) gold = Math.max(1, gold - 1);
       state.player.gold += gold;
-      lines.push(`${member.name} sold news of the compact for ${gold} gold.`, ...growCaptain(captain, 2, member.name));
+      if (score <= -10) shiftBond(state, state.player.holdId, member.holdId, -2);
+      else if (score >= 10) shiftBond(state, state.player.holdId, member.holdId, 1);
+      const seat = state.settlements?.find((item) => item.holdId === member.holdId);
+      if (seat) {
+        seat.influence = Math.min(100, seat.influence + 1);
+        seat.loyalty = Math.max(0, Math.min(100, seat.loyalty + (score <= -10 ? -1 : 1)));
+      }
+      const tone = score <= -10 ? " into a rivalry" : score >= 20 ? " along a friendly road" : "";
+      lines.push(`${member.name} sold news of the compact${tone} for ${gold} gold.`, ...growCaptain(captain, 2, member.name));
     }
   }
   return lines;
@@ -448,7 +478,8 @@ export function maybeThreat(state: GameState): string | null {
 
 export function applyDawnProgress(state: GameState): string[] {
   if (!state.campaign) return [];
-  const lines = [...finishProject(state), ...resolveCaptains(state), ...grantXp(state, 2)];
+  const pace = state.campaign.level < 4 ? 3 : 2;
+  const lines = [...finishProject(state), ...resolveCaptains(state), ...grantXp(state, pace)];
   steadyShrine(state);
   const threat = maybeThreat(state);
   if (threat) lines.push(threat);
