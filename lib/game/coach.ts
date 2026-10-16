@@ -1,5 +1,6 @@
 import { LEVY_TARGET, SEASON_DAYS } from "./content";
 import { wagonsOpen } from "./expedition";
+import { realmLaborTitle, realmProjectOpen } from "./progress";
 import { peopleTrouble } from "./realm";
 import type { GameState, Tutorial, TutorialStep } from "./types";
 import { LEVY_GOODS, TUTORIAL_STEPS } from "./types";
@@ -101,7 +102,11 @@ export function whatNow(state: GameState): string {
   if (called && !wagonsFull) return "Feed the wagons. They are under Realm, then Status.";
   if (peopleTrouble(state)) return "See to your people on the Hold tab.";
   if (!called && state.expedition?.nextCallDay) {
-    return `The wagons return on day ${state.expedition.nextCallDay}. Seal the day and grow the hold.`;
+    const day = state.expedition.nextCallDay;
+    const labor = state.campaign?.realmLabor;
+    if (labor) return `The wagons return on day ${day}. ${realmLaborTitle(labor)} is still rising. Seal the day.`;
+    if (realmProjectOpen(state)) return `The wagons return on day ${day}. Raise a project under Hold. It keeps working after the wagons leave.`;
+    return `The wagons return on day ${day}. Seal the day and grow the hold.`;
   }
   return "Seal the day. The realm keeps growing.";
 }

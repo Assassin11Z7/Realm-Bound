@@ -58,6 +58,7 @@ import {
   withdraw,
 } from "@/lib/game/engine";
 import { COACH, dawnsLeftLabel, whatNow } from "@/lib/game/coach";
+import { influenceCap } from "@/lib/game/world";
 import { allianceBoard, expeditionDue, wagonsOpen } from "@/lib/game/expedition";
 import type { GameState, GoodId, HoldId, LevyGood, Result } from "@/lib/game/types";
 import { GOODS, LEVY_GOODS } from "@/lib/game/types";
@@ -65,7 +66,7 @@ import { GoodThumb, Portrait } from "./art";
 import { useFrame } from "./frame";
 import { BannerMark } from "./marks";
 import { chapterName, powerOf, xpNeed } from "@/lib/game/progress";
-import { CaptainOrders, HoldWorks, MissionList, SkillDialog, ThreatCard } from "./Campaign";
+import { CaptainOrders, HoldWorks, MissionList, RealmProjects, SkillDialog, ThreatCard } from "./Campaign";
 import { CraftBench } from "./Craft";
 import { CutsceneView, ExplorePanel } from "./Explore";
 import { FateRoll, OathRow, OmenDialog, WorksCard, WyrmCard } from "./Myth";
@@ -95,6 +96,7 @@ const SECTIONS: Record<Tab, { id: string; label: string }[]> = {
     { id: "loyalty", label: "Loyalty" },
     { id: "laws", label: "Laws" },
     { id: "works", label: "Works" },
+    { id: "projects", label: "Projects" },
     { id: "craft", label: "Craft" },
   ],
   compact: [
@@ -150,7 +152,12 @@ const INTRO: Record<string, { eyebrow: string; title: string; lede: string }> = 
   works: {
     eyebrow: "Hold",
     title: "Works",
-    lede: "Mills, shrines, and the buildings that finish when you seal the day.",
+    lede: "Mills, shrines, and the buildings that finish when you seal the day. Longer work is under Projects.",
+  },
+  projects: {
+    eyebrow: "Hold",
+    title: "Realm projects",
+    lede: "Work that takes more than one dawn. It keeps standing after the wagons leave.",
   },
   craft: {
     eyebrow: "Hold",
@@ -338,9 +345,13 @@ export function PlaySeason({
     }
     sealing.current = true;
     navigator.vibrate?.(12);
+    const priorNotice = state.campaign?.realmNotice ?? null;
+    const finished = Boolean(result.state.campaign?.realmNotice && result.state.campaign.realmNotice !== priorNotice);
     setDawn({
       day: result.state.day,
-      title: result.state.omen?.creature ?? result.state.crossing?.creature ?? result.state.petition?.title ?? `Day ${result.state.day}`,
+      title: finished
+        ? "A project stands"
+        : result.state.omen?.creature ?? result.state.crossing?.creature ?? result.state.petition?.title ?? `Day ${result.state.day}`,
     });
     onPlayed(result.state);
     if (result.message) setToast({ tone: "good", text: result.message });
@@ -450,6 +461,7 @@ export function PlaySeason({
                 <HoldWorks state={state} act={act} />
               </>
             )}
+            {tab === "hold" && section === "projects" && <RealmProjects state={state} act={act} />}
             {tab === "hold" && section === "craft" && <CraftBench state={state} act={act} />}
             {tab === "compact" && section === "oaths" && <OathPanel state={state} act={act} onGift={setGiftFor} />}
             {tab === "compact" && section === "trade" && (
@@ -754,6 +766,7 @@ function sectionAlert(state: GameState, tab: Tab, id: string): boolean {
     return state.compact.members.some((member) => !member.inCompact) || (state.politics?.conflictHeat ?? 0) >= 40;
   }
   if (tab === "hold" && id === "people") return peopleTrouble(state);
+  if (tab === "hold" && id === "projects") return Boolean(state.campaign?.realmNotice);
   if (tab === "compact" && id === "oaths") return state.compact.members.some((member) => !member.inCompact || member.contentment < 25);
   if (tab === "compact" && id === "trade") return state.npcOffers.length > 0;
   if (tab === "road" && id === "explore") return Boolean(state.caravan);
@@ -817,6 +830,7 @@ function StatusPanel({
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
             The last call {verdict === "held" || verdict === "held-late" ? "was met" : verdict === "lost" ? "was lost" : "has gone"}. The wagons return on day{" "}
             {state.expedition?.nextCallDay ?? "—"}. Until then, grow the hold and keep the oaths.
+            {(state.campaign?.realmWorks ?? []).some((work) => work.id === "border") ? " A cleared border path brings them two dawns sooner." : ""}
           </p>
         )}
       </div>
@@ -884,6 +898,8 @@ function HoldYield({ state, act }: { state: GameState; act: (result: Result) => 
 
 function LoyaltyPanel({ state }: { state: GameState }) {
   const home = state.settlements?.find((item) => item.holdId === state.player.holdId);
+  const cap = influenceCap(state);
+  const funded = (state.campaign?.realmWorks ?? []).some((work) => work.id === "hall");
   return (
     <>
       <section className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
@@ -891,14 +907,19 @@ function LoyaltyPanel({ state }: { state: GameState }) {
         <p className="mt-1 font-display text-4xl leading-none">{home?.mood ?? "—"}</p>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
           Your hold&apos;s mood. It thins when food or firewood runs out. Feed them under People.
+          {funded ? " The funded hall recovers 2 loyalty here each dawn." : ""}
         </p>
         <Progress value={home?.mood ?? 0} className="mt-3 h-2" />
       </section>
       <section className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
         <p className="text-[11px] tracking-[0.16em] text-[#8d6b2e] uppercase">Influence</p>
-        <p className="mt-1 font-display text-4xl leading-none">{state.player.renown}</p>
+        <p className="mt-1 font-display text-4xl leading-none">
+          {state.player.renown}
+          <span className="text-lg text-muted-foreground">/{cap}</span>
+        </p>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
           {renownTitle(state.player.renown)}. Pledges, gifts, and answered roads raise your name.
+          {funded ? " The hall lets it reach 64." : " It holds at 40 until the hall is funded."}
         </p>
       </section>
       <section className="flex flex-col gap-3">

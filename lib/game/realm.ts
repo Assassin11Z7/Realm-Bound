@@ -12,7 +12,7 @@ import type {
   Settlement,
 } from "./types";
 import { GOODS, HOLD_IDS } from "./types";
-import { worldRng } from "./world";
+import { HALL_LOYALTY, gainRenown, hallFunded, worldRng } from "./world";
 
 const HOLDS_OK = new Set<string>(HOLD_IDS);
 const EDICT_SET = new Set<EdictId>(["custom", "dole", "tithe", "close-rolls", "open-rolls", "hearth-rite"]);
@@ -1206,7 +1206,7 @@ function applyEffect(state: GameState, effect: Effect) {
     }
   }
   if (effect.ire) state.wyrm.ire = clamp(state.wyrm.ire + effect.ire, 0, 100);
-  if (effect.renown) state.player.renown = Math.max(0, state.player.renown + effect.renown);
+  if (effect.renown) gainRenown(state, effect.renown);
   if (effect.contentment) {
     for (const member of state.compact.members) {
       if (!member.inCompact) continue;
@@ -1457,6 +1457,7 @@ export function tickSettlements(state: GameState): string[] {
     if (settlement.holdId === state.player.holdId) {
       mood += mods.moodDawn;
       souls += mods.soulDawn;
+      if (hallFunded(state)) mood += HALL_LOYALTY;
     }
     if (settlement.edict === "dole") mood += settlement.bread > 0 ? 2 : -4;
     if (settlement.edict === "close-rolls") mood += 1;

@@ -56,7 +56,7 @@ import {
   tickSettlements,
 } from "./realm";
 import { blankExpedition, blankPolitics, EXPEDITION_GRACE, expeditionDue, markCalled, markDeparted, takeExpeditionPrize, wagonsOpen } from "./expedition";
-import { bumpQuest, carryCap, carriedWeight, gearWeight, loreBonus, luckOf, openingQuests, openingScene, purseBonus, rewardScene, roadFind, starterCloak, wardBonus } from "./world";
+import { bumpQuest, carryCap, carriedWeight, gainRenown, gearWeight, loreBonus, luckOf, openingQuests, openingScene, purseBonus, rewardScene, roadFind, starterCloak, wardBonus, WATCH_FIND_LUCK, WATCH_RELIC_BIAS } from "./world";
 import { GOODS, LEVY_GOODS } from "./types";
 import type {
   BarterOffer,
@@ -237,9 +237,8 @@ function considerVictory(state: GameState) {
   state.outcome = late ? "held-late" : "held";
   state.outcomeDismissed = false;
   if (!state.outcomeRewarded) {
-    state.player.renown += late ? 4 : 10;
     const stayed = state.compact.members.filter((member) => member.inCompact).length;
-    state.player.renown += stayed * 2;
+    gainRenown(state, (late ? 4 : 10) + stayed * 2);
     state.outcomeRewarded = true;
     const prize = takeExpeditionPrize(state, "triumph");
     if (prize) note(state, prize);
@@ -275,7 +274,7 @@ function addToLevy(state: GameState, good: LevyGood, qty: number): number {
   state.compact.levy[good] += moved;
   state.stats.pledged += moved;
   state.compactActed = true;
-  state.player.renown += 1;
+  gainRenown(state, 1);
   return moved;
 }
 
@@ -482,7 +481,7 @@ function applyShift(state: GameState, shift: Shift) {
   }
   if (shift.gold) state.player.gold += shift.gold;
   if (shift.ire) state.wyrm.ire = Math.max(0, Math.min(100, state.wyrm.ire + shift.ire));
-  if (shift.renown) state.player.renown += shift.renown;
+  if (shift.renown) gainRenown(state, shift.renown);
   if (shift.contentment) {
     for (const member of state.compact.members) {
       if (!member.inCompact) continue;
@@ -873,7 +872,7 @@ export function gift(state: GameState, memberId: string, good: GoodId, qty: numb
   target.lastNote = `Accepted a gift of ${amount} ${good}.`;
   next.stats.gifted += amount;
   next.compactActed = true;
-  next.player.renown += 1;
+  gainRenown(next, 1);
   note(next, `You sent ${target.name} ${amount} ${good}.`);
   return ok(next, `${target.name} took the ${good}. Their mood eased.`);
 }
@@ -1049,7 +1048,7 @@ export function sealDay(state: GameState): Result {
   const nextDay = next.day + 1;
   refreshCaravan(next, nextDay);
   next.npcOffers = makeOffers(next);
-  if (next.compactActed) next.player.renown += 1;
+  if (next.compactActed) gainRenown(next, 1);
   next.compactActed = false;
   next.player.withdrawnToday = 0;
 
@@ -1111,7 +1110,9 @@ export function sealDay(state: GameState): Result {
     next.tonics.purse = false;
     lines.push("The coin drink fades with the dusk.");
   }
+  const priorNotice = state.campaign?.realmNotice ?? null;
   lines.push(...applyDawnProgress(next));
+  const justFinished = Boolean(next.campaign?.realmNotice && next.campaign.realmNotice !== priorNotice);
 
   if (!next.omen && !next.crossing && !next.petition) {
     const whisper = kinWhisper(
@@ -1125,6 +1126,7 @@ export function sealDay(state: GameState): Result {
   for (const line of lines) note(next, line);
 
   let message = `Day ${next.day} begins. ${lines[lines.length - 1]}`;
+  if (justFinished && next.campaign?.realmNotice) message = next.campaign.realmNotice;
   if (next.omen) message = `${next.omen.creature} is at the gate. ${message}`;
   else if (next.crossing) message = `${next.crossing.creature} is on the road. ${message}`;
   else if (next.petition) message = `${next.petition.title}. ${message}`;
@@ -1165,7 +1167,7 @@ export function offerTribute(state: GameState, kind: "iron" | "relic" | "salt"):
     if (error) return fail(state, error);
     next.wyrm.ire = Math.max(0, next.wyrm.ire - 28);
     next.wyrm.tribute += 1;
-    next.player.renown += 2;
+    gainRenown(next, 2);
     bumpQuest(next, "tribute", "any", 1);
     note(next, `You gave ${WYRM_NAME} a relic. The gold eye dimmed, and the snow went quiet.`);
     return ok(next, `${WYRM_NAME} took the relic and looked almost gentle.`);
@@ -1228,7 +1230,7 @@ export function fulfillOath(state: GameState, memberId: string): Result {
   target.contentment = Math.min(100, target.contentment + 22);
   target.lastNote = `Kept an old oath with 3 ${need}.`;
   next.oathsKept.push(memberId);
-  next.player.renown += 3;
+  gainRenown(next, 3);
   next.compactActed = true;
   note(next, `You kept an oath to ${target.name}: 3 ${need}, given from your own stores.`);
   return ok(next, `${target.name} will remember the oath.`);
@@ -1348,11 +1350,11 @@ export function chooseOmen(state: GameState, choiceId: string): Result {
     next.player.stash.relics -= 1;
     next.wyrm.ire = 10;
     next.wyrm.tribute += 1;
-    next.player.renown += 4;
+    gainRenown(next, 4);
     note(next, `${WYRM_NAME} took the relic between two pale teeth. The snow went quiet.`);
   } else if (key === "speaks:road") {
     next.wyrm.ire = Math.min(100, next.wyrm.ire + 8);
-    next.player.renown += 2;
+    gainRenown(next, 2);
     note(next, `You told ${WYRM_NAME} the road would answer. The gold eye did not blink.`);
   } else {
     return fail(state, "That answer has no weight here.");
@@ -1369,7 +1371,15 @@ export function travel(state: GameState, holdId: HoldId): Result {
   const here = state.where ?? state.player.holdId;
   if (holdId === here) return fail(state, "You are already standing there.");
   const next = draft(state);
-  const found = roadFind(next.seed ?? 0, next.day, next.miles ?? 0, holdId, luckOf(next));
+  const watch = (next.campaign?.realmWorks ?? []).some((work) => work.id === "watchtower");
+  const found = roadFind(
+    next.seed ?? 0,
+    next.day,
+    next.miles ?? 0,
+    holdId,
+    luckOf(next) + (watch ? WATCH_FIND_LUCK : 0),
+    watch ? WATCH_RELIC_BIAS : 0,
+  );
   next.where = holdId;
   next.miles = (next.miles ?? 0) + 1;
   next.player.gold = Math.max(0, next.player.gold + found.gold);

@@ -4,6 +4,13 @@ import { carryCap, carriedWeight, gearWeight } from "./world";
 
 /** Dawns between the end of one wagon call and the next. */
 export const EXPEDITION_GAP = 8;
+/** A cleared border path shortens that wait. */
+export const BORDER_SOONER = 2;
+
+export function expeditionGap(state: GameState): number {
+  const cleared = (state.campaign?.realmWorks ?? []).some((work) => work.id === "border");
+  return cleared ? EXPEDITION_GAP - BORDER_SOONER : EXPEDITION_GAP;
+}
 /** Dawns after a missed due day when a late fill can still turn the call. */
 export const EXPEDITION_GRACE = 4;
 
@@ -203,7 +210,7 @@ export function markDeparted(state: GameState): "survival" | "left" | null {
   if (!exp || exp.phase !== "called") return null;
   exp.lastVerdict = state.outcome;
   exp.phase = "idle";
-  exp.nextCallDay = state.day + EXPEDITION_GAP;
+  exp.nextCallDay = state.day + expeditionGap(state);
   if (state.outcome === "lost") {
     if (state.politics) state.politics.conflictHeat = Math.min(100, state.politics.conflictHeat + 12);
     return "survival";

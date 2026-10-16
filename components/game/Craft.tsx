@@ -20,7 +20,8 @@ export function CraftBench({ state, act }: { state: GameState; act: (result: Res
       <ul className="mt-3 flex flex-col gap-3">
         {RECIPES.map((recipe) => {
           const have = state.campaign?.buildings[recipe.building] ?? 0;
-          const ready = have >= recipe.level;
+          const projectOpen = !recipe.project || (state.campaign?.realmWorks ?? []).some((work) => work.id === "bench" && work.bench === recipe.project);
+          const ready = have >= recipe.level && projectOpen;
           const title = recipe.potion ? POTIONS[recipe.potion].name : recipe.gear;
           return (
             <li key={recipe.id} className="rounded-xl bg-background px-3 py-3">
@@ -33,10 +34,10 @@ export function CraftBench({ state, act }: { state: GameState; act: (result: Res
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{recipe.detail}</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {recipe.qty} {recipe.good} · {recipe.gold}g
-                {ready ? "" : ` · your ${BENCH_NAME[recipe.building].toLowerCase()} is level ${have}`}
+                {!projectOpen ? " · expand this bench under Projects" : ready ? "" : ` · your ${BENCH_NAME[recipe.building].toLowerCase()} is level ${have}`}
               </p>
               <Button type="button" variant="outline" className="mt-2 h-10" disabled={!ready} onClick={() => act(craft(state, recipe.id))}>
-                {ready ? "Craft" : "Raise the bench"}
+                {ready ? "Craft" : !projectOpen ? "Needs the project" : "Raise the bench"}
               </Button>
             </li>
           );

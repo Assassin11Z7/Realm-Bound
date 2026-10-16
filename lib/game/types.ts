@@ -227,6 +227,25 @@ export type SkillId = "stores" | "step" | "coin" | "truce" | "bargain" | "eye" |
 export type BuildingId = "hall" | "yard" | "shrine" | "market" | "watch" | "forge" | "still" | "loom" | "strongroom";
 export type PotionId = "luck" | "calm" | "haste" | "purse" | "vigor";
 
+export const REALM_PROJECT_IDS = ["watchtower", "hall", "bench", "border"] as const;
+export type RealmProjectId = (typeof REALM_PROJECT_IDS)[number];
+export type RealmBench = "forge" | "loom";
+
+/** Labor already paid for, still counting dawns. */
+export interface RealmLabor {
+  id: RealmProjectId;
+  spent: number;
+  holdId?: HoldId;
+  bench?: RealmBench;
+}
+
+/** A finished realm project. The benefit lasts. */
+export interface RealmWork {
+  id: RealmProjectId;
+  holdId?: HoldId;
+  bench?: RealmBench;
+}
+
 export interface Tonics {
   luck: number;
   purse: boolean;
@@ -328,6 +347,12 @@ export interface Campaign {
   offer: SkillOffer | null;
   buildings: Record<BuildingId, number>;
   project: BuildingId | null;
+  /** The multi-dawn work currently rising, if any. */
+  realmLabor: RealmLabor | null;
+  /** Finished multi-dawn projects. Each one keeps its benefit. */
+  realmWorks: RealmWork[];
+  /** Set when a project finishes, until the player reads it. */
+  realmNotice: string | null;
   chapter: number;
   captains: Record<string, Captain>;
   missions: Mission[];
