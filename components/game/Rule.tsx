@@ -13,6 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import { holdById } from "@/lib/game/content";
 import { chooseCrossing, choosePetition, dismissCrossing, setEdict, stockSettlement } from "@/lib/game/engine";
 import { EDICTS, modsBlurb } from "@/lib/game/realm";
+import { ownsRelic } from "@/lib/game/world";
 import type { EdictId, GameState, HoldId, Result } from "@/lib/game/types";
 import { useFrame } from "./frame";
 
@@ -164,7 +165,7 @@ export function PeoplePanel({
             <DialogDescription>The law you set stays until you replace it.</DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-2">
-            {EDICTS.map((edict) => {
+            {EDICTS.filter((edict) => edict.id !== "salt-road" || ownsRelic(state, "salt-charter") || ruling?.edict === "salt-road").map((edict) => {
               const standing = ruling?.edict === edict.id;
               return (
                 <Button

@@ -6,7 +6,7 @@ import { holdById } from "@/lib/game/content";
 import { drinkPotion, storeGear, storePotion, takeGear, takePotion } from "@/lib/game/craft";
 import { POTIONS } from "@/lib/game/craft";
 import { claimQuest, equipGear, sellGear, stowGear, travel } from "@/lib/game/engine";
-import { WORN_SLOTS, carryCap, carriedWeight, gearWeight, luckOf, storedWeight, traitText, vaultCap } from "@/lib/game/world";
+import { WORN_SLOTS, carryCap, carriedWeight, gearCompare, gearWeight, luckOf, pardonReady, storedWeight, traitText, vaultCap, wornRelic } from "@/lib/game/world";
 import type { Cutscene, GameState, Gear, GearSlot, HoldId, PotionId, Rarity, Result } from "@/lib/game/types";
 
 const RARITY_CLASS: Record<Rarity, string> = {
@@ -81,28 +81,39 @@ export function CutsceneView({
 function GearRow({
   gear,
   worn,
+  against,
   onSell,
   onWear,
   onStore,
+  onTake,
 }: {
   gear: Gear;
   worn: boolean;
-  onSell: () => void;
+  against?: Gear | null;
+  onSell?: () => void;
   onWear?: () => void;
   onStore?: () => void;
+  onTake?: () => void;
 }) {
+  const unique = Boolean(gear.relic);
+  const compare = unique ? gearCompare(gear, against ?? null, worn) : "";
   return (
-    <div className="flex items-start gap-2">
+    <div className={`flex items-start gap-2 ${unique ? "rounded-xl bg-[#f6ead0] px-2 py-2 ring-2 ring-[#8d6b2e]" : ""}`} data-relic={gear.relic ?? undefined}>
       <div className="min-w-0 flex-1">
-        <p className={`text-sm font-medium ${RARITY_CLASS[gear.rarity]}`}>
+        <p className={`text-sm font-medium ${unique ? "text-[#6a4a12]" : RARITY_CLASS[gear.rarity]}`}>
           {gear.name}
-          <span className="ml-2 text-[10px] tracking-wide uppercase">{gear.rarity}</span>
+          {unique ? (
+            <span className="ml-2 rounded-full bg-[#8d6b2e] px-1.5 py-0.5 text-[10px] tracking-wide text-[#f4ead7] uppercase">Unique relic</span>
+          ) : (
+            <span className="ml-2 text-[10px] tracking-wide uppercase">{gear.rarity}</span>
+          )}
         </p>
         <p className="text-xs leading-relaxed text-muted-foreground">{gear.line}</p>
-        <p className="text-xs text-muted-foreground">
+        <p className={`text-xs ${unique ? "text-[#6a4a12]" : "text-muted-foreground"}`}>
           {traitText(gear)} · {gearWeight(gear)} wt
           {worn ? " · worn" : ""}
         </p>
+        {compare && <p className="mt-1 text-xs leading-relaxed text-[#6a4a12]">{compare}</p>}
       </div>
       <div className="flex shrink-0 flex-col gap-1">
         {onWear && (
@@ -115,12 +126,25 @@ function GearRow({
             Store
           </Button>
         )}
-        <Button type="button" variant="ghost" className="h-9" onClick={onSell}>
-          Sell
-        </Button>
+        {onTake && (
+          <Button type="button" variant="outline" className="h-9" onClick={onTake}>
+            Take
+          </Button>
+        )}
+        {onSell && (
+          <Button type="button" variant="ghost" className="h-9" onClick={onSell}>
+            Sell
+          </Button>
+        )}
       </div>
     </div>
   );
+}
+
+function wornInSlot(state: GameState, slot: Gear["slot"]): Gear | null {
+  const id = (state.worn ?? {})[slot];
+  if (!id) return null;
+  return (state.pack ?? []).find((item) => item.id === id) ?? null;
 }
 
 function bestLoose(state: GameState, slot: GearSlot, wornId?: string): Gear | null {
@@ -155,10 +179,18 @@ export function ExplorePanel({
           Luck {luckOf(state)}. Carried {carriedWeight(state)} / {carryCap(state)} weight.
           {(state.tonics?.luck ?? 0) > 0 ? ` Luck drink, ${state.tonics.luck} walks.` : ""}
         </p>
+        {wornRelic(state, "unspoken-hem") && (
+          <p className="text-sm leading-relaxed text-[#6a4a12]">
+            {pardonReady(state)
+              ? "The Unspoken Hem can still swallow one failure before the wagons are called again."
+              : "The Unspoken Hem has already spoken for this call of the wagons."}
+          </p>
+        )}
         <ul className="flex flex-col gap-3">
           {WORN_SLOTS.filter((slot) => slot !== "hoard").map((slot) => {
             const gear = (state.pack ?? []).find((item) => item.id === (state.worn ?? {})[slot]);
             const better = bestLoose(state, slot, gear?.id);
+            const relicLoose = (state.pack ?? []).find((item) => item.slot === slot && item.relic && item.id !== gear?.id);
             const wornLuck = gear?.luck ?? 0;
             return (
               <li key={slot} className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
@@ -167,6 +199,7 @@ export function ExplorePanel({
                   <GearRow
                     gear={gear}
                     worn
+                    against={gear}
                     onSell={() => act(sellGear(state, gear.id))}
                     onWear={() => act(stowGear(state, gear.id))}
                     onStore={() => act(storeGear(state, gear.id))}
@@ -174,11 +207,15 @@ export function ExplorePanel({
                 ) : (
                   <p className="mt-1 text-sm text-muted-foreground">Nothing worn.</p>
                 )}
-                {better && (
+                {better && !better.relic && (
                   <p className="mt-3 text-sm leading-relaxed">
                     In the pack, {better.name} is luck {better.luck}
                     {gear ? `, against ${wornLuck} worn.` : ". The slot is empty."}
                   </p>
+                )}
+                {better?.relic && <p className="mt-3 text-sm leading-relaxed text-[#6a4a12]">{gearCompare(better, gear ?? null, false)}</p>}
+                {relicLoose && relicLoose.id !== better?.id && (
+                  <p className="mt-3 text-sm leading-relaxed text-[#6a4a12]">{gearCompare(relicLoose, gear ?? null, false)}</p>
                 )}
               </li>
             );
@@ -192,6 +229,7 @@ export function ExplorePanel({
                 <GearRow
                   gear={gear}
                   worn={false}
+                  against={wornInSlot(state, gear.slot)}
                   onSell={() => act(sellGear(state, gear.id))}
                   onWear={() => act(equipGear(state, gear.id))}
                   onStore={() => act(storeGear(state, gear.id))}
@@ -233,11 +271,7 @@ export function ExplorePanel({
             )}
             {(state.vault ?? []).map((gear) => (
               <div key={gear.id} className="rounded-xl bg-background px-3 py-2">
-                <p className="text-sm font-medium">{gear.name}</p>
-                <p className="text-xs text-muted-foreground">{gear.line}</p>
-                <Button type="button" variant="outline" className="mt-2 h-10" onClick={() => act(takeGear(state, gear.id))}>
-                  Take · {gearWeight(gear)} wt
-                </Button>
+                <GearRow gear={gear} worn={false} against={wornInSlot(state, gear.slot)} onTake={() => act(takeGear(state, gear.id))} />
               </div>
             ))}
             {potionIds

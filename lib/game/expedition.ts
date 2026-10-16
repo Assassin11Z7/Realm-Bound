@@ -1,6 +1,6 @@
 import { SEASON_DAYS } from "./content";
 import type { AwaitingSeat, Expedition, GameState, Gear, Outcome, Politics } from "./types";
-import { carryCap, carriedWeight, gearWeight } from "./world";
+import { carryCap, carriedWeight, gearWeight, wornRelic } from "./world";
 
 /** Dawns between the end of one wagon call and the next. */
 export const EXPEDITION_GAP = 8;
@@ -203,7 +203,8 @@ export function markDeparted(state: GameState): "survival" | "left" | null {
   if (!exp || exp.phase !== "called") return null;
   exp.lastVerdict = state.outcome;
   exp.phase = "idle";
-  exp.nextCallDay = state.day + EXPEDITION_GAP;
+  const gap = wornRelic(state, "carter-knot") ? Math.max(4, EXPEDITION_GAP - 3) : EXPEDITION_GAP;
+  exp.nextCallDay = state.day + gap;
   if (state.outcome === "lost") {
     if (state.politics) state.politics.conflictHeat = Math.min(100, state.politics.conflictHeat + 12);
     return "survival";

@@ -8,14 +8,15 @@ import type {
   Lasting,
   Mark,
   Petition,
+  RelicId,
   Result,
   Settlement,
 } from "./types";
 import { GOODS, HOLD_IDS } from "./types";
-import { worldRng } from "./world";
+import { awardUniqueRelic, ownedRelicIds, ownsRelic, pardonReady, spendPardon, worldRng } from "./world";
 
 const HOLDS_OK = new Set<string>(HOLD_IDS);
-const EDICT_SET = new Set<EdictId>(["custom", "dole", "tithe", "close-rolls", "open-rolls", "hearth-rite"]);
+const EDICT_SET = new Set<EdictId>(["custom", "dole", "tithe", "close-rolls", "open-rolls", "hearth-rite", "salt-road"]);
 
 export const EDICTS: { id: EdictId; name: string; detail: string }[] = [
   { id: "custom", name: "Leave them be", detail: "Food and firewood fall by one each dawn. While both last, the people stay as they are." },
@@ -24,6 +25,11 @@ export const EDICTS: { id: EdictId; name: string; detail: string }[] = [
   { id: "close-rolls", name: "Shut the gates", detail: "Mood rises. New people do not arrive from this law." },
   { id: "open-rolls", name: "Open the gates", detail: "People arrive while the food store holds. Bread falls faster, and an empty store drives people out." },
   { id: "hearth-rite", name: "Feed the fires", detail: "Firewood burns faster. Mood rises, and more so in frost." },
+  {
+    id: "salt-road",
+    name: "Salt the road",
+    detail: "The Salt Charter opens this law. Firewood lasts longer. While it stands, Vell's anger climbs one faster each dawn.",
+  },
 ];
 
 interface Effect {
@@ -63,7 +69,7 @@ interface CreatureDef {
   body: string;
   art: string;
   disposition: "kind" | "grim";
-  requires?: (ctx: { markIds: string[]; day: number }) => boolean;
+  requires?: (ctx: { markIds: string[]; day: number; relics: RelicId[] }) => boolean;
   choices: ChoiceDef[];
 }
 
@@ -828,6 +834,48 @@ const CREATURES: CreatureDef[] = [
       },
     ],
   },
+  {
+    id: "salt-widow",
+    creature: "The Salt Widow",
+    title: "A woman the charter named",
+    body: "A woman of dried salt stands in the ford. She was not on this road until the Salt Charter was read. She will take salt, teach the law, or curse a closed hand.",
+    art: "/art/serpent.jpg",
+    disposition: "grim",
+    requires: ({ relics }) => relics.includes("salt-charter"),
+    choices: [
+      {
+        id: "salt",
+        label: "Give 2 salt",
+        detail: "Vell's anger falls. Firewood lasts longer from this day.",
+        effect: {
+          goods: { salt: -2 },
+          ire: -6,
+          lasting: { hearthDecay: -1 },
+          summary: "The Salt Widow took the salt. The frost looks away, and firewood lasts longer.",
+        },
+      },
+      {
+        id: "teach",
+        label: "Ask her to teach the law",
+        detail: "Salt the road becomes the law at your hold. The frost listens harder.",
+        effect: {
+          edict: "salt-road",
+          ire: 2,
+          summary: "The Salt Widow taught the hall to salt the road. Firewood lasts. Vell listens.",
+        },
+      },
+      {
+        id: "close",
+        label: "Close your hand",
+        detail: "She leaves a thirst. Mood falls, and the dragon's anger climbs.",
+        effect: {
+          mood: -5,
+          ire: 4,
+          summary: "You closed your hand to the Salt Widow. The hold is thirsty, and Vell heard the salt crack.",
+        },
+      },
+    ],
+  },
 ];
 
 const PETITIONS: {
@@ -1318,6 +1366,17 @@ export function peopleTrouble(state: GameState): boolean {
   return (state.settlements ?? []).some((item) => item.mood < 40 || item.bread <= 3 || item.hearth <= 3);
 }
 
+function openCreatures(state: GameState) {
+  const seen = state.creaturesSeen ?? [];
+  const ids = markIdsOf(state.marks ?? []);
+  const relics = ownedRelicIds(state);
+  return CREATURES.filter((def) => !seen.includes(def.id) && (!def.requires || def.requires({ markIds: ids, day: state.day, relics })));
+}
+
+export function availableCreatureIds(state: GameState): string[] {
+  return openCreatures(state).map((def) => def.id);
+}
+
 export function offerCrossing(state: GameState): string | null {
   if (state.omen || state.crossing || state.day < 3) return null;
   const seen = state.creaturesSeen ?? [];
@@ -1326,8 +1385,7 @@ export function offerCrossing(state: GameState): string | null {
     const gate = state.day <= 12 ? 0.72 : 0.86;
     if (rng() >= gate) return null;
   }
-  const ids = markIdsOf(state.marks ?? []);
-  const pool = CREATURES.filter((def) => !seen.includes(def.id) && (!def.requires || def.requires({ markIds: ids, day: state.day })));
+  const pool = openCreatures(state);
   if (pool.length === 0) return null;
   const picked = pool[Math.floor(rng() * pool.length) % pool.length];
   state.crossing = buildCrossing(picked, state.marks ?? [], homeMoodOf(state));
@@ -1356,6 +1414,64 @@ export function dismissCrossing(state: GameState): Result {
   return ok(next, line);
 }
 
+function crossingRelicLine(state: GameState): string | null {
+  const found = awardUniqueRelic(state, "crossing");
+  if (!found) return null;
+  if (!found.packed) {
+    note(state, `${found.gear.name} glinted on the road, and the bag could not take it.`);
+    return null;
+  }
+  note(state, `The crossing left ${found.gear.name}. ${found.gear.line}`);
+  return found.gear.name;
+}
+
+function withRelic(summary: string, relicName: string | null): string {
+  return relicName ? `${summary} The road also left ${relicName}.` : summary;
+}
+
+function effectHarms(effect: Effect): boolean {
+  if ((effect.ire ?? 0) > 0) return true;
+  if ((effect.contentment ?? 0) < 0) return true;
+  if ((effect.mood ?? 0) < 0) return true;
+  if ((effect.souls ?? 0) < 0) return true;
+  if ((effect.allMood ?? 0) < 0) return true;
+  if ((effect.bread ?? 0) < 0) return true;
+  if ((effect.hearth ?? 0) < 0) return true;
+  const lasting = effect.lasting;
+  if (!lasting) return false;
+  if ((lasting.yield ?? 0) < 0) return true;
+  if ((lasting.goldDawn ?? 0) < 0) return true;
+  if ((lasting.moodDawn ?? 0) < 0) return true;
+  if ((lasting.breadDecay ?? 0) > 0) return true;
+  if ((lasting.hearthDecay ?? 0) > 0) return true;
+  if ((lasting.soulDawn ?? 0) < 0) return true;
+  if ((lasting.ireDawn ?? 0) > 0) return true;
+  return Boolean(lasting.blockGrowth);
+}
+
+function spareHarm(effect: Effect): Effect {
+  const next: Effect = { ...effect, lasting: effect.lasting ? { ...effect.lasting } : undefined };
+  if ((next.ire ?? 0) > 0) delete next.ire;
+  if ((next.contentment ?? 0) < 0) delete next.contentment;
+  if ((next.mood ?? 0) < 0) delete next.mood;
+  if ((next.souls ?? 0) < 0) delete next.souls;
+  if ((next.allMood ?? 0) < 0) delete next.allMood;
+  if ((next.bread ?? 0) < 0) delete next.bread;
+  if ((next.hearth ?? 0) < 0) delete next.hearth;
+  if (next.lasting) {
+    if ((next.lasting.yield ?? 0) < 0) delete next.lasting.yield;
+    if ((next.lasting.goldDawn ?? 0) < 0) delete next.lasting.goldDawn;
+    if ((next.lasting.moodDawn ?? 0) < 0) delete next.lasting.moodDawn;
+    if ((next.lasting.breadDecay ?? 0) > 0) delete next.lasting.breadDecay;
+    if ((next.lasting.hearthDecay ?? 0) > 0) delete next.lasting.hearthDecay;
+    if ((next.lasting.soulDawn ?? 0) < 0) delete next.lasting.soulDawn;
+    if ((next.lasting.ireDawn ?? 0) > 0) delete next.lasting.ireDawn;
+    if (next.lasting.blockGrowth) delete next.lasting.blockGrowth;
+  }
+  next.summary = `The Unspoken Hem drinks the harm. ${effect.summary}`;
+  return next;
+}
+
 function finishChoice(state: GameState, id: string, creature: string, choiceId: string, effect: Effect, fate?: Result["fate"]): Result {
   const next = structuredClone(state);
   applyEffect(next, effect);
@@ -1363,7 +1479,8 @@ function finishChoice(state: GameState, id: string, creature: string, choiceId: 
   if (next.campaign) next.campaign.xp += 2;
   next.crossing = null;
   note(next, effect.summary);
-  return ok(next, effect.summary, fate);
+  const relicName = crossingRelicLine(next);
+  return ok(next, withRelic(effect.summary, relicName), fate);
 }
 
 export function chooseCrossing(state: GameState, choiceId: string): Result {
@@ -1381,13 +1498,21 @@ export function chooseCrossing(state: GameState, choiceId: string): Result {
     const face = 1 + Math.floor(roll * 12);
     const outcome = won ? spec.gamble.win : spec.gamble.lose;
     const next = structuredClone(state);
+    const mercy = !won && pardonReady(next);
     applyEffect(next, spec.gamble.stake);
-    applyEffect(next, outcome);
-    pushMark(next, `${crossing.id}:${choiceId}`, crossing.creature, choiceId, outcome);
+    const marked = mercy
+      ? {
+          summary: "The Unspoken Hem takes the failed bargain. The harm does not land. It will not do so again until the wagons are called.",
+        }
+      : outcome;
+    if (mercy) spendPardon(next);
+    else applyEffect(next, outcome);
+    pushMark(next, `${crossing.id}:${choiceId}`, crossing.creature, choiceId, marked);
     if (next.campaign) next.campaign.xp += 2;
     next.crossing = null;
-    note(next, outcome.summary);
-    return ok(next, outcome.summary, { face, won });
+    note(next, marked.summary);
+    const relicName = crossingRelicLine(next);
+    return ok(next, withRelic(marked.summary, relicName), { face, won });
   }
   const effect = shown.branch === "alt" && spec.alt ? spec.alt : spec.effect;
   const price = afford(state, effect);
@@ -1419,10 +1544,14 @@ export function choosePetition(state: GameState, choiceId: string): Result {
   const shown = petition.choices.find((choice) => choice.id === choiceId);
   const spec = petitionById(petition.id)?.choices.find((choice) => choice.id === choiceId);
   if (!shown || !spec) return fail(state, "That is not a choice the hall will hear.");
-  const effect = shown.branch === "alt" && spec.alt ? spec.alt : spec.effect;
+  let effect = shown.branch === "alt" && spec.alt ? spec.alt : spec.effect;
   const price = afford(state, effect);
   if (price) return fail(state, price);
   const next = structuredClone(state);
+  if (effectHarms(effect) && pardonReady(next)) {
+    effect = spareHarm(effect);
+    spendPardon(next);
+  }
   applyEffect(next, effect);
   pushMark(next, `petition:${petition.id}:${choiceId}`, petition.title, choiceId, effect);
   if (next.campaign) next.campaign.xp += 2;
@@ -1442,6 +1571,7 @@ export function tickSettlements(state: GameState): string[] {
     let hearthDecay = Math.max(0, 1 + mods.hearthDecay + (winter ? 1 : 0));
     if (settlement.edict === "dole" || settlement.edict === "open-rolls") breadDecay += 1;
     if (settlement.edict === "hearth-rite") hearthDecay += 1;
+    if (settlement.edict === "salt-road") hearthDecay = Math.max(0, hearthDecay - 1);
     const beforeBread = settlement.bread;
     const beforeHearth = settlement.hearth;
     const beforeMood = settlement.mood;
@@ -1479,11 +1609,18 @@ export function tickSettlements(state: GameState): string[] {
     state.player.gold = Math.max(0, state.player.gold + mods.goldDawn);
     lines.push(mods.goldDawn > 0 ? `${mods.goldDawn} gold finds you at dawn.` : `${-mods.goldDawn} gold leaves at dawn.`);
   }
+  if ((state.settlements ?? []).some((item) => item.edict === "salt-road")) {
+    state.wyrm.ire = clamp(state.wyrm.ire + 1, 0, 100);
+    lines.push("Salt on the road keeps the frost interested. Vell's anger climbs.");
+  }
   return lines;
 }
 
 export function setEdict(state: GameState, holdId: HoldId, edict: EdictId): Result {
   if (!EDICT_SET.has(edict)) return fail(state, "That is not a law.");
+  if (edict === "salt-road" && !ownsRelic(state, "salt-charter")) {
+    return fail(state, "The Salt Charter is not among your goods. That law stays shut.");
+  }
   const found = state.settlements?.find((item) => item.holdId === holdId);
   if (!found) return fail(state, "That settlement is not under your banner.");
   if (found.edict === edict) return fail(state, "That law already stands.");
