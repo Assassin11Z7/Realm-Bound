@@ -6,7 +6,7 @@ import { holdById } from "@/lib/game/content";
 import { drinkPotion, storeGear, storePotion, takeGear, takePotion } from "@/lib/game/craft";
 import { POTIONS } from "@/lib/game/craft";
 import { claimQuest, sellGear, travel, unequipFromHero } from "@/lib/game/engine";
-import { fieldedNames, gearBearer, heroFordRenown, heroRoadTeach, heroWagonGold } from "@/lib/game/heroes";
+import { fieldedNames, gearBearer, gearHeroNotes, heroFordRenown, heroRoadTeach, heroWagonGold } from "@/lib/game/heroes";
 import { WORN_SLOTS, carryCap, carriedWeight, gearCompare, gearWeight, luckOf, pardonReady, storedWeight, traitText, vaultCap, wornRelic } from "@/lib/game/world";
 import type { Cutscene, GameState, Gear, GearSlot, HoldId, PotionId, Rarity, Result, WornSlot } from "@/lib/game/types";
 
@@ -84,6 +84,7 @@ function GearRow({
   worn,
   bearer,
   against,
+  notes,
   onSell,
   onWear,
   onStore,
@@ -93,6 +94,7 @@ function GearRow({
   worn: boolean;
   bearer?: string | null;
   against?: Gear | null;
+  notes?: string[];
   onSell?: () => void;
   onWear?: () => void;
   onStore?: () => void;
@@ -117,6 +119,11 @@ function GearRow({
           {bearer ? ` · ${bearer}` : worn ? " · worn" : ""}
         </p>
         {compare && <p className="mt-1 text-xs leading-relaxed text-[#6a4a12]">{compare}</p>}
+        {notes?.map((note) => (
+          <p key={note} className="mt-1 text-xs leading-relaxed text-[#3d4a62]" data-gear-synergy="yes">
+            {note}
+          </p>
+        ))}
       </div>
       <div className="flex shrink-0 flex-col gap-1">
         {onWear && (
@@ -216,6 +223,7 @@ export function ExplorePanel({
                     worn
                     bearer={gearBearer(state, piece.id)?.name ?? hero.id}
                     against={piece}
+                    notes={gearHeroNotes(state, piece)}
                     onSell={() => act(sellGear(state, piece.id))}
                     onWear={() => act(unequipFromHero(state, hero.id, slot as WornSlot))}
                     onStore={() => act(storeGear(state, piece.id))}
@@ -245,6 +253,7 @@ export function ExplorePanel({
                   gear={gear}
                   worn={false}
                   against={wornInSlot(state, gear.slot)}
+                  notes={gearHeroNotes(state, gear)}
                   onSell={() => act(sellGear(state, gear.id))}
                   onStore={() => act(storeGear(state, gear.id))}
                 />
@@ -268,7 +277,13 @@ export function ExplorePanel({
           <ul className="mt-3 flex flex-col gap-3">
             {hoard.map((gear) => (
               <li key={gear.id} className="rounded-xl bg-background px-3 py-2">
-                <GearRow gear={gear} worn={false} onSell={() => act(sellGear(state, gear.id))} onStore={() => act(storeGear(state, gear.id))} />
+                <GearRow
+                  gear={gear}
+                  worn={false}
+                  notes={gearHeroNotes(state, gear)}
+                  onSell={() => act(sellGear(state, gear.id))}
+                  onStore={() => act(storeGear(state, gear.id))}
+                />
               </li>
             ))}
             {hoard.length === 0 && <li className="text-sm text-muted-foreground">No loose treasure. The ditches are not empty forever.</li>}
@@ -285,7 +300,13 @@ export function ExplorePanel({
             )}
             {(state.vault ?? []).map((gear) => (
               <div key={gear.id} className="rounded-xl bg-background px-3 py-2">
-                <GearRow gear={gear} worn={false} against={wornInSlot(state, gear.slot)} onTake={() => act(takeGear(state, gear.id))} />
+                <GearRow
+                  gear={gear}
+                  worn={false}
+                  against={wornInSlot(state, gear.slot)}
+                  notes={gearHeroNotes(state, gear)}
+                  onTake={() => act(takeGear(state, gear.id))}
+                />
               </div>
             ))}
             {potionIds

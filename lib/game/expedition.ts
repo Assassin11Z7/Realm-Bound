@@ -1,5 +1,6 @@
 import { SEASON_DAYS } from "./content";
 import type { AwaitingSeat, Expedition, GameState, Gear, Outcome, Politics } from "./types";
+import { heroCallSooner } from "./heroes";
 import { carryCap, carriedWeight, gearWeight, wornRelic } from "./world";
 
 /** Dawns between the end of one wagon call and the next. */
@@ -11,6 +12,7 @@ export function expeditionGap(state: GameState): number {
   let gap = EXPEDITION_GAP;
   if ((state.campaign?.realmWorks ?? []).some((work) => work.id === "border")) gap -= BORDER_SOONER;
   if (wornRelic(state, "carter-knot")) gap -= 3;
+  gap -= heroCallSooner(state);
   return Math.max(4, gap);
 }
 /** Dawns after a missed due day when a late fill can still turn the call. */

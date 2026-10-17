@@ -46,9 +46,17 @@ import {
   clearGearFromHeroes,
   fieldHero as sendHero,
   giveGearToLead,
+  heroBandCool,
+  heroCreatureRenown,
+  heroExtraTeach,
   heroFordRenown,
+  heroIreEase,
+  heroRelicBonus,
   heroRoadTeach,
+  heroSaleBonus,
   heroSpec,
+  heroStrengthRenown,
+  heroWagonExtra,
   heroWagonGold,
   maybeRecruit,
   restHero as holdHero,
@@ -198,6 +206,7 @@ export function sellPrice(state: GameState, good: GoodId): number {
   }
   if (state.campaign?.skills.includes("bargain")) price += 1;
   price += purseBonus(state);
+  price += heroSaleBonus(state);
   if (state.tonics?.purse) price += 2;
   const market = state.campaign?.buildings.market ?? 0;
   if (market >= 2) price += 1;
@@ -285,14 +294,14 @@ function considerVictory(state: GameState) {
     state.outcomeRewarded = true;
     const prize = takeExpeditionPrize(state, "triumph");
     if (prize) note(state, prize);
-    const found = awardUniqueRelic(state, "expedition");
+    const found = awardUniqueRelic(state, "expedition", heroRelicBonus(state, "expedition"));
     if (found?.packed) note(state, `${found.gear.name} was under the wagon bench. ${found.gear.line}`);
     else if (found) note(state, `${found.gear.name} was under the wagon bench, and the bag could not take it.`);
     if (wornRelic(state, "carter-knot")) {
       state.player.gold += 6;
       note(state, "Carter's Knot sweetens the drivers' pay by 6 gold.");
     }
-    const heroPay = heroWagonGold(state);
+    const heroPay = heroWagonGold(state) + heroWagonExtra(state);
     if (heroPay > 0) {
       state.player.gold += heroPay;
       note(state, `Heroes on the road sweeten the drivers' pay by ${heroPay} gold.`);
@@ -604,7 +613,7 @@ function runEvening(state: GameState): string[] {
   if (wornRelic(state, "barrow-band")) {
     const bonded = [...state.compact.members].filter((member) => member.inCompact).sort((a, b) => b.contentment - a.contentment)[0];
     if (bonded) {
-      bonded.contentment = Math.max(0, bonded.contentment - 4);
+      bonded.contentment = Math.max(0, bonded.contentment - heroBandCool(state));
       lines.push(`${bonded.name}'s bond cools under the Barrow Band.`);
     }
   }
@@ -1141,7 +1150,7 @@ export function sealDay(state: GameState): Result {
 
   let ireStep = next.works.stake ? IRE_STEP_STAKED : IRE_STEP;
   if (next.campaign?.skills.includes("truce")) ireStep = Math.max(1, ireStep - 1);
-  ireStep = Math.max(1, ireStep - wardBonus(next));
+  ireStep = Math.max(1, ireStep - wardBonus(next) - heroIreEase(next));
   if (wornRelic(next, "barrow-band")) {
     ireStep += 1;
     lines.push("The Barrow Band stirs Vell. Anger climbs one faster.");
@@ -1484,7 +1493,7 @@ export function travel(state: GameState, holdId: HoldId): Result {
     }
   }
   if ((next.tonics?.luck ?? 0) > 0) next.tonics.luck -= 1;
-  const relic = awardUniqueRelic(next, "walk");
+  const relic = awardUniqueRelic(next, "walk", heroRelicBonus(next, "walk"));
   if (relic?.packed) {
     const blurb = relic.gear.relic ? relicSpec(relic.gear.relic)?.blurb : "";
     const spoken = blurb ? `${blurb.charAt(0).toUpperCase()}${blurb.slice(1)}` : "";
@@ -1500,7 +1509,7 @@ export function travel(state: GameState, holdId: HoldId): Result {
   bumpQuest(next, "visit", holdId, 1);
   next.scene = found.scene;
   note(next, found.line);
-  let teach = 3 + (next.campaign?.skills.includes("scholar") ? 2 : 0) + loreBonus(next) + heroRoadTeach(next);
+  let teach = 3 + (next.campaign?.skills.includes("scholar") ? 2 : 0) + loreBonus(next) + heroRoadTeach(next) + heroExtraTeach(next);
   if (wornRelic(next, "ford-bell")) teach += 3;
   grantDeed(next, teach);
   const met = maybeRecruit(next, "walk");
@@ -1603,9 +1612,11 @@ function remembered(result: Result): Result {
 }
 
 export function chooseCrossing(state: GameState, choiceId: string): Result {
+  const answered = Boolean(state.crossing);
   const result = remembered(answerCrossing(state, choiceId));
   if (result.error) return result;
-  const renown = heroFordRenown(result.state);
+  let renown = heroFordRenown(result.state);
+  if (answered) renown += heroCreatureRenown(result.state) + heroStrengthRenown(result.state);
   if (renown > 0) {
     result.state.player.renown += renown;
     result.state.chronicle.push({

@@ -13,6 +13,15 @@ import type {
   Settlement,
 } from "./types";
 import { GOODS, HOLD_IDS } from "./types";
+import {
+  heroAllLoyalty,
+  heroBargainLine,
+  heroBargainRelief,
+  heroHearthSave,
+  heroHomeLoyalty,
+  heroRelicBonus,
+  heroSaltQuiet,
+} from "./heroes";
 import { HALL_LOYALTY, awardUniqueRelic, gainRenown, hallFunded, ownedRelicIds, ownsRelic, pardonReady, spendPardon, worldRng } from "./world";
 
 const HOLDS_OK = new Set<string>(HOLD_IDS);
@@ -1414,8 +1423,25 @@ export function dismissCrossing(state: GameState): Result {
   return ok(next, line);
 }
 
+function easeBargain(state: GameState, effect: Effect): Effect {
+  const cut = heroBargainRelief(state);
+  if (cut <= 0 || (effect.gold ?? 0) >= 0) return effect;
+  const gold = Math.min(0, (effect.gold ?? 0) + cut);
+  const next: Effect = { ...effect };
+  if (gold === 0) delete next.gold;
+  else next.gold = gold;
+  return next;
+}
+
+function noteBargain(state: GameState, before: Effect, after: Effect) {
+  const asked = before.gold ?? 0;
+  const paid = after.gold ?? 0;
+  if (asked >= 0 || paid <= asked) return;
+  note(state, heroBargainLine(state, paid - asked));
+}
+
 function crossingRelicLine(state: GameState): string | null {
-  const found = awardUniqueRelic(state, "crossing");
+  const found = awardUniqueRelic(state, "crossing", heroRelicBonus(state, "crossing"));
   if (!found) return null;
   if (!found.packed) {
     note(state, `${found.gear.name} glinted on the road, and the bag could not take it.`);
@@ -1491,7 +1517,8 @@ export function chooseCrossing(state: GameState, choiceId: string): Result {
   const spec = def?.choices.find((choice) => choice.id === choiceId);
   if (!shown || !def || !spec) return fail(state, "That is not a choice they offer.");
   if (spec.gamble) {
-    const price = afford(state, spec.gamble.stake);
+    const stake = easeBargain(state, spec.gamble.stake);
+    const price = afford(state, stake);
     if (price) return fail(state, price);
     const roll = worldRng((state.seed ^ Math.imul(state.day + 17, 0x45d9f3b) ^ choiceId.length) >>> 0)();
     const won = roll < 0.5;
@@ -1499,7 +1526,8 @@ export function chooseCrossing(state: GameState, choiceId: string): Result {
     const outcome = won ? spec.gamble.win : spec.gamble.lose;
     const next = structuredClone(state);
     const mercy = !won && pardonReady(next);
-    applyEffect(next, spec.gamble.stake);
+    applyEffect(next, stake);
+    noteBargain(next, spec.gamble.stake, stake);
     const marked = mercy
       ? {
           summary: "The Unspoken Hem takes the failed bargain. The harm does not land. It will not do so again until the wagons are called.",
@@ -1514,10 +1542,13 @@ export function chooseCrossing(state: GameState, choiceId: string): Result {
     const relicName = crossingRelicLine(next);
     return ok(next, withRelic(marked.summary, relicName), { face, won });
   }
-  const effect = shown.branch === "alt" && spec.alt ? spec.alt : spec.effect;
+  const raw = shown.branch === "alt" && spec.alt ? spec.alt : spec.effect;
+  const effect = easeBargain(state, raw);
   const price = afford(state, effect);
   if (price) return fail(state, price);
-  return finishChoice(state, `${crossing.id}:${choiceId}`, crossing.creature, choiceId, effect);
+  const result = finishChoice(state, `${crossing.id}:${choiceId}`, crossing.creature, choiceId, effect);
+  if (!result.error) noteBargain(result.state, raw, effect);
+  return result;
 }
 
 export function offerPetition(state: GameState): string | null {
@@ -1572,6 +1603,7 @@ export function tickSettlements(state: GameState): string[] {
     if (settlement.edict === "dole" || settlement.edict === "open-rolls") breadDecay += 1;
     if (settlement.edict === "hearth-rite") hearthDecay += 1;
     if (settlement.edict === "salt-road") hearthDecay = Math.max(0, hearthDecay - 1);
+    if (settlement.holdId === state.player.holdId) hearthDecay = Math.max(0, hearthDecay - heroHearthSave(state));
     const beforeBread = settlement.bread;
     const beforeHearth = settlement.hearth;
     const beforeMood = settlement.mood;
@@ -1588,7 +1620,9 @@ export function tickSettlements(state: GameState): string[] {
       mood += mods.moodDawn;
       souls += mods.soulDawn;
       if (hallFunded(state)) mood += HALL_LOYALTY;
+      mood += heroHomeLoyalty(state);
     }
+    mood += heroAllLoyalty(state);
     if (settlement.edict === "dole") mood += settlement.bread > 0 ? 2 : -4;
     if (settlement.edict === "close-rolls") mood += 1;
     if (settlement.edict === "tithe") mood -= 1;
@@ -1610,7 +1644,7 @@ export function tickSettlements(state: GameState): string[] {
     state.player.gold = Math.max(0, state.player.gold + mods.goldDawn);
     lines.push(mods.goldDawn > 0 ? `${mods.goldDawn} gold finds you at dawn.` : `${-mods.goldDawn} gold leaves at dawn.`);
   }
-  if ((state.settlements ?? []).some((item) => item.edict === "salt-road")) {
+  if ((state.settlements ?? []).some((item) => item.edict === "salt-road") && !heroSaltQuiet(state)) {
     state.wyrm.ire = clamp(state.wyrm.ire + 1, 0, 100);
     lines.push("Salt on the road keeps the frost interested. Vell's anger climbs.");
   }
