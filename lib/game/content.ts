@@ -411,12 +411,16 @@ export const RULES: { title: string; body: string }[] = [
     body: "Every so often the wagons are called. You have twelve dawns to fill them with grain, iron, and salt. Meet the call and a relic comes off the wagons, and often a unique one with it. Miss it and you can fill them late for a few dawns, or let them go and take a lesser spoil. Then they leave, and the call comes again.",
   },
   {
+    title: "Heroes carry the gear",
+    body: "You are the lord. Heroes wear the kit and walk the road. The armory on the Road tab is shared. Missions under Heroes are the sure way to recruit. A rare meeting can still name someone early. Divine figures are the hardest of all.",
+  },
+  {
     title: "Unique relics",
     body: "A walk or a creature crossing may leave a unique relic. Ordinary finds in the ditch stay ordinary. Wear the unique piece, or keep the Salt Charter, and the season itself changes.",
   },
   {
     title: "Where things live",
-    body: "Realm holds the map, bonds, decrees, and the morning status. Hold holds people, loyalty, laws, works, and benches. Neighbors holds oaths, trade, captain orders, and the seats kept for a later war. Road holds the walk, your bag, gear, and loot.",
+    body: "Realm holds the map, bonds, decrees, and the morning status. Hold holds people, loyalty, laws, works, and benches. Heroes holds the roster, the company you send out, and the missions that unlock them. Neighbors holds oaths, trade, captain orders, and the seats kept for a later war. Road holds the walk, your bag, the armory, and loot.",
   },
   {
     title: "Seal the day",

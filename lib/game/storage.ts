@@ -1,5 +1,6 @@
 import { legalTutorial } from "./coach";
 import { normalizeExpedition, normalizePolitics } from "./expedition";
+import { normalizeHeroState } from "./heroes";
 import { emptyBrew } from "./craft";
 import { normalizeCampaign } from "./progress";
 import { normalizeRealm } from "./realm";
@@ -162,6 +163,7 @@ export function parseSave(raw: string): GameState | null {
       value.compact.members.map((member) => member.id).filter((id) => typeof id === "string"),
     );
     normalizeRealm(value);
+    normalizeHeroState(value);
     return value;
   } catch {
     return null;

@@ -14,7 +14,8 @@ import type {
   Threat,
 } from "./types";
 import { HOLD_IDS } from "./types";
-import { bumpQuest, carryCap, carriedWeight, gearWeight, rewardScene, rollGear, worldRng } from "./world";
+import { syncHeroTasks } from "./heroes";
+import { bumpQuest, carryCap, carriedWeight, companyGear, gearWeight, rewardScene, rollGear, worldRng } from "./world";
 
 export const SKILLS: Record<SkillId, { name: string; blurb: string }> = {
   stores: { name: "Deep stores", blurb: "The hold yields one more at every dawn." },
@@ -134,7 +135,7 @@ function missionList(): Mission[] {
     { id: "miles", chapter: 1, title: "Walk three holds", detail: "Miles on the road, not days on the seal.", need: 3, progress: 0, status: "open", rewardGold: 8, rewardXp: 6 },
     { id: "pledge", chapter: 1, title: "Feed the wagons", detail: "Send 8 goods to the wagons with your own hand.", need: 8, progress: 0, status: "open", rewardGold: 6, rewardXp: 4 },
     { id: "level2", chapter: 1, title: "Learn a discipline", detail: "Reach level 2 and choose how you grow.", need: 2, progress: 1, status: "open", rewardGold: 10, rewardXp: 0 },
-    { id: "worn", chapter: 1, title: "Dress for the road", detail: "Wear two pieces at once.", need: 2, progress: 0, status: "open", rewardGold: 5, rewardXp: 4 },
+    { id: "worn", chapter: 1, title: "Dress for the road", detail: "Two pieces worn by heroes who are out on the road.", need: 2, progress: 0, status: "open", rewardGold: 5, rewardXp: 4 },
     { id: "build", chapter: 2, title: "Raise the hold", detail: "Finish one work. It completes at the next dawn.", need: 1, progress: 0, status: "open", rewardGold: 12, rewardXp: 6 },
     { id: "march", chapter: 2, title: "Send a captain", detail: "A march that returns counts. Set the order, then seal the day.", need: 1, progress: 0, status: "open", rewardGold: 8, rewardXp: 6 },
     { id: "day20", chapter: 2, title: "See the second thaw", detail: "Still be sealing dawns on day 20.", need: 20, progress: 1, status: "open", rewardGold: 14, rewardXp: 8 },
@@ -297,7 +298,7 @@ function measured(state: GameState, id: string): number {
     case "level10":
       return camp.level;
     case "worn":
-      return Object.values(state.worn ?? {}).filter(Boolean).length;
+      return companyGear(state).length;
     case "build":
     case "high":
       return maxBuild;
@@ -338,6 +339,7 @@ export function syncCampaign(state: GameState) {
     mission.progress = Math.min(mission.need, measured(state, mission.id));
     if (mission.progress >= mission.need) mission.status = "ready";
   }
+  syncHeroTasks(state, true);
 }
 
 export function finishProject(state: GameState): string[] {
