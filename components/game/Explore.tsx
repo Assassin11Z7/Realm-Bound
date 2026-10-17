@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { holdById } from "@/lib/game/content";
 import { drinkPotion, storeGear, storePotion, takeGear, takePotion } from "@/lib/game/craft";
 import { POTIONS } from "@/lib/game/craft";
-import { claimQuest, equipGear, sellGear, stowGear, travel } from "@/lib/game/engine";
+import { claimQuest, sellGear, travel, unequipFromHero } from "@/lib/game/engine";
+import { fieldedNames, gearBearer, heroFordRenown, heroRoadTeach, heroWagonGold } from "@/lib/game/heroes";
 import { WORN_SLOTS, carryCap, carriedWeight, gearCompare, gearWeight, luckOf, pardonReady, storedWeight, traitText, vaultCap, wornRelic } from "@/lib/game/world";
-import type { Cutscene, GameState, Gear, GearSlot, HoldId, PotionId, Rarity, Result } from "@/lib/game/types";
+import type { Cutscene, GameState, Gear, GearSlot, HoldId, PotionId, Rarity, Result, WornSlot } from "@/lib/game/types";
 
 const RARITY_CLASS: Record<Rarity, string> = {
   common: "text-muted-foreground",
@@ -81,6 +82,7 @@ export function CutsceneView({
 function GearRow({
   gear,
   worn,
+  bearer,
   against,
   onSell,
   onWear,
@@ -89,6 +91,7 @@ function GearRow({
 }: {
   gear: Gear;
   worn: boolean;
+  bearer?: string | null;
   against?: Gear | null;
   onSell?: () => void;
   onWear?: () => void;
@@ -111,14 +114,14 @@ function GearRow({
         <p className="text-xs leading-relaxed text-muted-foreground">{gear.line}</p>
         <p className={`text-xs ${unique ? "text-[#6a4a12]" : "text-muted-foreground"}`}>
           {traitText(gear)} · {gearWeight(gear)} wt
-          {worn ? " · worn" : ""}
+          {bearer ? ` · ${bearer}` : worn ? " · worn" : ""}
         </p>
         {compare && <p className="mt-1 text-xs leading-relaxed text-[#6a4a12]">{compare}</p>}
       </div>
       <div className="flex shrink-0 flex-col gap-1">
         {onWear && (
           <Button type="button" variant="outline" className="h-9" onClick={onWear}>
-            {worn ? "Stow" : "Wear"}
+            {worn ? "Take off" : "Wear"}
           </Button>
         )}
         {onStore && (
@@ -162,22 +165,27 @@ export function ExplorePanel({
   state: GameState;
   holdId: HoldId;
   act: (result: Result) => void;
-  part?: "explore" | "gear" | "loot";
+  part?: "explore" | "armory" | "loot";
 }) {
   const here = state.where ?? state.player.holdId;
   const place = holdById(here);
   const selected = holdById(holdId);
   const standing = holdId === here;
   const wornIds = new Set(Object.values(state.worn ?? {}));
+  const heroWornIds = new Set(
+    (state.heroes ?? []).flatMap((hero) => Object.values(hero.worn ?? {}).filter((id): id is string => Boolean(id))),
+  );
   const potionIds = Object.keys(POTIONS) as PotionId[];
-  const loose = (state.pack ?? []).filter((gear) => !wornIds.has(gear.id));
+  const loose = (state.pack ?? []).filter((gear) => !wornIds.has(gear.id) && !heroWornIds.has(gear.id));
 
-  if (part === "gear") {
+  if (part === "armory") {
+    const names = fieldedNames(state);
     return (
       <div className="flex flex-col gap-4">
         <p className="text-sm text-muted-foreground">
           Luck {luckOf(state)}. Carried {carriedWeight(state)} / {carryCap(state)} weight.
           {(state.tonics?.luck ?? 0) > 0 ? ` Luck drink, ${state.tonics.luck} walks.` : ""}
+          {names.length > 0 ? ` Out: ${names.join(", ")}.` : " No hero is on the road."}
         </p>
         {wornRelic(state, "unspoken-hem") && (
           <p className="text-sm leading-relaxed text-[#6a4a12]">
@@ -187,26 +195,32 @@ export function ExplorePanel({
           </p>
         )}
         <ul className="flex flex-col gap-3">
-          {WORN_SLOTS.filter((slot) => slot !== "hoard").map((slot) => {
-            const gear = (state.pack ?? []).find((item) => item.id === (state.worn ?? {})[slot]);
+          {WORN_SLOTS.map((slot) => {
+            const wornHere = (state.heroes ?? []).flatMap((hero) => {
+              const gearId = hero.worn?.[slot];
+              const gear = (state.pack ?? []).find((item) => item.id === gearId);
+              return gear ? [{ hero, gear }] : [];
+            });
+            const gear = wornHere[0]?.gear;
             const better = bestLoose(state, slot, gear?.id);
             const relicLoose = (state.pack ?? []).find((item) => item.slot === slot && item.relic && item.id !== gear?.id);
             const wornLuck = gear?.luck ?? 0;
             return (
               <li key={slot} className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
                 <p className="text-[11px] tracking-[0.16em] text-[#8d6b2e] uppercase">{slot}</p>
-                {gear ? (
+                {wornHere.length === 0 && <p className="mt-1 text-sm text-muted-foreground">No hero wears this.</p>}
+                {wornHere.map(({ hero, gear: piece }) => (
                   <GearRow
-                    gear={gear}
+                    key={piece.id}
+                    gear={piece}
                     worn
-                    against={gear}
-                    onSell={() => act(sellGear(state, gear.id))}
-                    onWear={() => act(stowGear(state, gear.id))}
-                    onStore={() => act(storeGear(state, gear.id))}
+                    bearer={gearBearer(state, piece.id)?.name ?? hero.id}
+                    against={piece}
+                    onSell={() => act(sellGear(state, piece.id))}
+                    onWear={() => act(unequipFromHero(state, hero.id, slot as WornSlot))}
+                    onStore={() => act(storeGear(state, piece.id))}
                   />
-                ) : (
-                  <p className="mt-1 text-sm text-muted-foreground">Nothing worn.</p>
-                )}
+                ))}
                 {better && !better.relic && (
                   <p className="mt-3 text-sm leading-relaxed">
                     In the pack, {better.name} is luck {better.luck}
@@ -222,7 +236,8 @@ export function ExplorePanel({
           })}
         </ul>
         <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
-          <p className="font-display text-xl">Ready to wear</p>
+          <p className="font-display text-xl">In the armory</p>
+          <p className="mt-1 text-sm text-muted-foreground">Loose kit. Assign it from Heroes, then Company.</p>
           <ul className="mt-3 flex flex-col gap-3">
             {loose.filter((gear) => gear.slot !== "hoard").map((gear) => (
               <li key={gear.id} className="rounded-xl bg-background px-3 py-2">
@@ -231,13 +246,12 @@ export function ExplorePanel({
                   worn={false}
                   against={wornInSlot(state, gear.slot)}
                   onSell={() => act(sellGear(state, gear.id))}
-                  onWear={() => act(equipGear(state, gear.id))}
                   onStore={() => act(storeGear(state, gear.id))}
                 />
               </li>
             ))}
             {loose.every((gear) => gear.slot === "hoard") && (
-              <li className="text-sm text-muted-foreground">No spare cloak, weapon, or charm. Treasures sit under Loot.</li>
+              <li className="text-sm text-muted-foreground">No spare cloak, weapon, or charm. Treasures sit under Loot. The strongroom does too.</li>
             )}
           </ul>
         </div>
@@ -326,6 +340,12 @@ export function ExplorePanel({
         <p className="mt-1 font-display text-2xl">{place.name}</p>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
           Luck on the road {luckOf(state)}. Miles walked {state.miles ?? 0}.
+          {fieldedNames(state).length > 0
+            ? ` ${fieldedNames(state).join(", ")} ${fieldedNames(state).length === 1 ? "walks" : "walk"} with the gear.`
+            : " No hero is out, so the road has only what was left worn."}
+          {heroRoadTeach(state) > 0 ? ` Walks teach +${heroRoadTeach(state)}.` : ""}
+          {heroFordRenown(state) > 0 ? ` Crossings grant +${heroFordRenown(state)} renown.` : ""}
+          {heroWagonGold(state) > 0 ? ` A successful call pays +${heroWagonGold(state)} gold.` : ""}
         </p>
         <Button type="button" className="mt-4 h-11 w-full" disabled={standing} onClick={() => act(travel(state, holdId))}>
           {standing ? "You stand here" : `Walk to ${selected.name}`}

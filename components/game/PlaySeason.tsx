@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, CircleHelp, Ellipsis, House, Map, Route, Users } from "lucide-react";
+import { BookOpen, CircleHelp, Ellipsis, House, Map, Route, Swords, Users } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -59,7 +59,7 @@ import {
 } from "@/lib/game/engine";
 import { COACH, dawnsLeftLabel, whatNow } from "@/lib/game/coach";
 import { allianceBoard, expeditionDue, wagonsOpen } from "@/lib/game/expedition";
-import type { GameState, GoodId, HoldId, LevyGood, Result } from "@/lib/game/types";
+import type { GameState, GoodId, HeroId, HoldId, LevyGood, Result } from "@/lib/game/types";
 import { GOODS, LEVY_GOODS } from "@/lib/game/types";
 import { GoodThumb, Portrait } from "./art";
 import { useFrame } from "./frame";
@@ -69,17 +69,19 @@ import { bandYieldNote } from "@/lib/game/world";
 import { CaptainOrders, HoldWorks, MissionList, SkillDialog, ThreatCard } from "./Campaign";
 import { CraftBench } from "./Craft";
 import { CutsceneView, ExplorePanel } from "./Explore";
+import { HeroesPanel } from "./Heroes";
 import { FateRoll, OathRow, OmenDialog, WorksCard, WyrmCard } from "./Myth";
 import { CrossingDialog, MarksCard, PeoplePanel, PetitionCard } from "./Rule";
 import { peopleTrouble } from "@/lib/game/realm";
 import { HoldBrief, RealmMap } from "./RealmMap";
 
-type Tab = "realm" | "hold" | "compact" | "road";
+type Tab = "realm" | "hold" | "heroes" | "compact" | "road";
 type Amount = 1 | 5 | "all";
 
 const TABS: { id: Tab; label: string; icon: typeof Map }[] = [
   { id: "realm", label: "Realm", icon: Map },
   { id: "hold", label: "Hold", icon: House },
+  { id: "heroes", label: "Heroes", icon: Swords },
   { id: "compact", label: "Neighbors", icon: Users },
   { id: "road", label: "Road", icon: Route },
 ];
@@ -98,6 +100,11 @@ const SECTIONS: Record<Tab, { id: string; label: string }[]> = {
     { id: "works", label: "Works" },
     { id: "craft", label: "Craft" },
   ],
+  heroes: [
+    { id: "roster", label: "Roster" },
+    { id: "company", label: "Company" },
+    { id: "missions", label: "Missions" },
+  ],
   compact: [
     { id: "oaths", label: "Oaths" },
     { id: "trade", label: "Trade" },
@@ -107,7 +114,7 @@ const SECTIONS: Record<Tab, { id: string; label: string }[]> = {
   road: [
     { id: "explore", label: "Explore" },
     { id: "bag", label: "Bag" },
-    { id: "gear", label: "Gear" },
+    { id: "armory", label: "Armory" },
     { id: "loot", label: "Loot" },
   ],
 };
@@ -158,6 +165,21 @@ const INTRO: Record<string, { eyebrow: string; title: string; lede: string }> = 
     title: "Benches",
     lede: "Forge, brew house, and loom. A bench works only after you have raised it.",
   },
+  roster: {
+    eyebrow: "Heroes",
+    title: "The roster",
+    lede: "Unlocked heroes are in color. Locked ones are the black outline of themselves. Missions are the sure way to bring them in.",
+  },
+  company: {
+    eyebrow: "Heroes",
+    title: "The company",
+    lede: "Send more than one hero onto the road. Gear from the armory changes how that hero walks, crosses, and comes home.",
+  },
+  missions: {
+    eyebrow: "Heroes",
+    title: "Missions",
+    lede: "Ordinary errands, longer legendary labors, and the long divine chains. Finish the open step and the hero is yours.",
+  },
   oaths: {
     eyebrow: "Neighbors",
     title: "Oathbound",
@@ -186,12 +208,12 @@ const INTRO: Record<string, { eyebrow: string; title: string; lede: string }> = 
   bag: {
     eyebrow: "Road",
     title: "Your bag",
-    lede: "What you carry. Send it to the shared stores, or, if the wagons take it, to the road.",
+    lede: "Goods you carry. The armory, beside this, holds gear for heroes.",
   },
-  gear: {
+  armory: {
     eyebrow: "Road",
-    title: "Gear",
-    lede: "What you wear, set beside the best piece still in the pack.",
+    title: "Armory",
+    lede: "The shared kit. Store it, sell it, or take it back from a hero. Equipping is done under Heroes.",
   },
   loot: {
     eyebrow: "Road",
@@ -214,6 +236,7 @@ function initialSections(step: string | null | undefined): Record<Tab, string> {
   return {
     realm: step === "wagons" || step === "anger" ? "status" : step === "creatures" ? "bonds" : "map",
     hold: "people",
+    heroes: "roster",
     compact: step === "neighbors" || step === "wagons-take" ? "trade" : "oaths",
     road: "explore",
   };
@@ -239,6 +262,7 @@ export function PlaySeason({
   const [sections, setSections] = useState<Record<Tab, string>>(() => initialSections(state.tutorial?.step));
   const [amount, setAmount] = useState<Amount>(1);
   const [holdId, setHoldId] = useState<HoldId>(state.player.holdId);
+  const [heroFocus, setHeroFocus] = useState<HeroId>("sela");
   const [toast, setToast] = useState<{ tone: "good" | "bad"; text: string } | null>(null);
   const [help, setHelp] = useState(false);
   const [chronicle, setChronicle] = useState(false);
@@ -452,6 +476,19 @@ export function PlaySeason({
               </>
             )}
             {tab === "hold" && section === "craft" && <CraftBench state={state} act={act} />}
+            {tab === "heroes" && (
+              <HeroesPanel
+                state={state}
+                act={act}
+                part={section === "company" || section === "missions" ? section : "roster"}
+                focus={heroFocus}
+                onFocus={setHeroFocus}
+                onOpen={(id, unlocked) => {
+                  setHeroFocus(id);
+                  go("heroes", unlocked ? "company" : "missions");
+                }}
+              />
+            )}
             {tab === "compact" && section === "oaths" && <OathPanel state={state} act={act} onGift={setGiftFor} />}
             {tab === "compact" && section === "trade" && (
               <TradePanel state={state} amount={amount} onAmount={setAmount} act={act} resolveQty={resolveQty} />
@@ -467,7 +504,7 @@ export function PlaySeason({
             {tab === "road" && section === "bag" && (
               <BagPanel state={state} amount={amount} onAmount={setAmount} act={act} resolveQty={resolveQty} move={move} />
             )}
-            {tab === "road" && section === "gear" && <ExplorePanel state={state} holdId={holdId} act={act} part="gear" />}
+            {tab === "road" && section === "armory" && <ExplorePanel state={state} holdId={holdId} act={act} part="armory" />}
             {tab === "road" && section === "loot" && <ExplorePanel state={state} holdId={holdId} act={act} part="loot" />}
           </div>
         </div>
@@ -503,7 +540,7 @@ export function PlaySeason({
           {wagonsOpen(state) && state.day === expeditionDue(state) ? "Seal the expedition's last dawn" : "Seal the day"}
         </Button>
       </div>
-      <nav className="mt-2 grid shrink-0 grid-cols-4 border-t border-border pb-[max(0.25rem,env(safe-area-inset-bottom))]">
+      <nav className="mt-2 grid shrink-0 grid-cols-5 border-t border-border pb-[max(0.25rem,env(safe-area-inset-bottom))]">
         {TABS.map((item) => {
           const Icon = item.icon;
           const active = tab === item.id;
@@ -514,13 +551,16 @@ export function PlaySeason({
               data-coach={`tab-${item.id}`}
               aria-current={active ? "page" : undefined}
               onClick={() => setTab(item.id)}
-              className={`relative flex min-h-14 flex-col items-center justify-center gap-1 text-xs ${active ? "text-primary" : "text-muted-foreground"}`}
+              className={`relative flex min-h-14 flex-col items-center justify-center gap-1 px-0.5 text-[10px] leading-none ${active ? "text-primary" : "text-muted-foreground"}`}
             >
               <Icon className="size-5" />
               {item.label}
               {item.id === "compact" && trouble && <span className="absolute top-2 right-[30%] size-2 rounded-full bg-primary" />}
               {item.id === "hold" && peopleTrouble(state) && <span className="absolute top-2 right-[30%] size-2 rounded-full bg-primary" />}
               {item.id === "road" && state.caravan && <span className="absolute top-2 right-[30%] size-2 rounded-full bg-gold" />}
+              {item.id === "heroes" && (state.heroes ?? []).some((hero) => hero.unlocked && !hero.fielded) && (
+                <span className="absolute top-2 right-[30%] size-2 rounded-full bg-primary" />
+              )}
             </button>
           );
         })}
@@ -759,6 +799,8 @@ function sectionAlert(state: GameState, tab: Tab, id: string): boolean {
   if (tab === "compact" && id === "trade") return state.npcOffers.length > 0;
   if (tab === "road" && id === "explore") return Boolean(state.caravan);
   if (tab === "road" && id === "loot") return (state.quests ?? []).some((quest) => quest.status === "ready");
+  if (tab === "heroes" && id === "roster") return (state.heroes ?? []).some((hero) => hero.unlocked && !hero.fielded);
+  if (tab === "heroes" && id === "missions") return (state.heroTasks ?? []).some((task) => task.status === "open" && task.progress > 0);
   return false;
 }
 
