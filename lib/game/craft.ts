@@ -1,3 +1,4 @@
+import { clearGearFromHeroes } from "./heroes";
 import type { BuildingId, GameState, GoodId, PotionId, RealmBench, Result } from "./types";
 import { finishProject, grantXp, syncCampaign } from "./progress";
 import { carryCap, carriedWeight, gearWeight, isRelicName, makePiece, storedWeight, vaultCap } from "./world";
@@ -142,11 +143,7 @@ export function storeGear(state: GameState, gearId: string): Result {
   if (storedWeight(state) + gearWeight(gear) > vaultCap(state)) return fail(state, "The strongroom cannot take the weight.");
   const next = structuredClone(state);
   next.pack = (next.pack ?? []).filter((item) => item.id !== gearId);
-  if ((next.worn ?? {})[gear.slot] === gearId) {
-    const worn = { ...(next.worn ?? {}) };
-    delete worn[gear.slot];
-    next.worn = worn;
-  }
+  clearGearFromHeroes(next, gearId);
   next.vault = [...(next.vault ?? []), gear];
   note(next, gear.relic ? `You lock ${gear.name} in the strongroom. The season still knows its name.` : `You lock ${gear.name} in the strongroom.`);
   return ok(next, `${gear.name} is stored.`);

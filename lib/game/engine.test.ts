@@ -33,8 +33,11 @@ import {
   dismissCrossing,
   dismissOutcome,
   equipGear,
+  equipOnHero,
   releaseExpedition,
+  restHeroAtHold,
   sellGear,
+  sendHeroOut,
   setEdict,
   stockSettlement,
   stowGear,
@@ -1112,4 +1115,78 @@ test("unique relics stay out of ordinary finds and change the season when kept",
 
   const round = parseSave(JSON.stringify(chartered));
   assert.equal(round?.pack.find((gear) => gear.id === "charter")?.relic, "salt-charter");
+});
+
+test("heroes wear the gear, and missions unlock the roster", () => {
+  const start = createGame(setup());
+  const sela = start.heroes.find((hero) => hero.id === "sela");
+  assert.equal(sela?.unlocked, true);
+  assert.equal(sela?.fielded, true);
+  assert.equal(sela?.worn.cloak, "gear-start-cloak");
+  assert.equal(start.heroes.filter((hero) => hero.unlocked).length, 1);
+  assert.equal(start.heroes.find((hero) => hero.id === "zeus")?.unlocked, false);
+  assert.equal(start.heroes.find((hero) => hero.id === "athena")?.unlocked, false);
+  assert.equal(start.heroes.find((hero) => hero.id === "odin")?.unlocked, false);
+  assert.equal(luckOf(start), 1);
+  assert.equal(start.heroTasks.find((task) => task.id === "sela-sworn")?.status, "claimed");
+  assert.equal(start.heroTasks.find((task) => task.id === "tam-walk")?.status, "open");
+
+  const denied = equipOnHero(start, "zeus", "gear-start-cloak");
+  assert.ok(denied.error);
+  assert.equal(start.heroes.find((hero) => hero.id === "sela")?.worn.cloak, "gear-start-cloak");
+
+  let state = start;
+  state.miles = 6;
+  state.player.renown = 8;
+  state.campaign.buildings.yard = 1;
+  state = sealDay(state).state;
+  assert.equal(state.heroes.find((hero) => hero.id === "tam")?.unlocked, true);
+  assert.equal(state.heroes.find((hero) => hero.id === "dorrie")?.unlocked, true);
+  assert.equal(state.heroes.find((hero) => hero.id === "bran")?.unlocked, true);
+  assert.equal(state.heroes.find((hero) => hero.id === "odysseus")?.unlocked, false);
+  assert.equal(state.heroTasks.find((task) => task.id === "odysseus-miles")?.status, "claimed");
+  assert.equal(state.heroTasks.find((task) => task.id === "odysseus-call")?.status, "open");
+  assert.equal(state.heroes.find((hero) => hero.id === "heracles")?.unlocked, false);
+  assert.equal(state.heroes.find((hero) => hero.id === "moth")?.unlocked, false);
+
+  state.campaign.buildings.forge = 1;
+  state.player.stash.iron += 2;
+  const made = craft(state, "knife");
+  assert.equal(made.error, undefined);
+  const knife = made.state.pack.find((gear) => gear.name === "Road knife");
+  assert.ok(knife);
+  const armed = equipOnHero(made.state, "tam", knife.id);
+  assert.equal(armed.error, undefined);
+  assert.equal(armed.state.heroes.find((hero) => hero.id === "tam")?.worn.hand, knife.id);
+  assert.equal(luckOf(armed.state), 1);
+  const sent = sendHeroOut(armed.state, "tam");
+  assert.equal(sent.error, undefined);
+  assert.ok(luckOf(sent.state) >= 2);
+  const crowded = sendHeroOut(sendHeroOut(sent.state, "dorrie").state, "bran");
+  assert.ok(crowded.error);
+
+  const rested = restHeroAtHold(sent.state, "sela");
+  assert.equal(rested.error, undefined);
+  assert.equal(luckOf(rested.state), knife.luck);
+  const back = sendHeroOut(rested.state, "sela");
+  assert.equal(back.error, undefined);
+  assert.ok(luckOf(back.state) >= knife.luck + 1);
+
+  const parsed = parseSave(JSON.stringify(back.state));
+  assert.equal(parsed?.heroes.find((hero) => hero.id === "tam")?.unlocked, true);
+  assert.equal(parsed?.heroes.find((hero) => hero.id === "tam")?.worn.hand, knife.id);
+  assert.equal(parsed?.heroes.find((hero) => hero.id === "sela")?.fielded, true);
+  assert.equal(parsed?.triumphs, 0);
+
+  const called = createGame(setup());
+  called.player.stash.grain += 30;
+  called.player.stash.iron += 20;
+  called.player.stash.salt += 20;
+  let held = pledgePersonal(called, "grain", 20).state;
+  held = pledgePersonal(held, "iron", 12).state;
+  held = pledgePersonal(held, "salt", 10).state;
+  assert.equal(held.outcome, "held");
+  assert.equal(held.triumphs, 1);
+  assert.equal(held.heroes.find((hero) => hero.id === "ivy")?.unlocked, true);
+  assert.equal(held.heroes.find((hero) => hero.id === "heracles")?.unlocked, false);
 });

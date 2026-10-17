@@ -40,6 +40,21 @@ import {
 } from "./content";
 import { nextTutorialStep } from "./coach";
 import { emptyBrew } from "./craft";
+import {
+  blankHeroRoster,
+  blankHeroTasks,
+  clearGearFromHeroes,
+  fieldHero as sendHero,
+  giveGearToLead,
+  heroFordRenown,
+  heroRoadTeach,
+  heroSpec,
+  heroWagonGold,
+  maybeRecruit,
+  restHero as holdHero,
+  unequipHero as stripHero,
+  equipHero as armHero,
+} from "./heroes";
 import { applyDawnProgress, blankCampaign, grantXp, syncCampaign } from "./progress";
 import {
   blankSettlements,
@@ -87,10 +102,12 @@ import type {
   FactionId,
   GameState,
   GoodId,
+  HeroId,
   HoldId,
   LevyGood,
   Member,
   NewGameSetup,
+  WornSlot,
   PlayerOffer,
   Result,
   Stash,
@@ -275,6 +292,14 @@ function considerVictory(state: GameState) {
       state.player.gold += 6;
       note(state, "Carter's Knot sweetens the drivers' pay by 6 gold.");
     }
+    const heroPay = heroWagonGold(state);
+    if (heroPay > 0) {
+      state.player.gold += heroPay;
+      note(state, `Heroes on the road sweeten the drivers' pay by ${heroPay} gold.`);
+    }
+    state.triumphs = (state.triumphs ?? 0) + 1;
+    const met = maybeRecruit(state, "expedition");
+    if (met) note(state, met);
   }
 }
 
@@ -764,6 +789,9 @@ export function createGame(setup: NewGameSetup): GameState {
     tonics: { luck: 0, purse: false },
     worn: {},
     quests: [],
+    heroes: [],
+    heroTasks: [],
+    triumphs: 0,
     scene: null,
     campaign: blankCampaign([]),
     tutorial: { step: "wagons" },
@@ -775,6 +803,9 @@ export function createGame(setup: NewGameSetup): GameState {
   const cloak = starterCloak();
   state.pack = [cloak];
   state.worn = { cloak: cloak.id };
+  state.heroes = blankHeroRoster(cloak.id);
+  state.heroTasks = blankHeroTasks();
+  state.triumphs = 0;
   state.quests = openingQuests(state.seed, setup.holdId);
   state.scene = openingScene(name || "Ash", hold.name);
   state.campaign = blankCampaign(state.compact.members.map((member) => member.id));
@@ -1469,11 +1500,13 @@ export function travel(state: GameState, holdId: HoldId): Result {
   bumpQuest(next, "visit", holdId, 1);
   next.scene = found.scene;
   note(next, found.line);
-  let teach = 3 + (next.campaign?.skills.includes("scholar") ? 2 : 0) + loreBonus(next);
+  let teach = 3 + (next.campaign?.skills.includes("scholar") ? 2 : 0) + loreBonus(next) + heroRoadTeach(next);
   if (wornRelic(next, "ford-bell")) teach += 3;
   grantDeed(next, teach);
+  const met = maybeRecruit(next, "walk");
+  if (met) note(next, met);
   const walked = relic?.packed ? `${found.line} ${relic.gear.name} came with you.` : found.line;
-  return ok(next, walked);
+  return ok(next, met ? `${walked} ${met}` : walked);
 }
 
 export function advanceTutorial(state: GameState): Result {
@@ -1503,11 +1536,7 @@ export function sellGear(state: GameState, gearId: string): Result {
   if (!gear) return fail(state, "That is not in the pack.");
   const next = draft(state);
   next.pack = (next.pack ?? []).filter((item) => item.id !== gearId);
-  if ((next.worn ?? {})[gear.slot] === gearId) {
-    const worn = { ...(next.worn ?? {}) };
-    delete worn[gear.slot];
-    next.worn = worn;
-  }
+  clearGearFromHeroes(next, gearId);
   next.player.gold += gear.worth;
   note(next, `You sell ${gear.name} for ${gear.worth} gold.`);
   syncCampaign(next);
@@ -1517,10 +1546,14 @@ export function sellGear(state: GameState, gearId: string): Result {
 export function equipGear(state: GameState, gearId: string): Result {
   const gear = (state.pack ?? []).find((item) => item.id === gearId);
   if (!gear) return fail(state, "That is not in the pack.");
-  if (gear.slot === "hoard") return fail(state, "Treasures stay in the pack. Sell them when you need the coin.");
+  const slot = gear.slot;
+  if (slot === "hoard") return fail(state, "Treasures stay in the pack. Sell them when you need the coin.");
   const next = draft(state);
-  next.worn = { ...(next.worn ?? {}), [gear.slot]: gear.id };
-  note(next, `You wear ${gear.name}. Luck on the road is ${luckOf(next)}.`);
+  giveGearToLead(next, gear);
+  next.worn = { ...(next.worn ?? {}), [slot]: gear.id };
+  const bearer = (next.heroes ?? []).find((hero) => hero.fielded && hero.worn?.[slot] === gear.id);
+  const who = bearer ? heroSpec(bearer.id).name : "The armory";
+  note(next, `${who} wears ${gear.name}. Luck on the road is ${luckOf(next)}.`);
   syncCampaign(next);
   return ok(next, `${gear.name} is worn.`);
 }
@@ -1530,9 +1563,7 @@ export function stowGear(state: GameState, gearId: string): Result {
   if (!gear) return fail(state, "That is not in the pack.");
   if ((state.worn ?? {})[gear.slot] !== gear.id) return fail(state, "That is already in the pack.");
   const next = draft(state);
-  const worn = { ...(next.worn ?? {}) };
-  delete worn[gear.slot];
-  next.worn = worn;
+  clearGearFromHeroes(next, gearId);
   note(next, `You stow ${gear.name}. Luck on the road is ${luckOf(next)}.`);
   syncCampaign(next);
   return ok(next, `${gear.name} is stowed.`);
@@ -1572,7 +1603,53 @@ function remembered(result: Result): Result {
 }
 
 export function chooseCrossing(state: GameState, choiceId: string): Result {
-  return remembered(answerCrossing(state, choiceId));
+  const result = remembered(answerCrossing(state, choiceId));
+  if (result.error) return result;
+  const renown = heroFordRenown(result.state);
+  if (renown > 0) {
+    result.state.player.renown += renown;
+    result.state.chronicle.push({
+      id: result.state.nextId++,
+      day: result.state.day,
+      text: `A geared hero stands at the crossing. Renown rises by ${renown}.`,
+    });
+    if (result.state.chronicle.length > 60) result.state.chronicle.splice(0, result.state.chronicle.length - 60);
+  }
+  const met = maybeRecruit(result.state, "crossing");
+  if (met) {
+    result.state.chronicle.push({
+      id: result.state.nextId++,
+      day: result.state.day,
+      text: met,
+    });
+    if (result.state.chronicle.length > 60) result.state.chronicle.splice(0, result.state.chronicle.length - 60);
+    result.message = result.message ? `${result.message} ${met}` : met;
+  }
+  return result;
+}
+
+export function equipOnHero(state: GameState, heroId: HeroId, gearId: string): Result {
+  const result = armHero(state, heroId, gearId);
+  if (!result.error) syncCampaign(result.state);
+  return result;
+}
+
+export function unequipFromHero(state: GameState, heroId: HeroId, slot: WornSlot): Result {
+  const result = stripHero(state, heroId, slot);
+  if (!result.error) syncCampaign(result.state);
+  return result;
+}
+
+export function sendHeroOut(state: GameState, heroId: HeroId): Result {
+  const result = sendHero(state, heroId);
+  if (!result.error) syncCampaign(result.state);
+  return result;
+}
+
+export function restHeroAtHold(state: GameState, heroId: HeroId): Result {
+  const result = holdHero(state, heroId);
+  if (!result.error) syncCampaign(result.state);
+  return result;
 }
 
 export function dismissCrossing(state: GameState): Result {

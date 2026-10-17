@@ -1,5 +1,5 @@
 import { HOLDS, WYRM_NAME, holdById } from "./content";
-import type { Cutscene, GameState, Gear, GearSlot, HoldId, Quest, QuestKind, Rarity, RelicId } from "./types";
+import type { Cutscene, GameState, Gear, GearSlot, HoldId, Quest, QuestKind, Rarity, RelicId, WornSlot } from "./types";
 
 export function worldRng(seed: number) {
   let a = seed >>> 0;
@@ -15,7 +15,7 @@ export function worldRng(seed: number) {
 export const CARRY_BASE = 120;
 export const VAULT_BASE = 240;
 
-export const WORN_SLOTS: GearSlot[] = ["hand", "cloak", "charm", "ring"];
+export const WORN_SLOTS: WornSlot[] = ["hand", "cloak", "charm", "ring"];
 
 type Piece = { name: string; slot: GearSlot; trait: Gear["trait"]; line: string };
 
@@ -183,13 +183,7 @@ export function ownedRelicIds(state: GameState): RelicId[] {
 }
 
 export function wornRelic(state: GameState, id: RelicId): boolean {
-  const worn = state.worn ?? {};
-  for (const gearId of Object.values(worn)) {
-    if (!gearId) continue;
-    const gear = (state.pack ?? []).find((item) => item.id === gearId);
-    if (gear?.relic === id) return true;
-  }
-  return false;
+  return companyGear(state).some((gear) => gear.relic === id);
 }
 
 export function ownsRelic(state: GameState, id: RelicId): boolean {
@@ -361,12 +355,27 @@ export function traitText(gear: Gear): string {
   return `Luck ${gear.luck} · sell ${gear.worth}g`;
 }
 
+/** Gear that is actually on the road: the legacy worn map, plus every piece on a fielded hero. */
+export function companyGear(state: GameState): Gear[] {
+  const seen = new Set<string>();
+  const found: Gear[] = [];
+  const add = (id: string | undefined) => {
+    if (!id || seen.has(id)) return;
+    const gear = (state.pack ?? []).find((item) => item.id === id);
+    if (!gear) return;
+    seen.add(id);
+    found.push(gear);
+  };
+  for (const id of Object.values(state.worn ?? {})) add(id);
+  for (const hero of state.heroes ?? []) {
+    if (!hero.fielded) continue;
+    for (const id of Object.values(hero.worn ?? {})) add(id);
+  }
+  return found;
+}
+
 function wornGear(state: GameState): Gear[] {
-  const worn = state.worn ?? {};
-  return Object.values(worn)
-    .filter((id): id is string => Boolean(id))
-    .map((id) => (state.pack ?? []).find((item) => item.id === id))
-    .filter((item): item is Gear => Boolean(item));
+  return companyGear(state);
 }
 
 function ordinaryTrait(state: GameState, trait: Gear["trait"]): number {
@@ -397,12 +406,7 @@ export function fillGear(gear: Gear): Gear {
 
 export function luckOf(state: GameState): number {
   let luck = 0;
-  const worn = state.worn ?? {};
-  for (const id of Object.values(worn)) {
-    if (!id) continue;
-    const gear = (state.pack ?? []).find((item) => item.id === id);
-    if (gear) luck += gear.luck;
-  }
+  for (const gear of companyGear(state)) luck += gear.luck;
   if (state.campaign?.skills.includes("step")) luck += 1;
   if ((state.tonics?.luck ?? 0) > 0) luck += 2;
   luck += smithLuck(state);
@@ -539,7 +543,7 @@ export function openingScene(name: string, holdName: string): Cutscene {
       },
       {
         speaker: name,
-        line: "Then we walk. The holds are uneven, and the pack is still light.",
+        line: "Then we walk. Sela of the Gate carries the cloak. The holds are uneven, and the pack is still light.",
         art: "/art/hall.jpg",
       },
     ],

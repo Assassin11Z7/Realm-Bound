@@ -127,7 +127,59 @@ export interface Rumor {
 }
 
 export type GearSlot = "hand" | "cloak" | "charm" | "ring" | "hoard";
+export type WornSlot = Exclude<GearSlot, "hoard">;
 export type Rarity = "common" | "uncanny" | "relic";
+
+export const HERO_IDS = [
+  "sela",
+  "tam",
+  "bran",
+  "dorrie",
+  "moth",
+  "ivy",
+  "heracles",
+  "odysseus",
+  "beowulf",
+  "theseus",
+  "athena",
+  "odin",
+  "zeus",
+] as const;
+export type HeroId = (typeof HERO_IDS)[number];
+export type HeroRarity = "common" | "uncanny" | "legendary" | "divine";
+export type HeroTaskKind =
+  | "miles"
+  | "triumphs"
+  | "build-max"
+  | "build-sum"
+  | "build-count"
+  | "build-high"
+  | "renown"
+  | "mood"
+  | "mood-all"
+  | "marks"
+  | "bonds";
+
+export interface HeroRecord {
+  id: HeroId;
+  unlocked: boolean;
+  fielded: boolean;
+  worn: Partial<Record<WornSlot, string>>;
+}
+
+export interface HeroTask {
+  id: string;
+  heroId: HeroId;
+  chain: number;
+  title: string;
+  detail: string;
+  kind: HeroTaskKind;
+  need: number;
+  /** Threshold inside a kind, such as mood or building level. */
+  mark: number;
+  progress: number;
+  status: QuestStatus;
+}
 export type GearTrait = "luck" | "purse" | "ward" | "lore";
 export type RelicId = "unspoken-hem" | "barrow-band" | "salt-charter" | "carter-knot" | "ford-bell";
 
@@ -426,6 +478,11 @@ export interface GameState {
   tonics: Tonics;
   worn: Partial<Record<GearSlot, string>>;
   quests: Quest[];
+  /** Heroes who carry gear and walk the road. The lord does not. */
+  heroes: HeroRecord[];
+  heroTasks: HeroTask[];
+  /** Successful wagon calls (held or held late). */
+  triumphs: number;
   scene: Cutscene | null;
   campaign: Campaign;
   tutorial: Tutorial;
