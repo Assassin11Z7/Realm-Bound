@@ -725,6 +725,67 @@ interface FieldKit {
   gear: Gear[];
 }
 
+export interface HeroGate {
+  /** Any one of these, fielded and wearing gear, opens the ready outcome. */
+  ids: HeroId[];
+  /** Any one of these, fielded and wearing gear, opens the strongest outcome. */
+  best?: HeroId[];
+  /** At the hold and wearing gear. Opens the ready outcome, short of the strongest. */
+  stationed?: HeroId[];
+  /** Any fielded hero who is wearing gear opens the ready outcome. */
+  company?: boolean;
+}
+
+export type HeroPosture = "best" | "ready" | "stationed" | "none";
+
+/** Where a hero stands for a political ask. Gear is required for out and hold. */
+export function heroWhere(state: GameState, id: HeroId): "out" | "hold" | "bare" | "away" {
+  const hero = (state.heroes ?? []).find((item) => item.id === id);
+  if (!hero?.unlocked) return "away";
+  const geared = wearsAnyGear(state, hero);
+  if (hero.fielded && geared) return "out";
+  if (!hero.fielded && geared) return "hold";
+  return "bare";
+}
+
+export function heroPosture(state: GameState, gate: HeroGate): HeroPosture {
+  const out = new Set(fieldKits(state).map((kit) => kit.id));
+  if (gate.best?.some((id) => out.has(id))) return "best";
+  if (gate.ids.some((id) => out.has(id))) return "ready";
+  if (gate.company && out.size > 0) return "ready";
+  if (gate.stationed?.some((id) => heroWhere(state, id) === "hold")) return "stationed";
+  return "none";
+}
+
+export function heroPostureWho(state: GameState, gate: HeroGate): string | null {
+  const out = fieldKits(state).map((kit) => kit.id);
+  const posture = heroPosture(state, gate);
+  let id: HeroId | undefined;
+  if (posture === "best") id = gate.best?.find((hero) => out.includes(hero));
+  else if (posture === "ready") id = gate.ids.find((hero) => out.includes(hero)) ?? (gate.company ? out[0] : undefined);
+  else if (posture === "stationed") id = gate.stationed?.find((hero) => heroWhere(state, hero) === "hold");
+  return id ? heroSpec(id).name : null;
+}
+
+/** Extra bond when a border path clears and Theseus is out and wearing gear. */
+export function heroBorderSeal(state: GameState): number {
+  return fieldKits(state).some((kit) => kit.id === "theseus") ? 6 : 0;
+}
+
+export function borderPathRead(state: GameState): { met: boolean; line: string } {
+  const met = heroBorderSeal(state) > 0;
+  if (met) {
+    return {
+      met,
+      line: "Now. Theseus is out and wearing gear, so that bond gains 6 more on the dawn the path clears. If he is at the hold that dawn, the warmth stays ordinary.",
+    };
+  }
+  return {
+    met,
+    line: "Wants Theseus fielded and wearing gear on the dawn the path clears. Now the bond gains only the ordinary warmth. With him out and geared that dawn, it gains 6 more.",
+  };
+}
+
 function fieldKits(state: GameState): FieldKit[] {
   const kits: FieldKit[] = [];
   for (const hero of state.heroes ?? []) {

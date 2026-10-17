@@ -19,8 +19,12 @@ import {
   heroBargainRelief,
   heroHearthSave,
   heroHomeLoyalty,
+  heroPosture,
+  heroPostureWho,
   heroRelicBonus,
   heroSaltQuiet,
+  heroWhere,
+  type HeroGate,
 } from "./heroes";
 import { HALL_LOYALTY, awardUniqueRelic, gainRenown, hallFunded, ownedRelicIds, ownsRelic, pardonReady, spendPardon, worldRng } from "./world";
 
@@ -52,6 +56,11 @@ interface Effect {
   bread?: number;
   hearth?: number;
   allMood?: number;
+  /** One sworn neighbor, the coolest bond. */
+  bond?: number;
+  bondNote?: string;
+  /** Conflict heat on the seats. */
+  heat?: number;
   edict?: EdictId;
   target?: "home" | "weakest" | "all";
   lasting?: Lasting;
@@ -63,11 +72,15 @@ interface ChoiceDef {
   label: string;
   detail: string;
   altDetail?: string;
+  bestDetail?: string;
   altIf?: string[];
   altIfPasses?: number;
   altIfHomeMoodBelow?: number;
+  /** When set, the hero's posture picks base, alt, or best. Mark conditions stay for choices without a gate. */
+  gate?: HeroGate;
   effect: Effect;
   alt?: Effect;
+  best?: Effect;
   gamble?: { stake: Effect; win: Effect; lose: Effect };
 }
 
@@ -887,10 +900,55 @@ const CREATURES: CreatureDef[] = [
   },
 ];
 
+const QUARREL_GATE: HeroGate = { ids: ["tam", "heracles"], best: ["beowulf"] };
+const COURT_GATE: HeroGate = { ids: ["theseus"], best: ["athena"], stationed: ["athena"] };
+const PARLEY_GATE: HeroGate = { ids: ["odysseus"] };
+const WAGON_GATE: HeroGate = { ids: [], best: ["bran", "heracles", "zeus"], company: true };
+
+function quarrelStanding(state: GameState): string {
+  const posture = heroPosture(state, QUARREL_GATE);
+  const who = heroPostureWho(state, QUARREL_GATE);
+  if (posture === "best" && who) return `${who} is out and wearing gear. He can settle the quarrel.`;
+  if (posture === "ready" && who) return `${who} is out and wearing gear. The yard will hold. Beowulf would settle it more cleanly.`;
+  if (heroWhere(state, "beowulf") === "hold") return "Beowulf is at the hold and wearing gear. Field him, or standing in the yard fails.";
+  if (heroWhere(state, "beowulf") === "bare") return "Beowulf wears nothing. Gear him and send him out, or standing in the yard fails.";
+  if (heroWhere(state, "tam") === "bare" || heroWhere(state, "heracles") === "bare") {
+    return "Tam or Heracles is here, but wears nothing. Gear them and send them out, or standing in the yard fails.";
+  }
+  return "No martial hero is out and wearing gear. Standing in the yard fails.";
+}
+
+function courtStanding(state: GameState): string {
+  const posture = heroPosture(state, COURT_GATE);
+  const who = heroPostureWho(state, COURT_GATE);
+  if (posture === "best" && who) return `${who} is out and wearing gear. The court will believe the count.`;
+  if (posture === "stationed" && who) return `${who} is at the hold and wearing gear. The court improves. Fielding her opens the stronger count.`;
+  if (posture === "ready" && who) return `${who} is out and wearing gear. The court improves, short of Athena's count.`;
+  if (heroWhere(state, "athena") === "bare") return "Athena wears nothing. Gear her, at the hold or on the road, or holding court fails.";
+  return "Athena is not geared here, and Theseus is not out and wearing gear. Holding court fails.";
+}
+
+function parleyStanding(state: GameState): string {
+  if (heroPosture(state, PARLEY_GATE) === "ready") return "Odysseus is out and wearing gear. He can open the parley.";
+  if (heroWhere(state, "odysseus") === "hold") return "Odysseus is at the hold and wearing gear. Field him, or the parley fails.";
+  if (heroWhere(state, "odysseus") === "bare") return "Odysseus wears nothing. Gear him and send him out, or the parley fails.";
+  return "Odysseus is not out and wearing gear. Speaking for the hall fails.";
+}
+
+function wagonStanding(state: GameState): string {
+  const posture = heroPosture(state, WAGON_GATE);
+  const who = heroPostureWho(state, WAGON_GATE);
+  if (posture === "best" && who) return `${who} is out and wearing gear. The drivers will swear, and the oath pays.`;
+  if (posture === "ready" && who) return `${who} is out and wearing gear. The drivers will swear. Bran, Heracles, or Zeus would make the oath pay.`;
+  return "No hero is out and wearing gear. Sending a company fails.";
+}
+
 const PETITIONS: {
   id: string;
   title: string;
   body: (place: string) => string;
+  ask?: string;
+  standing?: (state: GameState) => string;
   choices: ChoiceDef[];
 }[] = [
   {
@@ -1088,6 +1146,185 @@ const PETITIONS: {
       },
     ],
   },
+  {
+    id: "border-quarrel",
+    title: "A quarrel at the border",
+    ask: "Wants Beowulf fielded and wearing gear. Tam or Heracles can stand in the yard instead. With none of them, that choice fails.",
+    standing: quarrelStanding,
+    body: (place) => `Riders from a sworn hold are in the yard at ${place}. They say the border stones were moved. A martial hero can settle it. A purse can quiet it.`,
+    choices: [
+      {
+        id: "stand",
+        label: "Stand in the yard",
+        detail: "The quarrel fails. One sworn bond cools by 8, loyalty falls by 4, and it falls by 1 each dawn after.",
+        altDetail: "The yard holds. One sworn bond warms by 5, and loyalty rises by 2.",
+        bestDetail: "Beowulf settles the quarrel. One sworn bond warms by 10, loyalty rises by 4, and the people rest easier by 1 each dawn.",
+        gate: QUARREL_GATE,
+        effect: {
+          bond: -8,
+          mood: -4,
+          lasting: { moodDawn: -1 },
+          bondNote: "The border quarrel cooled this oath.",
+          summary: "The border quarrel failed. No martial hero stood the yard, and a sworn bond cooled.",
+        },
+        alt: {
+          bond: 5,
+          mood: 2,
+          bondNote: "A hero held the yard. This oath is warmer.",
+          summary: "A martial hero held the yard. The quarrel ended, and a sworn bond warmed.",
+        },
+        best: {
+          bond: 10,
+          mood: 4,
+          renown: 1,
+          lasting: { moodDawn: 1 },
+          bondNote: "Beowulf settled the border quarrel. This oath is warm.",
+          summary: "Beowulf settled the border quarrel. The bond warmed, and the people will rest easier.",
+        },
+      },
+      {
+        id: "purse",
+        label: "Buy the peace, 4 gold",
+        detail: "Four gold. One sworn bond warms by 3. No hero is required.",
+        effect: {
+          gold: -4,
+          bond: 3,
+          bondNote: "Gold quieted the border quarrel.",
+          summary: "You bought peace in the yard. A sworn bond warmed, and the stones can wait.",
+        },
+      },
+    ],
+  },
+  {
+    id: "olive-court",
+    title: "Court at the hold",
+    ask: "Wants Athena fielded and wearing gear. Theseus on the road, or Athena at the hold in her gear, still improves the court. With none of that, holding court fails.",
+    standing: courtStanding,
+    body: (place) => `The people of ${place} want the works counted in the yard before the next dawn. A leader in the chair changes what they will believe.`,
+    choices: [
+      {
+        id: "court",
+        label: "Hold court",
+        detail: "The court fails. Loyalty falls by 6, and by 1 more each dawn.",
+        altDetail: "The court improves. Loyalty rises by 5, and renown rises by 1.",
+        bestDetail: "Athena counts the works. Loyalty rises by 8, the people rest easier by 1 each dawn, and renown rises by 2.",
+        gate: COURT_GATE,
+        effect: {
+          mood: -6,
+          lasting: { moodDawn: -1 },
+          summary: "The court failed. No leader stood the count, and loyalty will keep falling.",
+        },
+        alt: {
+          mood: 5,
+          renown: 1,
+          summary: "A leader stood the court. Loyalty rose.",
+        },
+        best: {
+          mood: 8,
+          renown: 2,
+          lasting: { moodDawn: 1 },
+          summary: "Athena counted the works. Loyalty rose, and the people will rest easier.",
+        },
+      },
+      {
+        id: "bread",
+        label: "Send them bread",
+        detail: "Two grain. Loyalty rises by 3. The court is fed, and not led.",
+        effect: {
+          goods: { grain: -2 },
+          mood: 3,
+          summary: "You fed the court instead of leading it. Loyalty rose a little.",
+        },
+      },
+    ],
+  },
+  {
+    id: "long-parley",
+    title: "A petition from the oath",
+    ask: "Wants Odysseus fielded and wearing gear. That opens the parley. Without him, speaking fails and the bond cools.",
+    standing: parleyStanding,
+    body: (place) => `A sworn neighbor sends terms to ${place}. They will take gold, or they will hear a speaker who has walked a longer road.`,
+    choices: [
+      {
+        id: "speak",
+        label: "Let Odysseus speak",
+        detail: "The parley fails. One sworn bond cools by 6.",
+        altDetail: "Odysseus speaks. One sworn bond warms by 8, renown rises by 2, and the terms pay 3 gold.",
+        gate: PARLEY_GATE,
+        effect: {
+          bond: -6,
+          bondNote: "The parley failed, and this oath cooled.",
+          summary: "The parley failed. Odysseus was not there, and a sworn bond cooled.",
+        },
+        alt: {
+          bond: 8,
+          renown: 2,
+          gold: 3,
+          bondNote: "Odysseus spoke for this oath. The terms were kind.",
+          summary: "Odysseus opened the parley. A sworn bond warmed, and the terms paid.",
+        },
+      },
+      {
+        id: "pay",
+        label: "Pay 4 gold",
+        detail: "Four gold. One sworn bond warms by 4. No speaker is required.",
+        effect: {
+          gold: -4,
+          bond: 4,
+          bondNote: "Gold settled the petition from the oath.",
+          summary: "You paid the petition. A sworn bond warmed, and no one had to speak.",
+        },
+      },
+    ],
+  },
+  {
+    id: "wagon-oath",
+    title: "The drivers' oath",
+    ask: "Wants a hero fielded and wearing gear. Bran, Heracles, or Zeus makes the drivers' oath pay. With no geared company, sending them fails.",
+    standing: wagonStanding,
+    body: (place) => `The wagon drivers at ${place} will not swear the next call until they see who walks with the banner.`,
+    choices: [
+      {
+        id: "send",
+        label: "Send the company",
+        detail: "The company fails to appear. One sworn bond cools by 6, loyalty falls by 3, and conflict heat rises by 6.",
+        altDetail: "The drivers swear. One sworn bond warms by 3, and renown rises by 1.",
+        bestDetail: "The drivers swear to a captain of the wagons. One sworn bond warms by 6, you gain 4 gold and 1 renown, and conflict heat falls by 4.",
+        gate: WAGON_GATE,
+        effect: {
+          bond: -6,
+          mood: -3,
+          heat: 6,
+          bondNote: "The drivers left unswearing. This oath cooled.",
+          summary: "No geared company met the drivers. A sworn bond cooled, and conflict heat rose.",
+        },
+        alt: {
+          bond: 3,
+          renown: 1,
+          bondNote: "A geared hero swore the drivers' oath.",
+          summary: "A geared hero swore the drivers' oath. A sworn bond warmed.",
+        },
+        best: {
+          bond: 6,
+          gold: 4,
+          renown: 1,
+          heat: -4,
+          bondNote: "A captain of the wagons swore the drivers' oath.",
+          summary: "A captain of the wagons swore the drivers' oath. The bond warmed, and the road paid.",
+        },
+      },
+      {
+        id: "later",
+        label: "Send them off",
+        detail: "One sworn bond cools by 2. The oath is not sworn, and no hero is required.",
+        effect: {
+          bond: -2,
+          bondNote: "The drivers were sent off before they swore.",
+          summary: "You sent the drivers off. A sworn bond cooled, and the oath was not sworn.",
+        },
+      },
+    ],
+  },
 ];
 
 interface RealmMods {
@@ -1179,7 +1416,49 @@ function useAlt(choice: ChoiceDef, ids: string[], passes: number, homeMood: numb
   return false;
 }
 
-function buildCrossing(def: CreatureDef, marks: Mark[], homeMood: number): Crossing {
+function effectOf(spec: ChoiceDef, branch: "base" | "alt" | "best"): Effect {
+  if (branch === "best" && spec.best) return spec.best;
+  if (branch === "alt" && spec.alt) return spec.alt;
+  return spec.effect;
+}
+
+function branchOf(choice: ChoiceDef, ids: string[], passes: number, homeMood: number, state?: GameState): "base" | "alt" | "best" {
+  if (choice.gate && state) {
+    const posture = heroPosture(state, choice.gate);
+    if (posture === "best" && choice.best) return "best";
+    if ((posture === "ready" || posture === "stationed" || posture === "best") && choice.alt) return "alt";
+    return "base";
+  }
+  return useAlt(choice, ids, passes, homeMood) ? "alt" : "base";
+}
+
+function asideOf(choice: ChoiceDef, branch: "base" | "alt" | "best"): string | undefined {
+  if (!choice.gate) return undefined;
+  if (branch === "best") return choice.detail;
+  if (branch === "base") return choice.bestDetail ?? choice.altDetail;
+  const parts = [choice.bestDetail, choice.detail].filter((line): line is string => Boolean(line));
+  return parts.length > 0 ? parts.join(" ") : undefined;
+}
+
+function presentChoices(choices: ChoiceDef[], marks: Mark[], homeMood: number, state?: GameState): CrossingChoice[] {
+  const ids = markIdsOf(marks);
+  const passes = passCount(marks);
+  return choices.map((choice) => {
+    const branch = branchOf(choice, ids, passes, homeMood, state);
+    const aside = asideOf(choice, branch);
+    const shown: CrossingChoice = {
+      id: choice.id,
+      label: choice.label,
+      detail: branch === "best" && choice.bestDetail ? choice.bestDetail : branch === "alt" && choice.altDetail ? choice.altDetail : choice.detail,
+      branch,
+      gamble: Boolean(choice.gamble),
+    };
+    if (aside) shown.aside = aside;
+    return shown;
+  });
+}
+
+function buildCrossing(def: CreatureDef, marks: Mark[], homeMood: number, state?: GameState): Crossing {
   const ids = markIdsOf(marks);
   const passes = passCount(marks);
   return {
@@ -1189,41 +1468,30 @@ function buildCrossing(def: CreatureDef, marks: Mark[], homeMood: number): Cross
     body: bodyFor(def, ids, passes),
     art: def.art,
     disposition: def.disposition,
-    choices: def.choices.map((choice) => {
-      const alt = useAlt(choice, ids, passes, homeMood);
-      return {
-        id: choice.id,
-        label: choice.label,
-        detail: alt && choice.altDetail ? choice.altDetail : choice.detail,
-        branch: alt ? "alt" : "base",
-        gamble: Boolean(choice.gamble),
-      } satisfies CrossingChoice;
-    }),
+    choices: presentChoices(def.choices, marks, homeMood, state),
   };
 }
 
-function buildPetition(id: string, place: HoldId, marks: Mark[], homeMood: number): Petition | null {
+function buildPetition(id: string, place: HoldId, marks: Mark[], homeMood: number, state: GameState): Petition | null {
   const spec = petitionById(id);
   if (!spec) return null;
   const name = holdById(place).name;
-  const ids = markIdsOf(marks);
-  const passes = passCount(marks);
   return {
     id: spec.id,
     holdId: place,
     title: spec.title,
     body: spec.body(name),
-    choices: spec.choices.map((choice) => {
-      const alt = useAlt(choice, ids, passes, homeMood);
-      return {
-        id: choice.id,
-        label: choice.label,
-        detail: alt && choice.altDetail ? choice.altDetail : choice.detail,
-        branch: alt ? "alt" : "base",
-        gamble: Boolean(choice.gamble),
-      };
-    }),
+    ask: spec.ask,
+    standing: spec.standing?.(state),
+    choices: presentChoices(spec.choices, marks, homeMood, state),
   };
+}
+
+/** The open petition, read against the heroes who are out right now. */
+export function shownPetition(state: GameState): Petition | null {
+  const current = state.petition;
+  if (!current) return null;
+  return buildPetition(current.id, current.holdId, state.marks ?? [], homeMoodOf(state), state) ?? current;
 }
 
 function homeMoodOf(state: GameState): number {
@@ -1269,6 +1537,17 @@ function applyEffect(state: GameState, effect: Effect) {
       if (!member.inCompact) continue;
       member.contentment = clamp(member.contentment + (effect.contentment ?? 0), 0, 100);
     }
+  }
+  if (effect.bond) {
+    const sworn = state.compact.members.filter((member) => member.inCompact);
+    const weakest = [...sworn].sort((a, b) => a.contentment - b.contentment || a.id.localeCompare(b.id))[0];
+    if (weakest) {
+      weakest.contentment = clamp(weakest.contentment + effect.bond, 0, 100);
+      if (effect.bondNote) weakest.lastNote = effect.bondNote;
+    }
+  }
+  if (effect.heat && state.politics) {
+    state.politics.conflictHeat = clamp(state.politics.conflictHeat + effect.heat, 0, 100);
   }
   if (effect.allMood) {
     for (const settlement of state.settlements ?? []) settlement.mood = clamp(settlement.mood + effect.allMood, 0, 100);
@@ -1397,7 +1676,7 @@ export function offerCrossing(state: GameState): string | null {
   const pool = openCreatures(state);
   if (pool.length === 0) return null;
   const picked = pool[Math.floor(rng() * pool.length) % pool.length];
-  state.crossing = buildCrossing(picked, state.marks ?? [], homeMoodOf(state));
+  state.crossing = buildCrossing(picked, state.marks ?? [], homeMoodOf(state), state);
   state.creaturesSeen = [...seen, picked.id];
   return `${picked.creature} is on the road.`;
 }
@@ -1461,6 +1740,8 @@ function effectHarms(effect: Effect): boolean {
   if ((effect.mood ?? 0) < 0) return true;
   if ((effect.souls ?? 0) < 0) return true;
   if ((effect.allMood ?? 0) < 0) return true;
+  if ((effect.bond ?? 0) < 0) return true;
+  if ((effect.heat ?? 0) > 0) return true;
   if ((effect.bread ?? 0) < 0) return true;
   if ((effect.hearth ?? 0) < 0) return true;
   const lasting = effect.lasting;
@@ -1482,6 +1763,11 @@ function spareHarm(effect: Effect): Effect {
   if ((next.mood ?? 0) < 0) delete next.mood;
   if ((next.souls ?? 0) < 0) delete next.souls;
   if ((next.allMood ?? 0) < 0) delete next.allMood;
+  if ((next.bond ?? 0) < 0) {
+    delete next.bond;
+    delete next.bondNote;
+  }
+  if ((next.heat ?? 0) > 0) delete next.heat;
   if ((next.bread ?? 0) < 0) delete next.bread;
   if ((next.hearth ?? 0) < 0) delete next.hearth;
   if (next.lasting) {
@@ -1542,7 +1828,7 @@ export function chooseCrossing(state: GameState, choiceId: string): Result {
     const relicName = crossingRelicLine(next);
     return ok(next, withRelic(marked.summary, relicName), { face, won });
   }
-  const raw = shown.branch === "alt" && spec.alt ? spec.alt : spec.effect;
+  const raw = effectOf(spec, shown.branch);
   const effect = easeBargain(state, raw);
   const price = afford(state, effect);
   if (price) return fail(state, price);
@@ -1562,7 +1848,7 @@ export function offerPetition(state: GameState): string | null {
   const rng = worldRng((state.seed ^ Math.imul(state.day, 0x27d4eb2d)) >>> 0);
   if (!low && !first && rng() >= 0.8) return null;
   const picked = pool[Math.floor(rng() * pool.length) % pool.length];
-  const petition = buildPetition(picked.id, state.player.holdId, state.marks ?? [], homeMoodOf(state));
+  const petition = buildPetition(picked.id, state.player.holdId, state.marks ?? [], homeMoodOf(state), state);
   if (!petition) return null;
   state.petition = petition;
   state.petitionsSeen = [...(state.petitionsSeen ?? []), picked.id];
@@ -1572,10 +1858,11 @@ export function offerPetition(state: GameState): string | null {
 export function choosePetition(state: GameState, choiceId: string): Result {
   const petition = state.petition;
   if (!petition) return fail(state, "The people are not waiting on you.");
-  const shown = petition.choices.find((choice) => choice.id === choiceId);
+  const live = buildPetition(petition.id, petition.holdId, state.marks ?? [], homeMoodOf(state), state);
+  const shown = (live ?? petition).choices.find((choice) => choice.id === choiceId);
   const spec = petitionById(petition.id)?.choices.find((choice) => choice.id === choiceId);
   if (!shown || !spec) return fail(state, "That is not a choice the hall will hear.");
-  let effect = shown.branch === "alt" && spec.alt ? spec.alt : spec.effect;
+  let effect = effectOf(spec, shown.branch);
   const price = afford(state, effect);
   if (price) return fail(state, price);
   const next = structuredClone(state);
@@ -1695,14 +1982,14 @@ export function forceCrossing(state: GameState, id: string): GameState {
   if (!def) return state;
   const next = structuredClone(state);
   next.omen = null;
-  next.crossing = buildCrossing(def, next.marks ?? [], homeMoodOf(next));
+  next.crossing = buildCrossing(def, next.marks ?? [], homeMoodOf(next), next);
   if (!next.creaturesSeen.includes(id)) next.creaturesSeen.push(id);
   return next;
 }
 
 export function forcePetition(state: GameState, id: string): GameState {
   const next = structuredClone(state);
-  const petition = buildPetition(id, next.player.holdId, next.marks ?? [], homeMoodOf(next));
+  const petition = buildPetition(id, next.player.holdId, next.marks ?? [], homeMoodOf(next), next);
   if (!petition) return state;
   next.petition = petition;
   if (!next.petitionsSeen.includes(id)) next.petitionsSeen.push(id);
@@ -1754,14 +2041,17 @@ function legalChoiceList(raw: CrossingChoice[] | undefined, specs: ChoiceDef[]):
   for (const choice of raw) {
     const spec = specs.find((item) => item.id === choice?.id);
     if (!spec) continue;
-    const branch = choice.branch === "alt" && spec.alt ? "alt" : "base";
-    choices.push({
+    const branch = choice.branch === "best" && spec.best ? "best" : choice.branch === "alt" && spec.alt ? "alt" : "base";
+    const aside = asideOf(spec, branch);
+    const shown: CrossingChoice = {
       id: spec.id,
       label: spec.label,
-      detail: branch === "alt" && spec.altDetail ? spec.altDetail : spec.detail,
+      detail: branch === "best" && spec.bestDetail ? spec.bestDetail : branch === "alt" && spec.altDetail ? spec.altDetail : spec.detail,
       branch,
       gamble: Boolean(spec.gamble),
-    });
+    };
+    if (aside) shown.aside = aside;
+    choices.push(shown);
   }
   return choices;
 }

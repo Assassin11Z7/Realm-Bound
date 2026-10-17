@@ -20,7 +20,7 @@ import type {
   Threat,
 } from "./types";
 import { HOLD_IDS, REALM_PROJECT_IDS } from "./types";
-import { heroBorderWarmth, heroProjectExtra, heroProjectLine, syncHeroTasks } from "./heroes";
+import { heroBorderSeal, heroBorderWarmth, heroProjectExtra, heroProjectLine, syncHeroTasks } from "./heroes";
 import { bumpQuest, carryCap, carriedWeight, companyGear, gearWeight, rewardScene, rollGear, worldRng } from "./world";
 
 export const SKILLS: Record<SkillId, { name: string; blurb: string }> = {
@@ -622,8 +622,10 @@ function finishRealmLine(state: GameState, work: RealmWork): string {
   const member = state.compact.members.find((item) => item.holdId === work.holdId);
   const who = member?.name ?? place.lord;
   const first = (state.campaign?.realmWorks ?? []).filter((item) => item.id === "border").length <= 1;
-  if (first) return `The path to ${place.name} is clear. ${who} stands closer to the oath, and the wagons return two dawns sooner.`;
-  return `The path to ${place.name} is clear. ${who} stands closer to the oath.`;
+  const sealed = heroBorderSeal(state) > 0;
+  const closer = sealed ? `${who} stands closer, because Theseus set the stones.` : `${who} stands closer to the oath.`;
+  if (first) return `The path to ${place.name} is clear. ${closer} The wagons return two dawns sooner.`;
+  return `The path to ${place.name} is clear. ${closer}`;
 }
 
 function applyRealmFinish(state: GameState, work: RealmWork): string {
@@ -634,18 +636,20 @@ function applyRealmFinish(state: GameState, work: RealmWork): string {
   if (work.id === "border" && work.holdId) {
     const place = holdById(work.holdId);
     const member = state.compact.members.find((item) => item.holdId === work.holdId);
+    const seal = heroBorderSeal(state);
     if (member) {
-      member.contentment = Math.min(100, member.contentment + 14);
-      member.lastNote = `The path from ${place.name} is clear.`;
+      member.contentment = Math.min(100, member.contentment + 14 + seal);
+      member.lastNote = seal > 0 ? `Theseus set the stones. The path from ${place.name} warms this oath.` : `The path from ${place.name} is clear.`;
     }
     const first = camp.realmWorks.filter((item) => item.id === "border").length <= 1;
+    const bond = seal > 0
+      ? `${member?.name ?? place.lord} keeps a warmer bond, because Theseus set the stones.`
+      : `${member?.name ?? place.lord} keeps a clearer bond along the new path.`;
     rememberStance(
       state,
       `border:${work.holdId}`,
       place.name,
-      first
-        ? `${member?.name ?? place.lord} keeps a clearer bond along the new path. The wagons return two dawns sooner.`
-        : `${member?.name ?? place.lord} keeps a clearer bond along the new path.`,
+      first ? `${bond} The wagons return two dawns sooner.` : bond,
     );
     const exp = state.expedition;
     if (first && exp?.phase === "idle" && typeof exp.nextCallDay === "number") {

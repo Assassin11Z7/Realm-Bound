@@ -46,7 +46,9 @@ import {
 import {
   gearHeroNotes,
   heroAllLoyalty,
+  borderPathRead,
   heroBargainRelief,
+  heroBorderSeal,
   heroCallSooner,
   heroCreatureRenown,
   heroExtraTeach,
@@ -70,7 +72,7 @@ import type { FactionId, GameState, GoodId, HeroId, HoldId, NewGameSetup } from 
 import { GOODS, LEVY_GOODS } from "./types";
 import { chooseSkill, dismissRealmNotice, realmProjectCost, setCaptainOrder, startProject, startRealmProject } from "./progress";
 import { craft, drinkPotion, storeGear } from "./craft";
-import { availableCreatureIds, creatureCount, forceCrossing, forcePetition } from "./realm";
+import { availableCreatureIds, creatureCount, forceCrossing, forcePetition, shownPetition } from "./realm";
 import { EXPEDITION_GAP, allianceBoard, expeditionGap } from "./expedition";
 import {
   RELIC_EXPEDITION_CHANCE,
@@ -1415,4 +1417,176 @@ test("hero abilities and gear synergies sit on top of the flat bonuses", () => {
   assert.equal(expeditionGap(thunder.state), EXPEDITION_GAP - 4);
   assert.equal(heroSynergyRead(thunder.state, "zeus").find((row) => row.name === "Knot under the sky")?.state, "active");
   assert.ok(gearHeroNotes(thunder.state, thunder.state.pack.find((gear) => gear.id === "zeus-knot")!).some((line) => line.includes("Zeus")));
+});
+
+function gearOut(state: GameState, id: HeroId, pieceName = "Wool cloak", pieceId = `${id}-cloak`) {
+  const woke = wake(state, id);
+  const piece = makePiece(pieceName, "common", pieceId);
+  assert.ok(piece);
+  woke.pack.push(piece);
+  const worn = equipOnHero(woke, id, piece.id);
+  assert.equal(worn.error, undefined);
+  const sent = sendHeroOut(worn.state, id);
+  assert.equal(sent.error, undefined);
+  return sent.state;
+}
+
+function bondShift(before: GameState, after: GameState) {
+  return after.compact.members
+    .map((member, index) => ({ id: member.id, delta: member.contentment - before.compact.members[index].contentment }))
+    .filter((row) => row.delta !== 0);
+}
+
+test("hero decrees and the border path change bonds and loyalty", () => {
+  const bare = forcePetition(createGame(setup()), "border-quarrel");
+  const open = shownPetition(bare);
+  assert.equal(open?.ask?.includes("Beowulf"), true);
+  assert.match(open?.standing ?? "", /fails/);
+  const stand = open?.choices.find((choice) => choice.id === "stand");
+  assert.equal(stand?.branch, "base");
+  assert.match(stand?.detail ?? "", /cools by 8/);
+  assert.match(stand?.aside ?? "", /Beowulf/);
+  assert.equal(open?.choices.find((choice) => choice.id === "purse")?.aside, undefined);
+  const failed = choosePetition(bare, "stand");
+  assert.equal(failed.error, undefined);
+  const cooled = bondShift(bare, failed.state);
+  assert.equal(cooled.length, 1);
+  assert.equal(cooled[0].delta, -8);
+  assert.equal(homeOf(failed.state)?.mood, (homeOf(bare)?.mood ?? 0) - 4);
+  assert.equal(failed.state.marks.find((mark) => mark.id === "petition:border-quarrel:stand")?.lasting.moodDawn, -1);
+
+  const bought = choosePetition(forcePetition(createGame(setup()), "border-quarrel"), "purse");
+  assert.equal(bought.state.player.gold, createGame(setup()).player.gold - 4);
+  assert.deepEqual(
+    bondShift(createGame(setup()), bought.state).map((row) => row.delta),
+    [3],
+  );
+
+  const pike = gearOut(createGame(setup()), "tam", "Deer spear", "quarrel-pike");
+  const held = shownPetition(forcePetition(pike, "border-quarrel"));
+  assert.equal(held?.choices.find((choice) => choice.id === "stand")?.branch, "alt");
+  assert.match(held?.standing ?? "", /Tam Pike/);
+  const yard = choosePetition(forcePetition(pike, "border-quarrel"), "stand");
+  assert.deepEqual(
+    bondShift(pike, yard.state).map((row) => row.delta),
+    [5],
+  );
+  assert.equal(yard.state.marks.find((mark) => mark.id === "petition:border-quarrel:stand")?.lasting.moodDawn, undefined);
+
+  const wolf = gearOut(createGame(setup()), "beowulf", "Deer spear", "quarrel-spear");
+  let late = forcePetition(createGame(setup()), "border-quarrel");
+  assert.equal(late.petition?.choices.find((choice) => choice.id === "stand")?.branch, "base");
+  late = gearOut(late, "beowulf", "Deer spear", "late-spear");
+  assert.equal(late.petition?.choices.find((choice) => choice.id === "stand")?.branch, "base");
+  assert.equal(shownPetition(late)?.choices.find((choice) => choice.id === "stand")?.branch, "best");
+  const settled = choosePetition(late, "stand");
+  assert.deepEqual(
+    bondShift(late, settled.state).map((row) => row.delta),
+    [10],
+  );
+  assert.equal(homeOf(settled.state)?.mood, (homeOf(late)?.mood ?? 0) + 4);
+  assert.equal(settled.state.player.renown, late.player.renown + 1);
+  assert.equal(settled.state.marks.find((mark) => mark.id === "petition:border-quarrel:stand")?.lasting.moodDawn, 1);
+  assert.equal(shownPetition(forcePetition(wolf, "border-quarrel"))?.choices.find((choice) => choice.id === "stand")?.branch, "best");
+
+  const court = shownPetition(forcePetition(createGame(setup()), "olive-court"));
+  assert.match(court?.ask ?? "", /Athena/);
+  assert.equal(court?.choices.find((choice) => choice.id === "court")?.branch, "base");
+  const missed = choosePetition(forcePetition(createGame(setup()), "olive-court"), "court");
+  assert.equal(homeOf(missed.state)?.mood, (homeOf(createGame(setup()))?.mood ?? 0) - 6);
+  assert.equal(missed.state.marks.find((mark) => mark.id === "petition:olive-court:court")?.lasting.moodDawn, -1);
+
+  const owl = wake(createGame(setup()), "athena");
+  const cloak = makePiece("Wool cloak", "common", "athena-court");
+  assert.ok(cloak);
+  owl.pack.push(cloak);
+  const stationed = equipOnHero(owl, "athena", cloak.id).state;
+  assert.equal(shownPetition(forcePetition(stationed, "olive-court"))?.choices.find((choice) => choice.id === "court")?.branch, "alt");
+  const improved = choosePetition(forcePetition(stationed, "olive-court"), "court");
+  assert.equal(homeOf(improved.state)?.mood, (homeOf(stationed)?.mood ?? 0) + 5);
+  assert.equal(improved.state.player.renown, stationed.player.renown + 1);
+  assert.equal(improved.state.marks.find((mark) => mark.id === "petition:olive-court:court")?.lasting.moodDawn, undefined);
+
+  const counted = sendHeroOut(stationed, "athena").state;
+  assert.equal(shownPetition(forcePetition(counted, "olive-court"))?.choices.find((choice) => choice.id === "court")?.branch, "best");
+  const wise = choosePetition(forcePetition(counted, "olive-court"), "court");
+  assert.equal(homeOf(wise.state)?.mood, (homeOf(counted)?.mood ?? 0) + 8);
+  assert.equal(wise.state.player.renown, counted.player.renown + 2);
+  assert.equal(wise.state.marks.find((mark) => mark.id === "petition:olive-court:court")?.lasting.moodDawn, 1);
+
+  const founderCourt = gearOut(createGame(setup()), "theseus");
+  assert.equal(shownPetition(forcePetition(founderCourt, "olive-court"))?.choices.find((choice) => choice.id === "court")?.branch, "alt");
+
+  let parley = forcePetition(createGame(setup()), "long-parley");
+  assert.equal(shownPetition(parley)?.choices.find((choice) => choice.id === "speak")?.branch, "base");
+  const collapsed = choosePetition(parley, "speak");
+  assert.deepEqual(
+    bondShift(parley, collapsed.state).map((row) => row.delta),
+    [-6],
+  );
+  parley = gearOut(parley, "odysseus");
+  assert.equal(parley.petition?.choices.find((choice) => choice.id === "speak")?.branch, "base");
+  assert.equal(shownPetition(parley)?.choices.find((choice) => choice.id === "speak")?.branch, "alt");
+  const talked = choosePetition(parley, "speak");
+  assert.equal(talked.state.player.gold, parley.player.gold + 3);
+  assert.equal(talked.state.player.renown, parley.player.renown + 2);
+  assert.deepEqual(
+    bondShift(parley, talked.state).map((row) => row.delta),
+    [8],
+  );
+
+  const drivers = shownPetition(forcePetition(createGame(setup()), "wagon-oath"));
+  assert.equal(drivers?.choices.find((choice) => choice.id === "send")?.branch, "alt");
+  assert.match(drivers?.standing ?? "", /Sela/);
+  assert.match(drivers?.choices.find((choice) => choice.id === "send")?.aside ?? "", /fails to appear/);
+  const rested = restHeroAtHold(createGame(setup()), "sela").state;
+  const empty = shownPetition(forcePetition(rested, "wagon-oath"));
+  assert.equal(empty?.choices.find((choice) => choice.id === "send")?.branch, "base");
+  const snubbed = choosePetition(forcePetition(rested, "wagon-oath"), "send");
+  assert.equal(snubbed.state.politics.conflictHeat, rested.politics.conflictHeat + 6);
+  assert.equal(homeOf(snubbed.state)?.mood, (homeOf(rested)?.mood ?? 0) - 3);
+  assert.deepEqual(
+    bondShift(rested, snubbed.state).map((row) => row.delta),
+    [-6],
+  );
+
+  const captain = gearOut(createGame(setup()), "bran", "Salt cloak", "bran-oath");
+  captain.politics.conflictHeat = 10;
+  assert.equal(shownPetition(forcePetition(captain, "wagon-oath"))?.choices.find((choice) => choice.id === "send")?.branch, "best");
+  const sworn = choosePetition(forcePetition(captain, "wagon-oath"), "send");
+  assert.equal(sworn.error, undefined);
+  assert.equal(sworn.state.player.gold, captain.player.gold + 4);
+  assert.equal(sworn.state.politics.conflictHeat, 6);
+  assert.deepEqual(
+    bondShift(captain, sworn.state).map((row) => row.delta),
+    [6],
+  );
+
+  assert.equal(borderPathRead(createGame(setup())).met, false);
+  assert.match(borderPathRead(createGame(setup())).line, /Theseus/);
+  const stones = gearOut(createGame(setup()), "theseus", "Wool cloak", "theseus-path");
+  assert.equal(heroBorderSeal(stones), 6);
+  assert.equal(borderPathRead(stones).met, true);
+
+  function clearBorder(state: GameState) {
+    state.player.stash.timber += 4;
+    state.player.gold += 20;
+    const hold = state.compact.members[0].holdId;
+    state.compact.members[0].contentment = 40;
+    const started = startRealmProject(state, "border", hold);
+    assert.equal(started.error, undefined);
+    const labor = started.state.campaign.realmLabor;
+    assert.ok(labor);
+    labor.spent = 2;
+    return sealDay(started.state).state;
+  }
+
+  const plainPath = clearBorder(createGame(setup()));
+  const laid = clearBorder(stones);
+  assert.equal(laid.campaign.realmLabor, null);
+  assert.equal(plainPath.campaign.realmLabor, null);
+  assert.equal(laid.compact.members[0].contentment, plainPath.compact.members[0].contentment + 6);
+  assert.match(laid.campaign.realmNotice ?? "", /Theseus/);
+  assert.match(laid.compact.members[0].lastNote, /Theseus/);
+  assert.equal(shownPetition(forcePetition(createGame(setup()), "three-voices"))?.ask, undefined);
 });

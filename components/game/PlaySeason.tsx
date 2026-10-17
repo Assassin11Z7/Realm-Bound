@@ -179,7 +179,7 @@ const INTRO: Record<string, { eyebrow: string; title: string; lede: string }> = 
   company: {
     eyebrow: "Heroes",
     title: "The company",
-    lede: "Send more than one hero onto the road. Gear from the armory changes how that hero walks, crosses, and comes home.",
+    lede: "Send more than one hero onto the road. Gear from the armory changes how that hero walks, crosses, and comes home. Decrees and the border path ask for some of them by name.",
   },
   missions: {
     eyebrow: "Heroes",

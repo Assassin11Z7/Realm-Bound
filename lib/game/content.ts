@@ -412,7 +412,7 @@ export const RULES: { title: string; body: string }[] = [
   },
   {
     title: "Heroes carry the gear",
-    body: "You are the lord. Heroes wear the kit and walk the road. The armory on the Road tab is shared. Missions under Heroes are the sure way to recruit. A rare meeting can still name someone early. Divine figures are the hardest of all.",
+    body: "You are the lord. Heroes wear the kit and walk the road. The armory on the Road tab is shared. Missions under Heroes are the sure way to recruit. A rare meeting can still name someone early. Divine figures are the hardest of all. A decree or a border path may ask for a named hero, fielded and wearing gear. Miss that, and the choice fails or pays less.",
   },
   {
     title: "Unique relics",
