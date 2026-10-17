@@ -58,7 +58,7 @@ import {
   withdraw,
 } from "@/lib/game/engine";
 import { COACH, dawnsLeftLabel, whatNow } from "@/lib/game/coach";
-import { influenceCap } from "@/lib/game/world";
+import { bandYieldNote, influenceCap } from "@/lib/game/world";
 import { allianceBoard, expeditionDue, wagonsOpen } from "@/lib/game/expedition";
 import type { GameState, GoodId, HoldId, LevyGood, Result } from "@/lib/game/types";
 import { GOODS, LEVY_GOODS } from "@/lib/game/types";
@@ -881,6 +881,7 @@ function HoldYield({ state, act }: { state: GameState; act: (result: Result) => 
           Sealing the day brings {dawnYield(state)} {GOOD_LABEL[hold.produces].toLowerCase()}.
           {state.works.mill ? " The mill is in that count." : ""} {faction.bonus}
         </p>
+        {bandYieldNote(state) && <p className="mt-2 text-sm leading-relaxed text-[#6a4a12]">{bandYieldNote(state)}</p>}
         <p className="mt-2 text-sm leading-relaxed text-[#3d4a62]">{hold.myth}</p>
         <p className="mt-2 text-xs text-muted-foreground">
           Cellar {stashCount(state.player.stash)}/{cap}. The bag itself is on the Road tab.

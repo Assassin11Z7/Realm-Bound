@@ -1,5 +1,5 @@
 import { HOLDS, WYRM_NAME, holdById } from "./content";
-import type { Cutscene, GameState, Gear, GearSlot, HoldId, Quest, QuestKind, Rarity } from "./types";
+import type { Cutscene, GameState, Gear, GearSlot, HoldId, Quest, QuestKind, Rarity, RelicId } from "./types";
 
 export function worldRng(seed: number) {
   let a = seed >>> 0;
@@ -68,6 +68,202 @@ const TREASURES: Piece[] = [
 
 export function treasureCount(): number {
   return TREASURES.length;
+}
+
+export const RELIC_WALK_CHANCE = 0.18;
+export const RELIC_CROSSING_CHANCE = 0.24;
+export const RELIC_EXPEDITION_CHANCE = 0.72;
+export const RELIC_EXPEDITION_BELL_CHANCE = 0.9;
+
+type RelicSpec = {
+  id: RelicId;
+  name: string;
+  slot: GearSlot;
+  trait: Gear["trait"];
+  line: string;
+  blurb: string;
+  effect: string;
+};
+
+export const RELICS: RelicSpec[] = [
+  {
+    id: "unspoken-hem",
+    name: "Unspoken Hem",
+    slot: "cloak",
+    trait: "ward",
+    line: "A hem stitched with a vow the wagons already heard.",
+    blurb: "forgives one failed bargain or sour petition each call of the wagons",
+    effect:
+      "Once each call of the wagons, the first failed bargain or sour petition does not land. The stake is still paid. The harm is not. It is ready again when the wagons are called next.",
+  },
+  {
+    id: "barrow-band",
+    name: "Barrow Band",
+    slot: "ring",
+    trait: "luck",
+    line: "Iron grown in a grave, still warm when the grain is counted.",
+    blurb: "doubles one hold's grain or iron, cools a bond, and wakes Vell faster",
+    effect:
+      "While worn, your hold's grain or iron yield is doubled at dawn. If your hold grows neither, one sworn hold's grain or iron is doubled instead. Each dawn a sworn bond cools by four, and Vell's anger climbs one faster.",
+  },
+  {
+    id: "salt-charter",
+    name: "Salt Charter",
+    slot: "charm",
+    trait: "lore",
+    line: "A salt-stained writ that names a law the hall has not spoken.",
+    blurb: "unlocks the law Salt the road, and the Salt Widow may cross",
+    effect:
+      "While it is in the bag or the strongroom, you may set the law Salt the road: firewood lasts longer, and Vell's anger climbs one faster each dawn. The Salt Widow can meet you on the road. She was not there before the charter.",
+  },
+  {
+    id: "carter-knot",
+    name: "Carter's Knot",
+    slot: "charm",
+    trait: "purse",
+    line: "A wagon-knot that remembers every bell between holds.",
+    blurb: "a successful call pays more, and the next call comes sooner",
+    effect:
+      "While worn, a successful call of the wagons pays 6 more gold. When the wagons leave with it worn, the next call comes three dawns sooner.",
+  },
+  {
+    id: "ford-bell",
+    name: "Ford Bell",
+    slot: "hand",
+    trait: "lore",
+    line: "A fist-sized bell that rings only when a wagon comes home.",
+    blurb: "walks teach three more, and a successful call more often leaves a relic",
+    effect: "While worn, each walk teaches three more. A successful call of the wagons is more likely to leave a unique relic in the pack.",
+  },
+];
+
+const RELIC_IDS = new Set<string>(RELICS.map((item) => item.id));
+
+export function relicSpec(id: RelicId): RelicSpec | undefined {
+  return RELICS.find((item) => item.id === id);
+}
+
+export function isRelicName(name: string): boolean {
+  return RELICS.some((item) => item.name === name);
+}
+
+export function makeRelic(id: RelicId, gearId: string): Gear {
+  const spec = relicSpec(id);
+  if (!spec) {
+    return {
+      id: gearId,
+      name: "Lost relic",
+      slot: "charm",
+      rarity: "relic",
+      luck: 1,
+      trait: "lore",
+      worth: 28,
+      line: "The name wore off.",
+    };
+  }
+  return {
+    id: gearId,
+    name: spec.name,
+    slot: spec.slot,
+    rarity: "relic",
+    luck: 1,
+    trait: spec.trait,
+    worth: 28,
+    line: spec.line,
+    relic: spec.id,
+  };
+}
+
+export function ownedRelicIds(state: GameState): RelicId[] {
+  const ids: RelicId[] = [];
+  for (const gear of [...(state.pack ?? []), ...(state.vault ?? [])]) {
+    if (gear.relic && !ids.includes(gear.relic)) ids.push(gear.relic);
+  }
+  return ids;
+}
+
+export function wornRelic(state: GameState, id: RelicId): boolean {
+  const worn = state.worn ?? {};
+  for (const gearId of Object.values(worn)) {
+    if (!gearId) continue;
+    const gear = (state.pack ?? []).find((item) => item.id === gearId);
+    if (gear?.relic === id) return true;
+  }
+  return false;
+}
+
+export function ownsRelic(state: GameState, id: RelicId): boolean {
+  return ownedRelicIds(state).includes(id);
+}
+
+export function pardonReady(state: GameState): boolean {
+  if (!wornRelic(state, "unspoken-hem")) return false;
+  const cycle = state.expedition?.cycle ?? 1;
+  return state.pardonCall !== cycle;
+}
+
+export function spendPardon(state: GameState) {
+  state.pardonCall = state.expedition?.cycle ?? 1;
+}
+
+export function bandYieldNote(state: GameState): string | null {
+  if (!wornRelic(state, "barrow-band")) return null;
+  const good = holdById(state.player.holdId).produces;
+  if (good === "grain" || good === "iron") {
+    return "The Barrow Band doubles that yield. A sworn bond cools, and Vell's anger climbs faster.";
+  }
+  return "The Barrow Band doubles one sworn hold's grain or iron instead. A bond cools, and Vell's anger climbs faster.";
+}
+
+export function gearCompare(gear: Gear, worn: Gear | null, isWorn = false): string {
+  const spec = gear.relic ? relicSpec(gear.relic) : undefined;
+  if (!spec) {
+    if (!worn || worn.id === gear.id) return "";
+    return `Worn now: ${worn.name}. ${traitText(worn)}`;
+  }
+  if (isWorn || worn?.id === gear.id) return `Worn. This changes the season: ${spec.effect}`;
+  if (!worn) return `Nothing is worn in the ${gear.slot}. Wearing this changes the season: ${spec.effect}`;
+  return `Worn now: ${worn.name}. ${traitText(worn)} This relic changes the season: ${spec.effect}`;
+}
+
+export function rollUniqueRelic(
+  seed: number,
+  day: number,
+  miles: number,
+  salt: number,
+  chance: number,
+  owned: RelicId[],
+): Gear | null {
+  if (chance <= 0) return null;
+  const roll = worldRng((seed ^ Math.imul(day + 19, 0x9e3779b1) ^ Math.imul(miles + salt, 0x85ebca6b)) >>> 0);
+  if (roll() >= chance) return null;
+  const pool = RELICS.filter((item) => !owned.includes(item.id));
+  if (pool.length === 0) return null;
+  const piece = pool[Math.floor(roll() * pool.length) % pool.length];
+  const stamp = Math.floor(roll() * 10000);
+  return makeRelic(piece.id, `relic-${day}-${miles}-${salt}-${stamp}`);
+}
+
+export function awardUniqueRelic(
+  state: GameState,
+  source: "walk" | "crossing" | "expedition",
+): { gear: Gear; packed: boolean } | null {
+  const watch = (state.campaign?.realmWorks ?? []).some((work) => work.id === "watchtower");
+  const chance =
+    source === "expedition"
+      ? wornRelic(state, "ford-bell")
+        ? RELIC_EXPEDITION_BELL_CHANCE
+        : RELIC_EXPEDITION_CHANCE
+      : source === "crossing"
+        ? RELIC_CROSSING_CHANCE
+        : RELIC_WALK_CHANCE + (watch ? 0.06 : 0);
+  const salt = source === "walk" ? 11 : source === "crossing" ? 41 : 90 + (state.expedition?.cycle ?? 1);
+  const gear = rollUniqueRelic(state.seed ?? 0, state.day, state.miles ?? 0, salt, chance, ownedRelicIds(state));
+  if (!gear) return null;
+  if (carriedWeight(state) + gearWeight(gear) > carryCap(state)) return { gear, packed: false };
+  state.pack = [...(state.pack ?? []), gear];
+  bumpQuest(state, "loot", "any", 1);
+  return { gear, packed: true };
 }
 
 function worthFor(rarity: Rarity, luck: number): number {
@@ -156,6 +352,8 @@ export function starterCloak(): Gear {
 }
 
 export function traitText(gear: Gear): string {
+  const spec = gear.relic ? relicSpec(gear.relic) : undefined;
+  if (spec) return `Unique relic · ${spec.blurb} · sell ${gear.worth}g`;
   if (gear.slot === "hoard") return `Treasure · sell for ${gear.worth}g`;
   if (gear.trait === "purse") return `Coin · worn, the caravan pays 1 more · sell ${gear.worth}g`;
   if (gear.trait === "ward") return `Guard · worn, Vell's anger climbs more slowly · sell ${gear.worth}g`;
@@ -171,22 +369,30 @@ function wornGear(state: GameState): Gear[] {
     .filter((item): item is Gear => Boolean(item));
 }
 
+function ordinaryTrait(state: GameState, trait: Gear["trait"]): number {
+  return wornGear(state).filter((gear) => gear.trait === trait && !gear.relic).length;
+}
+
 export function purseBonus(state: GameState): number {
-  return Math.min(2, wornGear(state).filter((gear) => gear.trait === "purse").length);
+  return Math.min(2, ordinaryTrait(state, "purse"));
 }
 
 export function wardBonus(state: GameState): number {
-  return wornGear(state).some((gear) => gear.trait === "ward") ? 1 : 0;
+  return ordinaryTrait(state, "ward") > 0 ? 1 : 0;
 }
 
 export function loreBonus(state: GameState): number {
-  return Math.min(2, wornGear(state).filter((gear) => gear.trait === "lore").length);
+  return Math.min(2, ordinaryTrait(state, "lore"));
 }
 
 export function fillGear(gear: Gear): Gear {
   const trait = gear.trait === "purse" || gear.trait === "ward" || gear.trait === "lore" || gear.trait === "luck" ? gear.trait : "luck";
   const worth = typeof gear.worth === "number" && gear.worth > 0 ? gear.worth : worthFor(gear.rarity, gear.luck);
-  return { ...gear, trait, worth };
+  const relic = gear.relic && RELIC_IDS.has(gear.relic) ? gear.relic : undefined;
+  const next: Gear = { ...gear, trait, worth };
+  if (relic) next.relic = relic;
+  else delete next.relic;
+  return next;
 }
 
 export function luckOf(state: GameState): number {

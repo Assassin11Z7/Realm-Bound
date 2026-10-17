@@ -156,6 +156,7 @@ export function parseSave(raw: string): GameState | null {
     value.tutorial = legalTutorial(value.tutorial);
     value.expedition = normalizeExpedition(value);
     value.politics = normalizePolitics(value.politics);
+    value.pardonCall = typeof value.pardonCall === "number" && Number.isFinite(value.pardonCall) ? Math.floor(value.pardonCall) : null;
     value.campaign = normalizeCampaign(
       value.campaign,
       value.compact.members.map((member) => member.id).filter((id) => typeof id === "string"),

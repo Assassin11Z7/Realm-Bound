@@ -408,7 +408,11 @@ export const RULES: { title: string; body: string }[] = [
   },
   {
     title: "The wagon expedition",
-    body: "Every so often the wagons are called. You have twelve dawns to fill them with grain, iron, and salt. Meet the call and a relic comes off the wagons. Miss it and you can fill them late for a few dawns, or let them go and take a lesser spoil. Then they leave, and the call comes again.",
+    body: "Every so often the wagons are called. You have twelve dawns to fill them with grain, iron, and salt. Meet the call and a relic comes off the wagons, and often a unique one with it. Miss it and you can fill them late for a few dawns, or let them go and take a lesser spoil. Then they leave, and the call comes again.",
+  },
+  {
+    title: "Unique relics",
+    body: "A walk or a creature crossing may leave a unique relic. Ordinary finds in the ditch stay ordinary. Wear the unique piece, or keep the Salt Charter, and the season itself changes.",
   },
   {
     title: "Where things live",

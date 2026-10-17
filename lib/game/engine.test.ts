@@ -45,9 +45,28 @@ import type { FactionId, GameState, GoodId, HoldId, NewGameSetup } from "./types
 import { GOODS, LEVY_GOODS } from "./types";
 import { chooseSkill, dismissRealmNotice, realmProjectCost, setCaptainOrder, startProject, startRealmProject } from "./progress";
 import { craft, drinkPotion, storeGear } from "./craft";
-import { creatureCount, forceCrossing, forcePetition } from "./realm";
+import { availableCreatureIds, creatureCount, forceCrossing, forcePetition } from "./realm";
 import { EXPEDITION_GAP, allianceBoard, expeditionGap } from "./expedition";
-import { carryCap, gainRenown, influenceCap, luckOf, makePiece, roadFind, rollGear, treasureCount, vaultCap, WATCH_FIND_LUCK, WATCH_RELIC_BIAS } from "./world";
+import {
+  RELIC_EXPEDITION_CHANCE,
+  RELIC_WALK_CHANCE,
+  WATCH_FIND_LUCK,
+  WATCH_RELIC_BIAS,
+  carryCap,
+  gainRenown,
+  gearCompare,
+  influenceCap,
+  luckOf,
+  makePiece,
+  makeRelic,
+  pardonReady,
+  roadFind,
+  rollGear,
+  rollUniqueRelic,
+  starterCloak,
+  treasureCount,
+  vaultCap,
+} from "./world";
 
 function setup(partial: Partial<NewGameSetup> = {}): NewGameSetup {
   return {
@@ -947,4 +966,150 @@ test("realm projects take several dawns and leave a lasting benefit", () => {
   }
   assert.equal(relicLift, true);
   assert.equal(kinderFind, true);
+});
+
+test("unique relics stay out of ordinary finds and change the season when kept", () => {
+  assert.equal(makePiece("Unspoken Hem", "relic", "nope"), null);
+  const ordinary = new Set(["Unspoken Hem", "Barrow Band", "Salt Charter", "Carter's Knot", "Ford Bell"]);
+  for (let index = 0; index < 40; index += 1) {
+    const gear = rollGear(index + 3, index + 1, index + 2);
+    assert.equal(gear.relic, undefined);
+    assert.equal(ordinary.has(gear.name), false);
+    const found = roadFind(index + 9, index + 2, index + 4, "ashfold", 1);
+    if (found.gear) {
+      assert.equal(found.gear.relic, undefined);
+      assert.equal(ordinary.has(found.gear.name), false);
+    }
+  }
+
+  let walkDrops = 0;
+  for (let salt = 0; salt < 80; salt += 1) {
+    if (rollUniqueRelic(4, 2, salt, 11, RELIC_WALK_CHANCE, [])) walkDrops += 1;
+  }
+  assert.ok(walkDrops >= 6 && walkDrops <= 28);
+
+  let walked = createGame(setup());
+  while (walked.scene) walked = advanceScene(walked).state;
+  let sawWalkRelic = false;
+  for (let step = 0; step < 50 && !sawWalkRelic; step += 1) {
+    const dest = step % 2 === 0 ? "ashfold" : "greenmere";
+    const moved = travel(walked, dest as HoldId);
+    assert.equal(moved.error, undefined);
+    walked = moved.state;
+    while (walked.scene) walked = advanceScene(walked).state;
+    sawWalkRelic = walked.pack.some((gear) => Boolean(gear.relic));
+  }
+  assert.equal(sawWalkRelic, true);
+
+  let crossingDrops = 0;
+  for (let day = 1; day <= 40; day += 1) {
+    const state = createGame(setup({ name: `Cross${day}` }));
+    state.day = day;
+    state.player.stash.grain = 6;
+    const fed = chooseCrossing(forceCrossing(state, "millwife"), "loaf");
+    assert.equal(fed.state.player.stash.grain, 4);
+    if (fed.state.pack.some((gear) => gear.relic)) crossingDrops += 1;
+  }
+  assert.ok(crossingDrops >= 1 && crossingDrops <= 20);
+
+  let expeditionRelics = 0;
+  for (let name = 0; name < 24; name += 1) {
+    let state = createGame(setup({ name: `Wagon${name}` }));
+    state.player.stash.grain += 30;
+    state.player.stash.iron += 20;
+    state.player.stash.salt += 20;
+    state = pledgePersonal(state, "grain", 20).state;
+    state = pledgePersonal(state, "iron", 12).state;
+    state = pledgePersonal(state, "salt", 10).state;
+    assert.equal(state.outcome, "held");
+    assert.ok(state.pack.some((gear) => gear.id === "expedition-triumph-1"));
+    if (state.pack.some((gear) => gear.relic)) expeditionRelics += 1;
+  }
+  assert.ok(expeditionRelics >= Math.floor(24 * RELIC_EXPEDITION_CHANCE * 0.45));
+
+  const hem = makeRelic("unspoken-hem", "hem");
+  const compared = gearCompare(hem, starterCloak(), false);
+  assert.match(compared, /Travel cloak/);
+  assert.match(compared, /failed bargain/);
+  assert.match(compared, /call of the wagons/);
+
+  const pardoned = createGame(setup());
+  pardoned.pack.push(hem);
+  pardoned.worn = { ...pardoned.worn, cloak: hem.id };
+  const beforeMood = pardoned.settlements[0].mood;
+  const spared = chooseCrossing(forceCrossing(pardoned, "toll-hag"), "trick");
+  assert.equal(spared.fate?.won, false);
+  assert.equal(spared.state.player.gold, pardoned.player.gold - 2);
+  assert.equal(spared.state.settlements[0].mood, beforeMood);
+  assert.equal(pardonReady(spared.state), false);
+  const sour = choosePetition(forcePetition(spared.state, "oven-line"), "promise");
+  assert.equal(sour.error, undefined);
+  assert.ok((sour.state.settlements[0].mood ?? 0) < beforeMood);
+
+  const plain = createGame(setup());
+  const banded = createGame(setup());
+  const band = makeRelic("barrow-band", "band");
+  banded.pack.push(band);
+  banded.worn = { ...banded.worn, ring: band.id };
+  assert.equal(dawnYield(banded), dawnYield(plain) * 2);
+  const plainSealed = sealDay(plain).state;
+  const bandSealed = sealDay(banded).state;
+  assert.equal(bandSealed.player.stash.grain, plainSealed.player.stash.grain + dawnYield(plain));
+  assert.equal(bandSealed.wyrm.ire, plainSealed.wyrm.ire + 1);
+  assert.ok(
+    bandSealed.compact.members.some(
+      (member, index) => member.contentment === plainSealed.compact.members[index].contentment - 4,
+    ),
+  );
+
+  const wool = createGame(setup({ holdId: "woolford", factionId: "copper" }));
+  const woolBand = createGame(setup({ holdId: "woolford", factionId: "copper" }));
+  woolBand.pack.push(makeRelic("barrow-band", "band-wool"));
+  woolBand.worn = { ...woolBand.worn, ring: "band-wool" };
+  const woolSealed = sealDay(wool).state;
+  const woolDoubled = sealDay(woolBand).state;
+  assert.match(woolDoubled.chronicle.map((entry) => entry.text).join(" "), /Barrow Band/);
+  assert.ok(woolDoubled.player.stash.wool >= woolSealed.player.stash.wool);
+
+  const closed = setEdict(createGame(setup()), "greenmere", "salt-road");
+  assert.ok(closed.error);
+  const chartered = createGame(setup());
+  chartered.pack.push(makeRelic("salt-charter", "charter"));
+  assert.equal(availableCreatureIds(createGame(setup())).includes("salt-widow"), false);
+  assert.equal(availableCreatureIds(chartered).includes("salt-widow"), true);
+  const law = setEdict(chartered, "greenmere", "salt-road");
+  assert.equal(law.error, undefined);
+  const hearth = law.state.settlements[0].hearth;
+  const salted = sealDay(law.state).state;
+  assert.equal(salted.settlements[0].hearth, hearth);
+  assert.equal(salted.settlements[0].edict, "salt-road");
+
+  const early = createGame(setup());
+  early.player.stash.grain += 30;
+  early.player.stash.iron += 20;
+  early.player.stash.salt += 20;
+  early.pack.push(makeRelic("carter-knot", "knot"));
+  early.worn = { ...early.worn, charm: "knot" };
+  let sent = pledgePersonal(early, "grain", 20).state;
+  sent = pledgePersonal(sent, "iron", 12).state;
+  sent = pledgePersonal(sent, "salt", 10).state;
+  const left = dismissOutcome(sent).state;
+  assert.equal(left.expedition.nextCallDay, left.day + 5);
+  assert.ok(left.player.gold >= sent.player.gold);
+
+  const bell = createGame(setup());
+  const beforeXp = bell.campaign.xp;
+  while (bell.scene) {
+    const advanced = advanceScene(bell);
+    bell.scene = advanced.state.scene;
+    bell.campaign = advanced.state.campaign;
+  }
+  bell.pack.push(makeRelic("ford-bell", "bell"));
+  bell.worn = { ...bell.worn, hand: "bell" };
+  const taught = travel(bell, "ashfold");
+  assert.equal(taught.error, undefined);
+  assert.ok(taught.state.campaign.xp >= beforeXp + 3);
+
+  const round = parseSave(JSON.stringify(chartered));
+  assert.equal(round?.pack.find((gear) => gear.id === "charter")?.relic, "salt-charter");
 });

@@ -1,6 +1,6 @@
 import type { BuildingId, GameState, GoodId, PotionId, RealmBench, Result } from "./types";
 import { finishProject, grantXp, syncCampaign } from "./progress";
-import { carryCap, carriedWeight, gearWeight, makePiece, storedWeight, vaultCap } from "./world";
+import { carryCap, carriedWeight, gearWeight, isRelicName, makePiece, storedWeight, vaultCap } from "./world";
 
 export function emptyBrew(): Record<PotionId, number> {
   return { luck: 0, calm: 0, haste: 0, purse: 0, vigor: 0 };
@@ -67,6 +67,7 @@ function ok(state: GameState, message?: string): Result {
 export function craft(state: GameState, recipeId: string): Result {
   const recipe = RECIPES.find((item) => item.id === recipeId);
   if (!recipe) return fail(state, "That is not a recipe.");
+  if (recipe.gear && isRelicName(recipe.gear)) return fail(state, "That relic is not made on a bench.");
   const level = state.campaign?.buildings[recipe.building] ?? 0;
   const bench = BENCH[recipe.building] ?? recipe.building;
   if (recipe.project) {
@@ -147,7 +148,7 @@ export function storeGear(state: GameState, gearId: string): Result {
     next.worn = worn;
   }
   next.vault = [...(next.vault ?? []), gear];
-  note(next, `You lock ${gear.name} in the strongroom.`);
+  note(next, gear.relic ? `You lock ${gear.name} in the strongroom. The season still knows its name.` : `You lock ${gear.name} in the strongroom.`);
   return ok(next, `${gear.name} is stored.`);
 }
 
