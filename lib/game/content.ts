@@ -416,7 +416,7 @@ export const RULES: { title: string; body: string }[] = [
   },
   {
     title: "Where things live",
-    body: "Realm holds the map, bonds, decrees, and the morning status. Hold holds people, loyalty, laws, works, and benches. Neighbors holds oaths, trade, captain orders, and the seats kept for a later war. Road holds the walk, your bag, gear, and loot.",
+    body: "Realm holds the map, bonds, decrees, and the morning status. Hold holds people, loyalty, laws, works, projects, and benches. Neighbors holds oaths, trade, captain orders, and the seats kept for a later war. Road holds the walk, your bag, gear, and loot.",
   },
   {
     title: "Seal the day",

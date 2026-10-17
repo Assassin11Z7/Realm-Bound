@@ -1,4 +1,5 @@
 import { WYRM_NAME, holdById } from "./content";
+import { BORDER_SOONER } from "./expedition";
 import { rememberStance } from "./realm";
 import type {
   BuildingId,
@@ -6,14 +7,19 @@ import type {
   Captain,
   CaptainOrder,
   GameState,
+  GoodId,
   HoldId,
   Mission,
+  RealmBench,
+  RealmLabor,
+  RealmProjectId,
+  RealmWork,
   Result,
   SkillId,
   SkillOffer,
   Threat,
 } from "./types";
-import { HOLD_IDS } from "./types";
+import { HOLD_IDS, REALM_PROJECT_IDS } from "./types";
 import { bumpQuest, carryCap, carriedWeight, gearWeight, rewardScene, rollGear, worldRng } from "./world";
 
 export const SKILLS: Record<SkillId, { name: string; blurb: string }> = {
@@ -113,7 +119,8 @@ export function powerOf(state: GameState): number {
   if (!camp) return 0;
   const build = BUILDING_IDS.reduce((sum, id) => sum + (camp.buildings[id] ?? 0), 0);
   const ranks = Object.values(camp.captains).reduce((sum, captain) => sum + captain.rank, 0);
-  return camp.level * 10 + camp.skills.length * 6 + build * 4 + ranks * 3 + Math.floor(state.player.renown / 2);
+  const realm = (camp.realmWorks ?? []).length;
+  return camp.level * 10 + camp.skills.length * 6 + build * 4 + ranks * 3 + realm * 3 + Math.floor(state.player.renown / 2);
 }
 
 export function buildingCost(state: GameState, id: BuildingId): { gold: number; good: (typeof BUILDINGS)[number]["good"]; qty: number } {
@@ -162,6 +169,9 @@ export function blankCampaign(memberIds: string[]): Campaign {
     offer: null,
     buildings: { hall: 0, yard: 0, shrine: 0, market: 0, watch: 0, forge: 0, still: 0, loom: 0, strongroom: 0 },
     project: null,
+    realmLabor: null,
+    realmWorks: [],
+    realmNotice: null,
     chapter: 1,
     captains,
     missions: missionList(),
@@ -239,6 +249,9 @@ export function normalizeCampaign(value: Campaign | undefined, memberIds: string
     marches: typeof value.marches === "number" && value.marches >= 0 ? Math.floor(value.marches) : 0,
     hunts: typeof value.hunts === "number" && value.hunts >= 0 ? Math.floor(value.hunts) : 0,
     threatsFaced: typeof value.threatsFaced === "number" && value.threatsFaced >= 0 ? Math.floor(value.threatsFaced) : 0,
+    realmLabor: legalRealmLabor(value.realmLabor),
+    realmWorks: legalRealmWorks(value.realmWorks),
+    realmNotice: typeof value.realmNotice === "string" && value.realmNotice.trim() ? value.realmNotice.trim().slice(0, 280) : null,
   };
 }
 
@@ -446,14 +459,270 @@ export function maybeThreat(state: GameState): string | null {
   return `${picked.title} stands on the road.`;
 }
 
+export const REALM_PROJECTS: {
+  id: RealmProjectId;
+  name: string;
+  dawns: number;
+  gold: number;
+  good: GoodId;
+  qty: number;
+  art: string;
+  blurb: string;
+}[] = [
+  {
+    id: "watchtower",
+    name: "Watchtower",
+    dawns: 4,
+    gold: 12,
+    good: "timber",
+    qty: 3,
+    art: "/art/hold-highbarrow.jpg",
+    blurb: "Four dawns of timber and gold. Walks find more, and a relic is a little more likely.",
+  },
+  {
+    id: "hall",
+    name: "Fund the hall",
+    dawns: 3,
+    gold: 14,
+    good: "grain",
+    qty: 3,
+    art: "/art/hall.jpg",
+    blurb: "Three dawns. Loyalty at your hold recovers each dawn, and influence can pass 40.",
+  },
+  {
+    id: "bench",
+    name: "Expand a bench",
+    dawns: 4,
+    gold: 10,
+    good: "iron",
+    qty: 3,
+    art: "/art/drake-mine.jpg",
+    blurb: "Four dawns at the forge or the loom. The forge unlocks an ash staff and rewards a worn smith piece. The loom unlocks an ash cloak.",
+  },
+  {
+    id: "border",
+    name: "Border path",
+    dawns: 3,
+    gold: 8,
+    good: "timber",
+    qty: 2,
+    art: "/art/caravan.jpg",
+    blurb: "Three dawns toward one sworn hold. That bond deepens, and the wagons return two dawns sooner.",
+  },
+];
+
+function isHold(value: unknown): value is HoldId {
+  return typeof value === "string" && (HOLD_IDS as readonly string[]).includes(value);
+}
+
+function isBench(value: unknown): value is RealmBench {
+  return value === "forge" || value === "loom";
+}
+
+function isRealmId(value: unknown): value is RealmProjectId {
+  return typeof value === "string" && (REALM_PROJECT_IDS as readonly string[]).includes(value);
+}
+
+function legalRealmWork(value: Partial<RealmWork> | null | undefined): RealmWork | null {
+  if (!value || !isRealmId(value.id)) return null;
+  if (value.id === "border") return isHold(value.holdId) ? { id: "border", holdId: value.holdId } : null;
+  if (value.id === "bench") return isBench(value.bench) ? { id: "bench", bench: value.bench } : null;
+  return { id: value.id };
+}
+
+function sameRealmWork(a: RealmWork, b: RealmWork): boolean {
+  return a.id === b.id && a.holdId === b.holdId && a.bench === b.bench;
+}
+
+function legalRealmWorks(value: RealmWork[] | undefined): RealmWork[] {
+  if (!Array.isArray(value)) return [];
+  const works: RealmWork[] = [];
+  for (const item of value) {
+    const work = legalRealmWork(item);
+    if (!work || works.some((kept) => sameRealmWork(kept, work))) continue;
+    works.push(work);
+  }
+  return works;
+}
+
+function legalRealmLabor(value: RealmLabor | null | undefined): RealmLabor | null {
+  const work = legalRealmWork(value);
+  if (!work) return null;
+  const dawns = realmProjectDawns(work.id);
+  const spent = typeof value?.spent === "number" && Number.isFinite(value.spent) ? Math.floor(value.spent) : 0;
+  return { ...work, spent: Math.max(0, Math.min(dawns - 1, spent)) };
+}
+
+export function realmProjectDawns(id: RealmProjectId): number {
+  return REALM_PROJECTS.find((item) => item.id === id)?.dawns ?? 3;
+}
+
+export function realmProjectArt(work: { id: RealmProjectId; bench?: RealmBench }): string {
+  if (work.id === "bench" && work.bench === "loom") return "/art/good-wool.jpg";
+  return REALM_PROJECTS.find((item) => item.id === work.id)?.art ?? "/art/hall.jpg";
+}
+
+export function realmLaborTitle(work: { id: RealmProjectId; holdId?: HoldId; bench?: RealmBench }): string {
+  if (work.id === "bench") return work.bench === "loom" ? "The loom" : "The forge";
+  if (work.id === "border" && work.holdId) return `Path to ${holdById(work.holdId).name}`;
+  if (work.id === "hall") return "The hall";
+  return "Watchtower";
+}
+
+export function realmStanding(work: RealmWork): string {
+  if (work.id === "watchtower") return "Walks find more, and relics turn up a little more often.";
+  if (work.id === "hall") return "Home loyalty recovers by 2 each dawn. Influence can reach 64.";
+  if (work.id === "bench" && work.bench === "loom") return "The loom can weave an ash cloak.";
+  if (work.id === "bench") return "The forge can smith an ash staff. A worn smith piece adds 1 luck.";
+  if (work.id === "border" && work.holdId) return `The path to ${holdById(work.holdId).name} stays clear.`;
+  return "The work stands.";
+}
+
+export function hasRealmWork(state: GameState, id: RealmProjectId, bench?: RealmBench, holdId?: HoldId): boolean {
+  return (state.campaign?.realmWorks ?? []).some((work) => {
+    if (work.id !== id) return false;
+    if (bench && work.bench !== bench) return false;
+    if (holdId && work.holdId !== holdId) return false;
+    return true;
+  });
+}
+
+export function realmProjectOpen(state: GameState): boolean {
+  if (!hasRealmWork(state, "watchtower")) return true;
+  if (!hasRealmWork(state, "hall")) return true;
+  if (!hasRealmWork(state, "bench", "forge")) return true;
+  if (!hasRealmWork(state, "bench", "loom")) return true;
+  return state.compact.members.some((member) => member.inCompact && !hasRealmWork(state, "border", undefined, member.holdId));
+}
+
+export function realmProjectCost(state: GameState, id: RealmProjectId, bench?: RealmBench): { gold: number; good: GoodId; qty: number } {
+  const spec = REALM_PROJECTS.find((item) => item.id === id) ?? REALM_PROJECTS[0];
+  let gold = spec.gold;
+  if (state.campaign?.skills.includes("wright")) gold = Math.max(2, gold - 3);
+  if (id === "bench") return { gold, good: bench === "loom" ? "wool" : "iron", qty: 3 };
+  return { gold, good: spec.good, qty: spec.qty };
+}
+
+function finishRealmLine(state: GameState, work: RealmWork): string {
+  if (work.id === "watchtower") {
+    return "The watchtower is raised. Walks find more on the road, and a relic is a little more likely.";
+  }
+  if (work.id === "hall") {
+    return "The hall is funded. Loyalty at home recovers by 2 each dawn, and influence can reach 64.";
+  }
+  if (work.id === "bench" && work.bench === "loom") {
+    return "The loom is expanded. You can weave an ash cloak.";
+  }
+  if (work.id === "bench") {
+    return "The forge is expanded. You can smith an ash staff, and a worn smith piece adds 1 luck.";
+  }
+  const place = holdById(work.holdId ?? state.player.holdId);
+  const member = state.compact.members.find((item) => item.holdId === work.holdId);
+  const who = member?.name ?? place.lord;
+  const first = (state.campaign?.realmWorks ?? []).filter((item) => item.id === "border").length <= 1;
+  if (first) return `The path to ${place.name} is clear. ${who} stands closer to the oath, and the wagons return two dawns sooner.`;
+  return `The path to ${place.name} is clear. ${who} stands closer to the oath.`;
+}
+
+function applyRealmFinish(state: GameState, work: RealmWork): string {
+  const camp = state.campaign;
+  if (work.id === "bench" && work.bench && (camp.buildings[work.bench] ?? 0) < 1) {
+    camp.buildings[work.bench] = 1;
+  }
+  if (work.id === "border" && work.holdId) {
+    const place = holdById(work.holdId);
+    const member = state.compact.members.find((item) => item.holdId === work.holdId);
+    if (member) {
+      member.contentment = Math.min(100, member.contentment + 14);
+      member.lastNote = `The path from ${place.name} is clear.`;
+    }
+    const first = camp.realmWorks.filter((item) => item.id === "border").length <= 1;
+    rememberStance(
+      state,
+      `border:${work.holdId}`,
+      place.name,
+      first
+        ? `${member?.name ?? place.lord} keeps a clearer bond along the new path. The wagons return two dawns sooner.`
+        : `${member?.name ?? place.lord} keeps a clearer bond along the new path.`,
+    );
+    const exp = state.expedition;
+    if (first && exp?.phase === "idle" && typeof exp.nextCallDay === "number") {
+      exp.nextCallDay = Math.max(state.day + 1, exp.nextCallDay - BORDER_SOONER);
+    }
+  }
+  return finishRealmLine(state, work);
+}
+
+function advanceRealmLabor(state: GameState): string[] {
+  const camp = state.campaign;
+  if (!camp) return [];
+  for (const work of camp.realmWorks ?? []) {
+    if (work.id !== "border" || !work.holdId) continue;
+    const member = state.compact.members.find((item) => item.inCompact && item.holdId === work.holdId);
+    if (!member) continue;
+    member.contentment = Math.min(100, member.contentment + 2);
+  }
+  const labor = camp.realmLabor;
+  if (!labor) return [];
+  labor.spent += 1;
+  if (labor.spent < realmProjectDawns(labor.id)) return [];
+  const finished: RealmWork = { id: labor.id, holdId: labor.holdId, bench: labor.bench };
+  camp.realmWorks = [...(camp.realmWorks ?? []), finished];
+  camp.realmLabor = null;
+  const line = applyRealmFinish(state, finished);
+  camp.realmNotice = line;
+  return [line, ...grantXp(state, 8)];
+}
+
 export function applyDawnProgress(state: GameState): string[] {
   if (!state.campaign) return [];
-  const lines = [...finishProject(state), ...resolveCaptains(state), ...grantXp(state, 2)];
+  const lines = [...finishProject(state), ...advanceRealmLabor(state), ...resolveCaptains(state), ...grantXp(state, 2)];
   steadyShrine(state);
   const threat = maybeThreat(state);
   if (threat) lines.push(threat);
   syncCampaign(state);
   return lines;
+}
+
+export function startRealmProject(state: GameState, id: RealmProjectId, target?: HoldId | RealmBench): Result {
+  const camp = state.campaign;
+  if (!camp) return fail(state, "The hold has no works yet.");
+  if (!isRealmId(id)) return fail(state, "That is not a realm project.");
+  if (camp.realmLabor) return fail(state, "A realm project is already rising. It finishes across several dawns.");
+  let holdId: HoldId | undefined;
+  let bench: RealmBench | undefined;
+  if (id === "border") {
+    if (!isHold(target)) return fail(state, "Choose a sworn hold.");
+    const member = state.compact.members.find((item) => item.holdId === target && item.inCompact);
+    if (!member || target === state.player.holdId) return fail(state, "That hold is not sworn to you.");
+    if (hasRealmWork(state, "border", undefined, target)) return fail(state, "That path is already clear.");
+    holdId = target;
+  } else if (id === "bench") {
+    if (!isBench(target)) return fail(state, "Choose the forge or the loom.");
+    if (hasRealmWork(state, "bench", target)) return fail(state, target === "loom" ? "The loom is already expanded." : "The forge is already expanded.");
+    bench = target;
+  } else if (hasRealmWork(state, id)) {
+    return fail(state, "That project already stands.");
+  }
+  const cost = realmProjectCost(state, id, bench);
+  if (state.player.gold < cost.gold) return fail(state, `That project costs ${cost.gold} gold.`);
+  if (state.player.stash[cost.good] < cost.qty) return fail(state, `That project needs ${cost.qty} ${cost.good}.`);
+  const next = structuredClone(state);
+  next.player.gold -= cost.gold;
+  next.player.stash[cost.good] -= cost.qty;
+  const labor: RealmLabor = { id, spent: 0, holdId, bench };
+  next.campaign.realmLabor = labor;
+  const title = realmLaborTitle(labor);
+  const dawns = realmProjectDawns(id);
+  note(next, `${title} is begun. It takes ${dawns} dawns. You paid ${cost.gold} gold and ${cost.qty} ${cost.good}.`);
+  return ok(next, `${title} will take ${dawns} dawns.`);
+}
+
+export function dismissRealmNotice(state: GameState): Result {
+  if (!state.campaign?.realmNotice) return fail(state, "No finished project is waiting to be read.");
+  const next = structuredClone(state);
+  next.campaign.realmNotice = null;
+  return ok(next);
 }
 
 export function chooseSkill(state: GameState, skillId: SkillId): Result {

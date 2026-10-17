@@ -2,22 +2,33 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { HOLDS } from "@/lib/game/content";
+import { Progress } from "@/components/ui/progress";
+import { HOLDS, holdById } from "@/lib/game/content";
 import {
   BUILDINGS,
   CHAPTERS,
+  REALM_PROJECTS,
   SKILLS,
   buildingCost,
   chapterName,
   chooseSkill,
   claimMission,
+  dismissRealmNotice,
   endureThreat,
+  hasRealmWork,
   payThreat,
+  realmProjectOpen,
+  realmLaborTitle,
+  realmProjectArt,
+  realmProjectCost,
+  realmProjectDawns,
+  realmStanding,
   rideThreat,
   setCaptainOrder,
   startProject,
+  startRealmProject,
 } from "@/lib/game/progress";
-import type { CaptainOrder, GameState, HoldId, Result, SkillId } from "@/lib/game/types";
+import type { CaptainOrder, GameState, HoldId, RealmBench, RealmProjectId, Result, SkillId } from "@/lib/game/types";
 
 const ORDERS: { id: CaptainOrder; label: string }[] = [
   { id: "oath", label: "Stay" },
@@ -69,6 +80,9 @@ export function HoldWorks({ state, act }: { state: GameState; act: (result: Resu
       <p className="font-display text-xl">Raise the hold</p>
       <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
         {chapterName(camp.chapter)}. {chapter?.aim} One work rises at a time and finishes when you seal the day.
+        {camp.realmLabor
+          ? ` ${realmLaborTitle(camp.realmLabor)} is a longer project: dawn ${camp.realmLabor.spent} of ${realmProjectDawns(camp.realmLabor.id)}. It is under Projects.`
+          : ""}
       </p>
       <ul className="mt-3 flex flex-col gap-3">
         {BUILDINGS.map((spec) => {
@@ -96,6 +110,160 @@ export function HoldWorks({ state, act }: { state: GameState; act: (result: Resu
         })}
       </ul>
     </div>
+  );
+}
+
+export function RealmProjects({ state, act }: { state: GameState; act: (result: Result) => void }) {
+  const camp = state.campaign;
+  const [picking, setPicking] = useState(false);
+  if (!camp) return null;
+  const labor = camp.realmLabor;
+  const works = camp.realmWorks ?? [];
+  const notice = camp.realmNotice;
+  const noticeWork = notice ? works[works.length - 1] : undefined;
+  const sworn = state.compact.members.filter((member) => member.inCompact && !hasRealmWork(state, "border", undefined, member.holdId));
+  const waiting = !labor;
+
+  function begin(id: RealmProjectId, target?: HoldId | RealmBench) {
+    setPicking(false);
+    act(startRealmProject(state, id, target));
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {notice && (
+        <div className="overflow-hidden rounded-2xl bg-card ring-2 ring-[#e6c56e]">
+          <img src={realmProjectArt(noticeWork ?? { id: "hall" })} alt="" className="h-32 w-full object-cover" />
+          <div className="p-4">
+            <p className="text-[11px] tracking-[0.18em] text-[#8d6b2e] uppercase">The work stands</p>
+            <p className="mt-1 font-display text-2xl leading-tight">{noticeWork ? realmLaborTitle(noticeWork) : "A project"}</p>
+            <p className="mt-2 text-sm leading-relaxed">{notice}</p>
+            <Button type="button" className="mt-3 h-11 w-full" onClick={() => act(dismissRealmNotice(state))}>
+              The hold has seen it
+            </Button>
+          </div>
+        </div>
+      )}
+      {labor && (
+        <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/10">
+          <img src={realmProjectArt(labor)} alt="" className="h-28 w-full object-cover" />
+          <div className="p-4">
+            <p className="text-[11px] tracking-[0.18em] text-moss uppercase">Rising</p>
+            <p className="mt-1 font-display text-2xl leading-tight">{realmLaborTitle(labor)}</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Dawn {labor.spent} of {realmProjectDawns(labor.id)}
+            </p>
+            <Progress value={(labor.spent / realmProjectDawns(labor.id)) * 100} className="mt-2 h-1.5" />
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              {labor.spent === 0
+                ? "Seal the day to sink the first dawn of labor. The cost is already paid."
+                : `${realmProjectDawns(labor.id) - labor.spent === 1 ? "1 dawn of labor remains." : `${realmProjectDawns(labor.id) - labor.spent} dawns of labor remain.`} It keeps going while the wagons are away.`}
+            </p>
+          </div>
+        </div>
+      )}
+      <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+        <p className="font-display text-xl">Raise a project</p>
+        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+          Each one takes more than a dawn. What it changes stays after the wagons leave.
+          {labor ? " One project rises at a time." : ""}
+        </p>
+        {!labor && !realmProjectOpen(state) ? (
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">Every project you can raise is already standing.</p>
+        ) : (
+        <ul className="mt-3 flex flex-col gap-3">
+          {REALM_PROJECTS.map((spec) => {
+            const done =
+              spec.id === "bench"
+                ? hasRealmWork(state, "bench", "forge") && hasRealmWork(state, "bench", "loom")
+                : spec.id === "border"
+                  ? sworn.length === 0 && works.some((work) => work.id === "border")
+                  : hasRealmWork(state, spec.id);
+            if (done) return null;
+            const rising = labor?.id === spec.id;
+            if (rising) return null;
+            return (
+              <li key={spec.id} className="rounded-xl bg-background px-3 py-3">
+                <p className="text-sm font-medium">{spec.name}</p>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  {spec.dawns} dawns. {spec.blurb}
+                </p>
+                {waiting && spec.id === "watchtower" && (
+                  <StartButton state={state} id="watchtower" onStart={() => begin("watchtower")} />
+                )}
+                {waiting && spec.id === "hall" && <StartButton state={state} id="hall" onStart={() => begin("hall")} />}
+                {waiting && spec.id === "bench" && (
+                  <div className="mt-2 flex flex-col gap-2">
+                    {!hasRealmWork(state, "bench", "forge") && (
+                      <StartButton state={state} id="bench" bench="forge" label="Expand the forge" onStart={() => begin("bench", "forge")} />
+                    )}
+                    {!hasRealmWork(state, "bench", "loom") && (
+                      <StartButton state={state} id="bench" bench="loom" label="Expand the loom" onStart={() => begin("bench", "loom")} />
+                    )}
+                  </div>
+                )}
+                {waiting && spec.id === "border" && sworn.length === 0 && (
+                  <p className="mt-2 text-xs text-muted-foreground">No sworn hold can take a path.</p>
+                )}
+                {waiting && spec.id === "border" && sworn.length > 0 && (
+                  <>
+                    <Button type="button" variant="outline" className="mt-2 h-10" onClick={() => setPicking((open) => !open)}>
+                      Choose a sworn hold
+                    </Button>
+                    {picking && (
+                      <div className="mt-2 flex flex-col gap-2">
+                        {sworn.map((member) => (
+                          <Button key={member.id} type="button" variant="secondary" className="h-10" onClick={() => begin("border", member.holdId)}>
+                            {holdById(member.holdId).name} · {realmProjectCost(state, "border").gold}g, {realmProjectCost(state, "border").qty} timber
+                          </Button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+                {!waiting && <p className="mt-2 text-xs tracking-wide text-muted-foreground uppercase">Waits</p>}
+              </li>
+            );
+          })}
+        </ul>
+        )}
+      </div>
+      {works.length > 0 && (
+        <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+          <p className="font-display text-xl">Standing</p>
+          <ul className="mt-3 flex flex-col gap-3">
+            {works.map((work) => (
+              <li key={`${work.id}-${work.holdId ?? ""}-${work.bench ?? ""}`}>
+                <p className="text-sm font-medium">{realmLaborTitle(work)}</p>
+                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{realmStanding(work)}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StartButton({
+  state,
+  id,
+  bench,
+  label,
+  onStart,
+}: {
+  state: GameState;
+  id: RealmProjectId;
+  bench?: RealmBench;
+  label?: string;
+  onStart: () => void;
+}) {
+  const spec = REALM_PROJECTS.find((item) => item.id === id);
+  const cost = realmProjectCost(state, id, bench);
+  return (
+    <Button type="button" variant="outline" className="mt-2 h-10" onClick={onStart}>
+      {label ?? spec?.name ?? "Begin"} · {cost.gold}g, {cost.qty} {cost.good}
+    </Button>
   );
 }
 

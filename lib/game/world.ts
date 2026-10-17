@@ -248,6 +248,7 @@ export function awardUniqueRelic(
   state: GameState,
   source: "walk" | "crossing" | "expedition",
 ): { gear: Gear; packed: boolean } | null {
+  const watch = (state.campaign?.realmWorks ?? []).some((work) => work.id === "watchtower");
   const chance =
     source === "expedition"
       ? wornRelic(state, "ford-bell")
@@ -255,7 +256,7 @@ export function awardUniqueRelic(
         : RELIC_EXPEDITION_CHANCE
       : source === "crossing"
         ? RELIC_CROSSING_CHANCE
-        : RELIC_WALK_CHANCE;
+        : RELIC_WALK_CHANCE + (watch ? 0.06 : 0);
   const salt = source === "walk" ? 11 : source === "crossing" ? 41 : 90 + (state.expedition?.cycle ?? 1);
   const gear = rollUniqueRelic(state.seed ?? 0, state.day, state.miles ?? 0, salt, chance, ownedRelicIds(state));
   if (!gear) return null;
@@ -279,10 +280,47 @@ function pickSlot(roll: number): GearSlot {
   return "hoard";
 }
 
-export function rollGear(seed: number, day: number, miles: number): Gear {
+/** Extra luck added to a walk once a watchtower stands. Finds shift kinder. */
+export const WATCH_FIND_LUCK = 1;
+/** How far the relic line drops on a walk once a watchtower stands. */
+export const WATCH_RELIC_BIAS = 0.03;
+export const INFLUENCE_CAP = 40;
+export const INFLUENCE_HALL = 64;
+export const HALL_LOYALTY = 2;
+
+export function hallFunded(state: GameState): boolean {
+  return (state.campaign?.realmWorks ?? []).some((work) => work.id === "hall");
+}
+
+export function influenceCap(state: GameState): number {
+  return hallFunded(state) ? INFLUENCE_HALL : INFLUENCE_CAP;
+}
+
+/** Adds renown without passing the influence cap, and never strips renown already earned. */
+export function gainRenown(state: GameState, amount: number) {
+  if (!amount) return;
+  if (amount < 0) {
+    state.player.renown = Math.max(0, state.player.renown + amount);
+    return;
+  }
+  const ceiling = Math.max(state.player.renown, influenceCap(state));
+  state.player.renown = Math.min(ceiling, state.player.renown + amount);
+}
+
+/** A worn hand piece counts as a smith piece once the forge project stands. */
+export function smithLuck(state: GameState): number {
+  const forged = (state.campaign?.realmWorks ?? []).some((work) => work.id === "bench" && work.bench === "forge");
+  if (!forged) return 0;
+  const handId = state.worn?.hand;
+  if (!handId) return 0;
+  return (state.pack ?? []).some((gear) => gear.id === handId && gear.slot === "hand") ? 1 : 0;
+}
+
+export function rollGear(seed: number, day: number, miles: number, relicBias = 0): Gear {
   const roll = worldRng((seed ^ Math.imul(day + 3, 0x9e3779b1) ^ Math.imul(miles + 5, 0x85ebca6b)) >>> 0);
   const rarityRoll = roll();
-  const rarity: Rarity = rarityRoll > 0.93 ? "relic" : rarityRoll > 0.66 ? "uncanny" : "common";
+  const relicAt = 0.93 - Math.max(0, relicBias);
+  const rarity: Rarity = rarityRoll > relicAt ? "relic" : rarityRoll > 0.66 ? "uncanny" : "common";
   const slot = pickSlot(roll());
   const pool = TREASURES.filter((piece) => piece.slot === slot);
   const piece = pool[Math.floor(roll() * pool.length)];
@@ -367,6 +405,7 @@ export function luckOf(state: GameState): number {
   }
   if (state.campaign?.skills.includes("step")) luck += 1;
   if ((state.tonics?.luck ?? 0) > 0) luck += 2;
+  luck += smithLuck(state);
   return luck;
 }
 
@@ -516,14 +555,14 @@ export type RoadFind = {
   scene: Cutscene;
 };
 
-export function roadFind(seed: number, day: number, miles: number, dest: HoldId, luck: number): RoadFind {
+export function roadFind(seed: number, day: number, miles: number, dest: HoldId, luck: number, relicBias = 0): RoadFind {
   const roll = worldRng((seed ^ Math.imul(day + 11, 0xc2b2ae35) ^ Math.imul(miles + 2, 0x27d4eb2d)) >>> 0);
   const tilted = Math.min(0.99, Math.max(0, roll() - luck * 0.04));
   const kind: RoadFind["kind"] = tilted < 0.3 ? "cache" : tilted < 0.56 ? "merchant" : tilted < 0.8 ? "shadow" : "kin";
   const place = holdById(dest).name;
   const goldRoll = 2 + Math.floor(roll() * (4 + luck));
   if (kind === "cache") {
-    const gear = rollGear(seed, day, miles);
+    const gear = rollGear(seed, day, miles, relicBias);
     return {
       kind,
       gold: 0,
@@ -541,7 +580,7 @@ export function roadFind(seed: number, day: number, miles: number, dest: HoldId,
     };
   }
   if (kind === "merchant") {
-    const gear = roll() < 0.5 ? rollGear(seed, day, miles + 40) : null;
+    const gear = roll() < 0.5 ? rollGear(seed, day, miles + 40, relicBias) : null;
     return {
       kind,
       gold: goldRoll,
@@ -583,7 +622,7 @@ export function roadFind(seed: number, day: number, miles: number, dest: HoldId,
     };
   }
   const kinGold = 1 + Math.floor(roll() * 3);
-  const gear = roll() < 0.45 ? rollGear(seed, day, miles + 70) : null;
+  const gear = roll() < 0.45 ? rollGear(seed, day, miles + 70, relicBias) : null;
   return {
     kind,
     gold: kinGold,

@@ -43,15 +43,19 @@ import {
 import { parseSave } from "./storage";
 import type { FactionId, GameState, GoodId, HoldId, NewGameSetup } from "./types";
 import { GOODS, LEVY_GOODS } from "./types";
-import { chooseSkill, setCaptainOrder, startProject } from "./progress";
+import { chooseSkill, dismissRealmNotice, realmProjectCost, setCaptainOrder, startProject, startRealmProject } from "./progress";
 import { craft, drinkPotion, storeGear } from "./craft";
 import { availableCreatureIds, creatureCount, forceCrossing, forcePetition } from "./realm";
-import { allianceBoard } from "./expedition";
+import { EXPEDITION_GAP, allianceBoard, expeditionGap } from "./expedition";
 import {
   RELIC_EXPEDITION_CHANCE,
   RELIC_WALK_CHANCE,
+  WATCH_FIND_LUCK,
+  WATCH_RELIC_BIAS,
   carryCap,
+  gainRenown,
   gearCompare,
+  influenceCap,
   luckOf,
   makePiece,
   makeRelic,
@@ -791,6 +795,9 @@ test("a creature's bargain and a settlement's law stay in force", () => {
   assert.equal(bare?.petition, null);
   assert.equal(bare?.settlements[0].edict, "custom");
   assert.equal(bare?.tutorial.step, null);
+  assert.equal(bare?.campaign.realmLabor, null);
+  assert.deepEqual(bare?.campaign.realmWorks, []);
+  assert.equal(bare?.campaign.realmNotice, null);
   assert.equal(bare?.expedition.phase, "called");
   assert.equal(bare?.expedition.dueDay, 12);
   assert.equal(bare?.politics.awaitingSeats.length, 2);
@@ -845,6 +852,120 @@ test("letting a failed expedition go pays survival loot and keeps the seats", ()
   assert.equal(board.conflict.rivalName, null);
   const later = pledgeFromHall(state, "iron", 1);
   assert.ok(later.error);
+});
+
+test("realm projects take several dawns and leave a lasting benefit", () => {
+  const fresh = createGame(setup());
+  assert.equal(fresh.campaign.realmLabor, null);
+  assert.deepEqual(fresh.campaign.realmWorks, []);
+  assert.ok(startRealmProject(fresh, "watchtower").error);
+  assert.equal(realmProjectCost(fresh, "hall").gold, 14);
+  fresh.campaign.skills = ["wright"];
+  assert.equal(realmProjectCost(fresh, "hall").gold, 11);
+  fresh.campaign.skills = [];
+
+  const started = startRealmProject(fresh, "hall");
+  assert.equal(started.error, undefined);
+  assert.equal(started.state.player.gold, fresh.player.gold - 14);
+  assert.equal(started.state.player.stash.grain, fresh.player.stash.grain - 3);
+  assert.equal(started.state.campaign.realmLabor?.id, "hall");
+  assert.equal(started.state.campaign.realmLabor?.spent, 0);
+  assert.ok(startRealmProject(started.state, "watchtower").error);
+
+  const saved = parseSave(JSON.stringify(started.state));
+  assert.equal(saved?.campaign.realmLabor?.id, "hall");
+  assert.equal(saved?.campaign.realmLabor?.spent, 0);
+
+  let rising = started.state;
+  rising.expedition.phase = "idle";
+  rising.expedition.nextCallDay = rising.day + 30;
+  rising.outcome = "held";
+  rising.outcomeDismissed = true;
+  rising = sealDay(rising).state;
+  assert.equal(rising.campaign.realmLabor?.spent, 1);
+  assert.equal(rising.expedition.phase, "idle");
+  rising = sealDay(rising).state;
+  assert.equal(rising.campaign.realmLabor?.spent, 2);
+  rising = sealDay(rising).state;
+  assert.equal(rising.campaign.realmLabor, null);
+  assert.ok(rising.campaign.realmWorks.some((work) => work.id === "hall"));
+  assert.ok(rising.campaign.realmNotice?.includes("Loyalty"));
+  assert.ok(rising.chronicle.some((entry) => entry.text.includes("Loyalty at home recovers")));
+  assert.equal(influenceCap(rising), 64);
+  assert.equal(dismissRealmNotice(rising).state.campaign.realmNotice, null);
+
+  const funded = createGame(setup());
+  funded.campaign.realmWorks = [{ id: "hall" }];
+  const plain = createGame(setup());
+  const home = (state: GameState) => state.settlements.find((item) => item.holdId === "greenmere")?.mood ?? 0;
+  assert.equal(home(sealDay(funded).state), home(sealDay(plain).state) + 2);
+
+  const capped = createGame(setup());
+  capped.player.renown = 40;
+  gainRenown(capped, 5);
+  assert.equal(capped.player.renown, 40);
+  rising.player.renown = 40;
+  gainRenown(rising, 5);
+  assert.equal(rising.player.renown, 45);
+
+  const borderHold = fresh.compact.members[0].holdId;
+  const open = createGame(setup());
+  open.outcome = "held";
+  const departed = releaseExpedition(open).state;
+  assert.equal(departed.expedition.nextCallDay, open.day + EXPEDITION_GAP);
+  const marked = createGame(setup());
+  marked.outcome = "held";
+  marked.campaign.realmWorks = [{ id: "border", holdId: borderHold }];
+  assert.equal(expeditionGap(marked), EXPEDITION_GAP - 2);
+  const sooner = releaseExpedition(marked).state;
+  assert.equal(sooner.expedition.nextCallDay, marked.day + EXPEDITION_GAP - 2);
+
+  const bonded = createGame(setup());
+  const member = bonded.compact.members[0];
+  bonded.campaign.realmWorks = [{ id: "border", holdId: member.holdId }];
+  const alone = createGame(setup());
+  const withPath = sealDay(bonded).state.compact.members[0].contentment;
+  const withoutPath = sealDay(alone).state.compact.members[0].contentment;
+  assert.equal(withPath, withoutPath + 2);
+
+  const smith = createGame(setup());
+  const cloakLuck = luckOf(smith);
+  smith.campaign.realmWorks = [{ id: "bench", bench: "forge" }];
+  assert.equal(luckOf(smith), cloakLuck);
+  const knife = makePiece("Road knife", "common", "smith-knife");
+  assert.ok(knife);
+  smith.pack.push(knife);
+  smith.worn = { ...smith.worn, hand: knife.id };
+  assert.equal(luckOf(smith), cloakLuck + knife.luck + 1);
+  assert.ok(craft(smith, "staff").error);
+  smith.campaign.buildings.forge = 1;
+  smith.player.stash.iron += 2;
+  smith.player.gold += 10;
+  const made = craft(smith, "staff");
+  assert.equal(made.error, undefined);
+  assert.equal(made.state.pack.find((gear) => gear.name === "Ash staff")?.rarity, "uncanny");
+
+  const same = roadFind(3, 2, 1, "saltmere", 1);
+  const again = roadFind(3, 2, 1, "saltmere", 1, 0);
+  assert.equal(same.line, again.line);
+  assert.equal(same.gold, again.gold);
+  assert.equal(same.gear?.rarity, again.gear?.rarity);
+  let relicLift = false;
+  let kinderFind = false;
+  for (let day = 1; day <= 40 && (!relicLift || !kinderFind); day += 1) {
+    for (let miles = 0; miles < 12 && (!relicLift || !kinderFind); miles += 1) {
+      const plainGear = rollGear(4, day, miles);
+      const watchedGear = rollGear(4, day, miles, WATCH_RELIC_BIAS);
+      if (plainGear.rarity !== "relic" && watchedGear.rarity === "relic") relicLift = true;
+      const plainFind = roadFind(3, day, miles, "saltmere", 1, 0);
+      const watchedFind = roadFind(3, day, miles, "saltmere", 1 + WATCH_FIND_LUCK, WATCH_RELIC_BIAS);
+      const plainScore = plainFind.gold + (plainFind.gear ? 2 : 0) + (plainFind.gear?.rarity === "relic" ? 3 : 0);
+      const watchedScore = watchedFind.gold + (watchedFind.gear ? 2 : 0) + (watchedFind.gear?.rarity === "relic" ? 3 : 0);
+      if (watchedScore > plainScore) kinderFind = true;
+    }
+  }
+  assert.equal(relicLift, true);
+  assert.equal(kinderFind, true);
 });
 
 test("unique relics stay out of ordinary finds and change the season when kept", () => {

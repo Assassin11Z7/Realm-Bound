@@ -4,6 +4,15 @@ import { carryCap, carriedWeight, gearWeight, wornRelic } from "./world";
 
 /** Dawns between the end of one wagon call and the next. */
 export const EXPEDITION_GAP = 8;
+/** A cleared border path shortens that wait. */
+export const BORDER_SOONER = 2;
+
+export function expeditionGap(state: GameState): number {
+  let gap = EXPEDITION_GAP;
+  if ((state.campaign?.realmWorks ?? []).some((work) => work.id === "border")) gap -= BORDER_SOONER;
+  if (wornRelic(state, "carter-knot")) gap -= 3;
+  return Math.max(4, gap);
+}
 /** Dawns after a missed due day when a late fill can still turn the call. */
 export const EXPEDITION_GRACE = 4;
 
@@ -203,8 +212,7 @@ export function markDeparted(state: GameState): "survival" | "left" | null {
   if (!exp || exp.phase !== "called") return null;
   exp.lastVerdict = state.outcome;
   exp.phase = "idle";
-  const gap = wornRelic(state, "carter-knot") ? Math.max(4, EXPEDITION_GAP - 3) : EXPEDITION_GAP;
-  exp.nextCallDay = state.day + gap;
+  exp.nextCallDay = state.day + expeditionGap(state);
   if (state.outcome === "lost") {
     if (state.politics) state.politics.conflictHeat = Math.min(100, state.politics.conflictHeat + 12);
     return "survival";
