@@ -245,8 +245,10 @@ function chronicle(state: GameState, text: string) {
 
 function buildingLevels(state: GameState): number[] {
   const buildings = state.campaign?.buildings;
-  if (!buildings) return [];
-  return Object.values(buildings).map((level) => (typeof level === "number" && level > 0 ? level : 0));
+  const levels = buildings
+    ? Object.values(buildings).map((level) => (typeof level === "number" && level > 0 ? level : 0))
+    : [];
+  return levels.concat((state.campaign?.realmWorks ?? []).map(() => 1));
 }
 
 function creatureMarks(state: GameState): number {

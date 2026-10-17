@@ -1,5 +1,5 @@
 import { clearGearFromHeroes } from "./heroes";
-import type { BuildingId, GameState, GoodId, PotionId, Result } from "./types";
+import type { BuildingId, GameState, GoodId, PotionId, RealmBench, Result } from "./types";
 import { finishProject, grantXp, syncCampaign } from "./progress";
 import { carryCap, carriedWeight, gearWeight, isRelicName, makePiece, storedWeight, vaultCap } from "./world";
 
@@ -24,6 +24,7 @@ export const RECIPES: {
   qty: number;
   gear?: string;
   potion?: PotionId;
+  project?: RealmBench;
   detail: string;
 }[] = [
   { id: "knife", building: "forge", level: 1, gold: 2, good: "iron", qty: 1, gear: "Road knife", detail: "A short blade from one iron." },
@@ -32,6 +33,7 @@ export const RECIPES: {
   { id: "bill", building: "forge", level: 2, gold: 6, good: "iron", qty: 2, gear: "Ford spear", detail: "A watchman's spear. The forge must be level 2." },
   { id: "hammer", building: "forge", level: 2, gold: 5, good: "iron", qty: 1, gear: "Bell hammer", detail: "Iron enough for a shrine bell." },
   { id: "needle", building: "forge", level: 3, gold: 12, good: "relics", qty: 1, gear: "Dragon needle", detail: "A relic drawn through the fire. Forge level 3." },
+  { id: "staff", building: "forge", level: 1, gold: 5, good: "iron", qty: 1, gear: "Ash staff", project: "forge", detail: "The expanded forge. A staff that teaches. Uncanny, even from the first level." },
   { id: "luck", building: "still", level: 1, gold: 2, good: "salt", qty: 1, potion: "luck", detail: "Salt boiled down to a kinder road." },
   { id: "calm", building: "still", level: 1, gold: 3, good: "salt", qty: 2, potion: "calm", detail: "Two salt. Vell drinks the quiet." },
   { id: "purse", building: "still", level: 2, gold: 4, good: "salt", qty: 2, potion: "purse", detail: "A drink that sweetens a sale until dawn." },
@@ -41,6 +43,7 @@ export const RECIPES: {
   { id: "bead", building: "loom", level: 1, gold: 2, good: "wool", qty: 1, gear: "Crow bead", detail: "A bead wound from a single wool." },
   { id: "weave", building: "loom", level: 2, gold: 5, good: "wool", qty: 2, gear: "Greenmere weave", detail: "A grain-colored cloak. Loom level 2." },
   { id: "hide", building: "loom", level: 3, gold: 14, good: "relics", qty: 1, gear: "Dragon hide", detail: "The loom takes a relic and gives back a scale-cloak." },
+  { id: "ashcloak", building: "loom", level: 1, gold: 5, good: "wool", qty: 2, gear: "Ash cloak", project: "loom", detail: "The expanded loom. A cloak that hides the road. Uncanny, even from the first level." },
 ];
 
 const BENCH: Partial<Record<BuildingId, string>> = {
@@ -68,10 +71,15 @@ export function craft(state: GameState, recipeId: string): Result {
   if (recipe.gear && isRelicName(recipe.gear)) return fail(state, "That relic is not made on a bench.");
   const level = state.campaign?.buildings[recipe.building] ?? 0;
   const bench = BENCH[recipe.building] ?? recipe.building;
+  if (recipe.project) {
+    const open = (state.campaign?.realmWorks ?? []).some((work) => work.id === "bench" && work.bench === recipe.project);
+    if (!open) return fail(state, recipe.project === "loom" ? "Expand the loom first. It is a project under Hold." : "Expand the forge first. It is a project under Hold.");
+  }
   if (level < recipe.level) return fail(state, `The ${bench} must be level ${recipe.level}.`);
   if (state.player.gold < recipe.gold) return fail(state, `That costs ${recipe.gold} gold.`);
   if (state.player.stash[recipe.good] < recipe.qty) return fail(state, `You need ${recipe.qty} ${recipe.good}.`);
-  const rarity = level >= 3 ? "relic" : level >= 2 ? "uncanny" : "common";
+  let rarity: "common" | "uncanny" | "relic" = level >= 3 ? "relic" : level >= 2 ? "uncanny" : "common";
+  if (recipe.project && rarity === "common") rarity = "uncanny";
   const preview = recipe.gear ? makePiece(recipe.gear, rarity, "preview") : null;
   if (recipe.gear && !preview) return fail(state, "That pattern is lost.");
   const adding = preview ? gearWeight(preview) : 1;
