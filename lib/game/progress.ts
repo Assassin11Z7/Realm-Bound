@@ -20,7 +20,7 @@ import type {
   Threat,
 } from "./types";
 import { HOLD_IDS, REALM_PROJECT_IDS } from "./types";
-import { syncHeroTasks } from "./heroes";
+import { heroBorderWarmth, heroProjectExtra, heroProjectLine, syncHeroTasks } from "./heroes";
 import { bumpQuest, carryCap, carriedWeight, companyGear, gearWeight, rewardScene, rollGear, worldRng } from "./world";
 
 export const SKILLS: Record<SkillId, { name: string; blurb: string }> = {
@@ -662,18 +662,20 @@ function advanceRealmLabor(state: GameState): string[] {
     if (work.id !== "border" || !work.holdId) continue;
     const member = state.compact.members.find((item) => item.inCompact && item.holdId === work.holdId);
     if (!member) continue;
-    member.contentment = Math.min(100, member.contentment + 2);
+    member.contentment = Math.min(100, member.contentment + 2 + heroBorderWarmth(state));
   }
   const labor = camp.realmLabor;
   if (!labor) return [];
-  labor.spent += 1;
-  if (labor.spent < realmProjectDawns(labor.id)) return [];
+  const extra = heroProjectExtra(state, labor);
+  labor.spent += 1 + extra;
+  const hurried = heroProjectLine(state, labor);
+  if (labor.spent < realmProjectDawns(labor.id)) return hurried ? [hurried] : [];
   const finished: RealmWork = { id: labor.id, holdId: labor.holdId, bench: labor.bench };
   camp.realmWorks = [...(camp.realmWorks ?? []), finished];
   camp.realmLabor = null;
   const line = applyRealmFinish(state, finished);
   camp.realmNotice = line;
-  return [line, ...grantXp(state, 8)];
+  return hurried ? [hurried, line, ...grantXp(state, 8)] : [line, ...grantXp(state, 8)];
 }
 
 export function applyDawnProgress(state: GameState): string[] {

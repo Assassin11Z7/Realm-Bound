@@ -43,8 +43,30 @@ import {
   stowGear,
   withdraw,
 } from "./engine";
+import {
+  gearHeroNotes,
+  heroAllLoyalty,
+  heroBargainRelief,
+  heroCallSooner,
+  heroCreatureRenown,
+  heroExtraTeach,
+  heroFordRenown,
+  heroHearthSave,
+  heroHomeLoyalty,
+  heroIreEase,
+  heroMeetingBonus,
+  heroProjectExtra,
+  heroRelicBonus,
+  heroRoadTeach,
+  heroSaleBonus,
+  heroSaltQuiet,
+  heroStrengthRenown,
+  heroSynergyRead,
+  heroWagonExtra,
+  heroWagonGold,
+} from "./heroes";
 import { parseSave } from "./storage";
-import type { FactionId, GameState, GoodId, HoldId, NewGameSetup } from "./types";
+import type { FactionId, GameState, GoodId, HeroId, HoldId, NewGameSetup } from "./types";
 import { GOODS, LEVY_GOODS } from "./types";
 import { chooseSkill, dismissRealmNotice, realmProjectCost, setCaptainOrder, startProject, startRealmProject } from "./progress";
 import { craft, drinkPotion, storeGear } from "./craft";
@@ -1189,4 +1211,208 @@ test("heroes wear the gear, and missions unlock the roster", () => {
   assert.equal(held.triumphs, 1);
   assert.equal(held.heroes.find((hero) => hero.id === "ivy")?.unlocked, true);
   assert.equal(held.heroes.find((hero) => hero.id === "heracles")?.unlocked, false);
+});
+
+function wake(state: GameState, id: HeroId) {
+  const hero = state.heroes.find((item) => item.id === id);
+  if (!hero) throw new Error(id);
+  hero.unlocked = true;
+  return state;
+}
+
+function homeOf(state: GameState) {
+  return state.settlements.find((item) => item.holdId === state.player.holdId);
+}
+
+test("hero abilities and gear synergies sit on top of the flat bonuses", () => {
+  const quiet = createGame(setup());
+  assert.equal(heroRoadTeach(quiet), 1);
+  assert.equal(heroFordRenown(quiet), 0);
+  assert.equal(heroWagonGold(quiet), 0);
+  assert.equal(heroBargainRelief(quiet), 0);
+  assert.equal(heroProjectExtra(quiet, { id: "hall" }), 0);
+  assert.equal(heroCallSooner(quiet), 0);
+  assert.equal(heroSaleBonus(quiet), 0);
+  assert.equal(heroWagonExtra(quiet), 0);
+  assert.equal(heroHomeLoyalty(quiet), 1);
+  assert.equal(expeditionGap(quiet), EXPEDITION_GAP);
+  const spear = makePiece("Deer spear", "common", "asleep-spear");
+  assert.ok(spear);
+  quiet.pack.push(spear);
+  assert.equal(gearHeroNotes(quiet, spear).some((line) => line.includes("Beowulf")), false);
+
+  const fielded = sealDay(createGame(setup())).state;
+  const rested = sealDay(restHeroAtHold(createGame(setup()), "sela").state).state;
+  assert.equal(homeOf(fielded)?.mood, (homeOf(rested)?.mood ?? 0) + 1);
+
+  const gate = createGame(setup());
+  const ward = makePiece("Ford cloak", "uncanny", "gate-ward");
+  assert.ok(ward);
+  gate.pack.push(ward);
+  assert.ok(gearHeroNotes(gate, ward).some((line) => line.includes("Sela") && line.includes("out")));
+  const warded = equipOnHero(gate, "sela", ward.id).state;
+  assert.equal(heroHomeLoyalty(warded), 2);
+  assert.equal(heroSynergyRead(warded, "sela").find((row) => row.name === "Ward at the gate")?.state, "active");
+
+  const labor = wake(createGame(setup()), "heracles");
+  const knife = makePiece("Road knife", "common", "labor-knife");
+  assert.ok(knife);
+  labor.pack.push(knife);
+  const armed = sendHeroOut(equipOnHero(labor, "heracles", knife.id).state, "heracles");
+  assert.equal(armed.error, undefined);
+  assert.equal(heroFordRenown(armed.state), 2);
+  assert.equal(heroWagonGold(armed.state), 2);
+  assert.equal(heroBargainRelief(armed.state), 4);
+  assert.equal(heroStrengthRenown(armed.state), 2);
+  const beforeGold = armed.state.player.gold;
+  const beforeRenown = armed.state.player.renown;
+  const paid = chooseCrossing(forceCrossing(armed.state, "toll-hag"), "pay");
+  assert.equal(paid.error, undefined);
+  assert.equal(paid.state.player.gold, beforeGold - 2);
+  assert.equal(paid.state.player.renown, beforeRenown + 5);
+  assert.ok(paid.state.chronicle.some((entry) => entry.text.includes("cheapens the bargain by 4")));
+
+  const wolf = wake(createGame(setup()), "beowulf");
+  const deer = makePiece("Deer spear", "common", "deer-spear");
+  assert.ok(deer);
+  wolf.pack.push(deer);
+  assert.ok(gearHeroNotes(wolf, deer).some((line) => line.includes("Beowulf") && line.includes("at the hold")));
+  const hunting = sendHeroOut(equipOnHero(wolf, "beowulf", deer.id).state, "beowulf");
+  assert.equal(heroCreatureRenown(hunting.state), 4);
+  assert.equal(heroIreEase(hunting.state), 1);
+  assert.equal(heroSynergyRead(hunting.state, "beowulf").find((row) => row.name === "Hunt or ward")?.state, "active");
+  assert.ok(gearHeroNotes(hunting.state, deer).some((line) => line.includes("Beowulf") && line.includes("out")));
+
+  const bandPlain = createGame(setup());
+  bandPlain.pack.push(makeRelic("barrow-band", "band-plain"));
+  bandPlain.worn = { ...bandPlain.worn, ring: "band-plain" };
+  const bandWolf = wake(createGame(setup()), "beowulf");
+  bandWolf.pack.push(makeRelic("barrow-band", "band-wolf"));
+  const banded = sendHeroOut(equipOnHero(bandWolf, "beowulf", "band-wolf").state, "beowulf");
+  assert.equal(banded.error, undefined);
+  const plainSealed = sealDay(bandPlain).state;
+  const wolfSealed = sealDay(banded.state).state;
+  assert.ok(
+    wolfSealed.compact.members.some(
+      (member, index) => member.contentment === plainSealed.compact.members[index].contentment + 2,
+    ),
+  );
+
+  const hearth = wake(createGame(setup()), "dorrie");
+  const wool = makePiece("Wool cloak", "common", "dorrie-wool");
+  assert.ok(wool);
+  hearth.pack.push(wool);
+  const cousin = sendHeroOut(equipOnHero(hearth, "dorrie", wool.id).state, "dorrie");
+  assert.equal(heroHearthSave(cousin.state), 1);
+  const cold = sealDay(createGame(setup())).state;
+  const warm = sealDay(cousin.state).state;
+  assert.equal(homeOf(warm)?.hearth, (homeOf(cold)?.hearth ?? 0) + 1);
+
+  const owl = wake(createGame(setup()), "athena");
+  const bead = makePiece("Crow bead", "common", "athena-bead");
+  assert.ok(bead);
+  owl.pack.push(bead);
+  const wise = sendHeroOut(equipOnHero(owl, "athena", bead.id).state, "athena");
+  assert.equal(heroProjectExtra(wise.state, { id: "hall" }), 2);
+  assert.equal(heroHomeLoyalty(wise.state), 4);
+  const rising = startRealmProject(wise.state, "hall");
+  assert.equal(rising.error, undefined);
+  const done = sealDay(rising.state).state;
+  assert.equal(done.campaign.realmLabor, null);
+  assert.ok(done.campaign.realmWorks.some((work) => work.id === "hall"));
+  assert.ok(done.chronicle.some((entry) => entry.text.includes("Athena")));
+
+  const founder = wake(createGame(setup()), "theseus");
+  const maze = makePiece("Wool cloak", "common", "theseus-wool");
+  assert.ok(maze);
+  founder.pack.push(maze);
+  const stones = sendHeroOut(equipOnHero(founder, "theseus", maze.id).state, "theseus");
+  assert.equal(heroProjectExtra(stones.state, { id: "border" }), 1);
+  assert.equal(heroProjectExtra(stones.state, { id: "bench", bench: "forge" }), 0);
+  assert.equal(heroExtraTeach(stones.state), 0);
+
+  const plainCraft = createGame(setup());
+  plainCraft.campaign.buildings.forge = 1;
+  plainCraft.player.stash.iron += 2;
+  plainCraft.player.gold += 10;
+  const plainKnife = craft(plainCraft, "knife");
+  assert.equal(plainKnife.state.pack.find((gear) => gear.name === "Road knife")?.rarity, "common");
+
+  const smithHero = wake(createGame(setup()), "moth");
+  const pick = makePiece("Mine pick", "common", "moth-pick");
+  assert.ok(pick);
+  smithHero.pack.push(pick);
+  smithHero.campaign.buildings.forge = 1;
+  smithHero.player.stash.iron += 4;
+  smithHero.player.gold += 30;
+  const tooled = sendHeroOut(equipOnHero(smithHero, "moth", pick.id).state, "moth");
+  assert.equal(heroMeetingBonus(tooled.state, "walk"), 0.03);
+  const finer = craft(tooled.state, "knife");
+  assert.equal(finer.error, undefined);
+  assert.equal(finer.state.pack.find((gear) => gear.name === "Road knife")?.rarity, "uncanny");
+  const bench = startRealmProject(finer.state, "bench", "forge");
+  assert.equal(bench.error, undefined);
+  const stepped = sealDay(bench.state).state;
+  assert.equal(stepped.campaign.realmLabor?.spent, 2);
+
+  const lucky = wake(createGame(setup()), "odysseus");
+  const plainCloak = makePiece("Wool cloak", "common", "ody-wool");
+  assert.ok(plainCloak);
+  lucky.pack.push(plainCloak);
+  const sailed = sendHeroOut(equipOnHero(lucky, "odysseus", plainCloak.id).state, "odysseus");
+  assert.equal(heroRelicBonus(sailed.state, "walk"), 0.1);
+  assert.equal(heroExtraTeach(sailed.state), 0);
+  const learned = wake(createGame(setup()), "odysseus");
+  const veil = makePiece("Vesper veil", "uncanny", "ody-veil");
+  assert.ok(veil);
+  learned.pack.push(veil);
+  const veiled = sendHeroOut(equipOnHero(learned, "odysseus", veil.id).state, "odysseus");
+  assert.ok(Math.abs(heroRelicBonus(veiled.state, "walk") - 0.18) < 1e-9);
+  assert.equal(heroExtraTeach(veiled.state), 2);
+  const belled = wake(createGame(setup()), "odysseus");
+  belled.pack.push(makeRelic("ford-bell", "ody-bell"));
+  const ringing = sendHeroOut(equipOnHero(belled, "odysseus", "ody-bell").state, "odysseus");
+  assert.equal(heroExtraTeach(ringing.state), 4);
+  assert.ok(Math.abs(heroRelicBonus(ringing.state, "walk") - 0.24) < 1e-9);
+  assert.equal(heroSynergyRead(ringing.state, "odysseus").find((row) => row.name === "Bell on the long road")?.state, "active");
+
+  const trader = wake(createGame(setup()), "bran");
+  const purse = makePiece("Salt cloak", "common", "bran-salt");
+  assert.ok(purse);
+  trader.pack.push(purse);
+  const guarded = sendHeroOut(equipOnHero(trader, "bran", purse.id).state, "bran");
+  assert.equal(heroCallSooner(guarded.state), 2);
+  assert.equal(heroWagonExtra(guarded.state), 2);
+  assert.equal(expeditionGap(guarded.state), EXPEDITION_GAP - 2);
+
+  const market = createGame(setup());
+  const listed = sellPrice(market, "wool");
+  const runner = wake(createGame(setup()), "ivy");
+  const salt = makePiece("Salt cloak", "common", "ivy-salt");
+  assert.ok(salt);
+  runner.pack.push(salt);
+  const priced = sendHeroOut(equipOnHero(runner, "ivy", salt.id).state, "ivy");
+  assert.equal(heroSaleBonus(priced.state), 2);
+  assert.equal(sellPrice(priced.state, "wool"), listed + 3);
+
+  const charter = wake(createGame(setup()), "ivy");
+  charter.pack.push(makeRelic("salt-charter", "ivy-charter"));
+  const quietSalt = setEdict(charter, "greenmere", "salt-road");
+  assert.equal(quietSalt.error, undefined);
+  const loud = sealDay(quietSalt.state).state;
+  const wornCharter = sendHeroOut(equipOnHero(quietSalt.state, "ivy", "ivy-charter").state, "ivy");
+  assert.equal(heroSaltQuiet(wornCharter.state), true);
+  const hushed = sealDay(wornCharter.state).state;
+  assert.equal(hushed.wyrm.ire, loud.wyrm.ire - 1);
+
+  const sky = wake(createGame(setup()), "zeus");
+  sky.pack.push(makeRelic("carter-knot", "zeus-knot"));
+  const thunder = sendHeroOut(equipOnHero(sky, "zeus", "zeus-knot").state, "zeus");
+  assert.equal(heroAllLoyalty(thunder.state), 1);
+  assert.equal(heroIreEase(thunder.state), 1);
+  assert.equal(heroWagonExtra(thunder.state), 8);
+  assert.equal(heroCallSooner(thunder.state), 1);
+  assert.equal(expeditionGap(thunder.state), EXPEDITION_GAP - 4);
+  assert.equal(heroSynergyRead(thunder.state, "zeus").find((row) => row.name === "Knot under the sky")?.state, "active");
+  assert.ok(gearHeroNotes(thunder.state, thunder.state.pack.find((gear) => gear.id === "zeus-knot")!).some((line) => line.includes("Zeus")));
 });

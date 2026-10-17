@@ -70,6 +70,18 @@ export function treasureCount(): number {
   return TREASURES.length;
 }
 
+/** Deer kit. Hunt is not a stored trait: these pieces keep luck, purse, ward, or lore, and heroes read the family beside the trait. */
+const HUNT_NAMES = new Set(["Deer spear", "Deer tooth", "Deer ring"]);
+
+export function isHuntGear(gear: Gear): boolean {
+  return gear.slot !== "hoard" && HUNT_NAMES.has(gear.name);
+}
+
+/** A hand piece is a smith piece. The forge project is what makes a worn one add luck. */
+export function isSmithGear(gear: Gear): boolean {
+  return gear.slot === "hand";
+}
+
 export const RELIC_WALK_CHANCE = 0.18;
 export const RELIC_CROSSING_CHANCE = 0.24;
 export const RELIC_EXPEDITION_CHANCE = 0.72;
@@ -241,9 +253,10 @@ export function rollUniqueRelic(
 export function awardUniqueRelic(
   state: GameState,
   source: "walk" | "crossing" | "expedition",
+  bonus = 0,
 ): { gear: Gear; packed: boolean } | null {
   const watch = (state.campaign?.realmWorks ?? []).some((work) => work.id === "watchtower");
-  const chance =
+  const base =
     source === "expedition"
       ? wornRelic(state, "ford-bell")
         ? RELIC_EXPEDITION_BELL_CHANCE
@@ -251,6 +264,7 @@ export function awardUniqueRelic(
       : source === "crossing"
         ? RELIC_CROSSING_CHANCE
         : RELIC_WALK_CHANCE + (watch ? 0.06 : 0);
+  const chance = Math.min(0.95, base + Math.max(0, bonus));
   const salt = source === "walk" ? 11 : source === "crossing" ? 41 : 90 + (state.expedition?.cycle ?? 1);
   const gear = rollUniqueRelic(state.seed ?? 0, state.day, state.miles ?? 0, salt, chance, ownedRelicIds(state));
   if (!gear) return null;
@@ -348,11 +362,18 @@ export function starterCloak(): Gear {
 export function traitText(gear: Gear): string {
   const spec = gear.relic ? relicSpec(gear.relic) : undefined;
   if (spec) return `Unique relic · ${spec.blurb} · sell ${gear.worth}g`;
+  const hunt = isHuntGear(gear) ? "Hunt · " : "";
   if (gear.slot === "hoard") return `Treasure · sell for ${gear.worth}g`;
-  if (gear.trait === "purse") return `Coin · worn, the caravan pays 1 more · sell ${gear.worth}g`;
-  if (gear.trait === "ward") return `Guard · worn, Vell's anger climbs more slowly · sell ${gear.worth}g`;
-  if (gear.trait === "lore") return `Learning · worn, the road teaches more · sell ${gear.worth}g`;
-  return `Luck ${gear.luck} · sell ${gear.worth}g`;
+  if (gear.slot === "hand") {
+    if (gear.trait === "purse") return `${hunt}Smith · coin · worn, the caravan pays 1 more · sell ${gear.worth}g`;
+    if (gear.trait === "ward") return `${hunt}Smith · guard · worn, Vell's anger climbs more slowly · sell ${gear.worth}g`;
+    if (gear.trait === "lore") return `${hunt}Smith · learning · worn, the road teaches more · sell ${gear.worth}g`;
+    return `${hunt}Smith · luck ${gear.luck} · sell ${gear.worth}g`;
+  }
+  if (gear.trait === "purse") return `${hunt}Coin · worn, the caravan pays 1 more · sell ${gear.worth}g`;
+  if (gear.trait === "ward") return `${hunt}Guard · worn, Vell's anger climbs more slowly · sell ${gear.worth}g`;
+  if (gear.trait === "lore") return `${hunt}Learning · worn, the road teaches more · sell ${gear.worth}g`;
+  return `${hunt}Luck ${gear.luck} · sell ${gear.worth}g`;
 }
 
 /** Gear that is actually on the road: the legacy worn map, plus every piece on a fielded hero. */

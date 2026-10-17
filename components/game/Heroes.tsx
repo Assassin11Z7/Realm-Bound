@@ -7,8 +7,11 @@ import {
   COMING_SOON,
   FIELD_CAP,
   HEROES,
+  heroAbilities,
   heroEffectLine,
+  heroPieceNote,
   heroSpec,
+  heroSynergyRead,
   taskPhase,
   type HeroSpec,
 } from "@/lib/game/heroes";
@@ -222,6 +225,40 @@ function Company({
             </div>
           </div>
           <p className="mt-3 text-sm leading-relaxed text-[#3d4a62]">{heroEffectLine(spec)}</p>
+          <div className="mt-3">
+            <p className="text-[11px] tracking-[0.16em] text-[#8d6b2e] uppercase">Abilities</p>
+            <ul className="mt-2 flex flex-col gap-2">
+              {heroAbilities(spec.id).map((ability) => (
+                <li key={ability.name} data-ability={ability.name}>
+                  <p className="text-sm font-medium">{ability.name}</p>
+                  <p className="text-sm leading-relaxed text-muted-foreground">{ability.text}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="mt-3">
+            <p className="text-[11px] tracking-[0.16em] text-[#8d6b2e] uppercase">Gear synergy</p>
+            <ul className="mt-2 flex flex-col gap-2">
+              {heroSynergyRead(state, spec.id).map((synergy) => (
+                <li
+                  key={synergy.name}
+                  data-synergy={synergy.name}
+                  data-synergy-state={synergy.state}
+                  className={
+                    synergy.state === "active"
+                      ? "rounded-xl bg-[#f6ead0] px-3 py-2 ring-1 ring-[#8d6b2e]"
+                      : "text-sm leading-relaxed text-muted-foreground"
+                  }
+                >
+                  <p className={`text-sm font-medium ${synergy.state === "active" ? "text-[#6a4a12]" : ""}`}>
+                    {synergy.state === "active" ? "Synergy active · " : synergy.state === "ready" ? "Synergy ready · " : ""}
+                    {synergy.name}
+                  </p>
+                  <p className={`text-sm leading-relaxed ${synergy.state === "active" ? "text-[#6a4a12]" : ""}`}>{synergy.text}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
           <Button
             type="button"
             className="mt-3 h-11 w-full"
@@ -252,6 +289,7 @@ function Company({
               <Piece
                 gear={worn}
                 action="Take off"
+                note={heroPieceNote(state, spec.id, worn)}
                 onAction={() => act(unequipFromHero(state, spec.id, slot))}
               />
             ) : (
@@ -267,6 +305,7 @@ function Company({
                   <Piece
                     gear={gear}
                     action={holderName ? `Take from ${holderName}` : "Equip"}
+                    note={heroPieceNote(state, spec.id, gear)}
                     onAction={() => act(equipOnHero(state, spec.id, gear.id))}
                   />
                 </li>
@@ -281,7 +320,7 @@ function Company({
   );
 }
 
-function Piece({ gear, action, onAction }: { gear: Gear; action: string; onAction: () => void }) {
+function Piece({ gear, action, note, onAction }: { gear: Gear; action: string; note?: string | null; onAction: () => void }) {
   return (
     <div className="flex items-start gap-2 rounded-xl bg-background px-3 py-2">
       <div className="min-w-0 flex-1">
@@ -290,6 +329,7 @@ function Piece({ gear, action, onAction }: { gear: Gear; action: string; onActio
           {gear.relic ? <span className="ml-2 text-[10px] tracking-wide text-[#8d6b2e] uppercase">Unique relic</span> : null}
         </p>
         <p className="text-xs leading-relaxed text-muted-foreground">{traitText(gear)}</p>
+        {note ? <p className="mt-1 text-xs leading-relaxed text-[#6a4a12]">{note}</p> : null}
       </div>
       <Button type="button" variant="outline" className="h-9 shrink-0" onClick={onAction}>
         {action}

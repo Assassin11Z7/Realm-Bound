@@ -1,4 +1,4 @@
-import { clearGearFromHeroes } from "./heroes";
+import { clearGearFromHeroes, heroForgeFiner } from "./heroes";
 import type { BuildingId, GameState, GoodId, PotionId, RealmBench, Result } from "./types";
 import { finishProject, grantXp, syncCampaign } from "./progress";
 import { carryCap, carriedWeight, gearWeight, isRelicName, makePiece, storedWeight, vaultCap } from "./world";
@@ -80,6 +80,9 @@ export function craft(state: GameState, recipeId: string): Result {
   if (state.player.stash[recipe.good] < recipe.qty) return fail(state, `You need ${recipe.qty} ${recipe.good}.`);
   let rarity: "common" | "uncanny" | "relic" = level >= 3 ? "relic" : level >= 2 ? "uncanny" : "common";
   if (recipe.project && rarity === "common") rarity = "uncanny";
+  if (recipe.building === "forge" && heroForgeFiner(state) && rarity !== "relic") {
+    rarity = rarity === "common" ? "uncanny" : "relic";
+  }
   const preview = recipe.gear ? makePiece(recipe.gear, rarity, "preview") : null;
   if (recipe.gear && !preview) return fail(state, "That pattern is lost.");
   const adding = preview ? gearWeight(preview) : 1;

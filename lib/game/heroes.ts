@@ -1,6 +1,6 @@
-import type { GameState, Gear, HeroId, HeroRarity, HeroRecord, HeroTask, HeroTaskKind, Result, WornSlot } from "./types";
+import type { GameState, Gear, HeroId, HeroRarity, HeroRecord, HeroTask, HeroTaskKind, RelicId, Result, WornSlot } from "./types";
 import { HERO_IDS } from "./types";
-import { WORN_SLOTS, worldRng } from "./world";
+import { WORN_SLOTS, isHuntGear, isSmithGear, worldRng } from "./world";
 
 export const FIELD_CAP = 3;
 
@@ -170,6 +170,272 @@ export const COMING_SOON: { id: string; line: string }[] = [
   { id: "soon-east", line: "A hero from another tale. The road has not agreed to the crossing." },
   { id: "soon-west", line: "A second chair, still draped. No name is spoken yet." },
 ];
+
+/** What a worn piece must be before a hero's synergy wakes. Relics still keep their own trait. */
+export type GearAffinity = "hand" | "charm" | "ward" | "lore" | "purse" | "hunt" | "smith" | "lore-or-charm" | "hunt-or-ward" | "relic";
+
+export interface HeroAbility {
+  name: string;
+  text: string;
+}
+
+export interface HeroSynergy {
+  affinity: GearAffinity;
+  relic?: RelicId;
+  name: string;
+  text: string;
+}
+
+const ABILITIES: Record<HeroId, HeroAbility[]> = {
+  sela: [
+    {
+      name: "Gate watch",
+      text: "While she is out and wearing gear, loyalty at home recovers by 1 each dawn.",
+    },
+  ],
+  tam: [
+    {
+      name: "Ford price",
+      text: "While he is out and wearing gear, a creature bargain that costs gold costs 1 less.",
+    },
+  ],
+  bran: [
+    {
+      name: "Wool bell",
+      text: "While he is out and wearing gear, the next call of the wagons comes 1 dawn sooner.",
+    },
+  ],
+  dorrie: [
+    {
+      name: "Hearth cousin",
+      text: "While she is out and wearing gear, firewood at home lasts one dawn longer.",
+    },
+  ],
+  moth: [
+    {
+      name: "Uncanny trail",
+      text: "While she is out and wearing gear, a walk is more likely to meet a hero who was not on a mission.",
+    },
+  ],
+  ivy: [
+    {
+      name: "Salt price",
+      text: "While she is out and wearing gear, goods sell for 1 more gold.",
+    },
+  ],
+  heracles: [
+    {
+      name: "Laborer's price",
+      text: "While he is out and wearing gear, a creature bargain that costs gold costs 2 less.",
+    },
+  ],
+  odysseus: [
+    {
+      name: "Long memory",
+      text: "While he is out and wearing gear, a walk is more likely to leave a unique relic.",
+    },
+  ],
+  beowulf: [
+    {
+      name: "Hall-cleaner",
+      text: "While he is out and wearing gear, an answered creature grants 2 more renown.",
+    },
+  ],
+  theseus: [
+    {
+      name: "Stone hall",
+      text: "While he is out and wearing gear, a hall or a border path advances an extra dawn. A cleared border path warms that bond by 2 more each dawn.",
+    },
+  ],
+  athena: [
+    {
+      name: "Counted works",
+      text: "While she is out and wearing gear, every realm project advances an extra dawn.",
+    },
+    {
+      name: "Olive peace",
+      text: "While she is out and wearing gear, loyalty at home recovers by 2 each dawn.",
+    },
+  ],
+  odin: [
+    {
+      name: "One eye on the ditch",
+      text: "While he is out and wearing gear, walks and crossings are more likely to leave a unique relic.",
+    },
+    {
+      name: "The road names them",
+      text: "While he is out and wearing gear, the road is more likely to meet a hero outside a mission.",
+    },
+  ],
+  zeus: [
+    {
+      name: "Sky over the holds",
+      text: "While he is out and wearing gear, every hold's loyalty recovers by 1 each dawn, and Vell's anger climbs more slowly.",
+    },
+    {
+      name: "Wagon weather",
+      text: "While he is out and wearing gear, a successful call pays 3 more gold.",
+    },
+  ],
+};
+
+const SYNERGIES: Record<HeroId, HeroSynergy[]> = {
+  sela: [
+    {
+      affinity: "ward",
+      name: "Ward at the gate",
+      text: "A ward piece on Sela. Home loyalty recovers by 1 more.",
+    },
+  ],
+  tam: [
+    {
+      affinity: "ward",
+      name: "Watchman's ward",
+      text: "A ward piece on Tam. The bargain costs 1 less again, and the crossing grants 1 more renown.",
+    },
+  ],
+  bran: [
+    {
+      affinity: "purse",
+      name: "Wool purse",
+      text: "A coin piece on Bran. The call comes 1 dawn sooner again, and a successful call pays 2 more gold.",
+    },
+  ],
+  dorrie: [
+    {
+      affinity: "lore",
+      name: "Hearth learning",
+      text: "A learning piece on Dorrie. Home loyalty recovers by 1.",
+    },
+  ],
+  moth: [
+    {
+      affinity: "smith",
+      name: "Smith on the timber road",
+      text: "A smith piece on Moth. The forge project advances an extra dawn, and a forge craft comes out one grade finer.",
+    },
+    {
+      affinity: "hunt",
+      name: "Moth on the hunt",
+      text: "A hunt piece on Moth. A walk is more likely still to meet a hero.",
+    },
+  ],
+  ivy: [
+    {
+      affinity: "purse",
+      name: "Salt purse",
+      text: "A coin piece on Ivy. Goods sell for 1 more gold again.",
+    },
+    {
+      affinity: "relic",
+      relic: "salt-charter",
+      name: "Charter runner",
+      text: "The Salt Charter on Ivy. While she wears it, the law Salt the road does not raise Vell's anger.",
+    },
+  ],
+  heracles: [
+    {
+      affinity: "hand",
+      name: "The laborer's hand",
+      text: "A weapon in Heracles' hand. The bargain costs 2 less again, and the crossing grants 2 more renown.",
+    },
+    {
+      affinity: "relic",
+      relic: "unspoken-hem",
+      name: "Hem of the labor",
+      text: "The Unspoken Hem on Heracles. The bargain costs 2 less again.",
+    },
+  ],
+  odysseus: [
+    {
+      affinity: "lore-or-charm",
+      name: "Lore or a charm",
+      text: "A learning piece or any charm on Odysseus. The walk is more likely still to leave a relic, and it teaches 2 more.",
+    },
+    {
+      affinity: "relic",
+      relic: "ford-bell",
+      name: "Bell on the long road",
+      text: "The Ford Bell in Odysseus' hand. Walks teach 2 more, and a unique relic is more likely again.",
+    },
+  ],
+  beowulf: [
+    {
+      affinity: "hunt-or-ward",
+      name: "Hunt or ward",
+      text: "A hunt piece or a ward piece on Beowulf. The creature grants 2 more renown, and Vell's anger climbs more slowly.",
+    },
+    {
+      affinity: "relic",
+      relic: "barrow-band",
+      name: "Band in the barrow",
+      text: "The Barrow Band on Beowulf. The creature grants 1 more renown, and the band cools a sworn bond by 2 instead of 4.",
+    },
+  ],
+  theseus: [
+    {
+      affinity: "lore",
+      name: "Founder's learning",
+      text: "A learning piece on Theseus. Walks teach 1 more.",
+    },
+  ],
+  athena: [
+    {
+      affinity: "lore",
+      name: "Olive and the tally",
+      text: "A learning piece on Athena. The project advances one more dawn, and home loyalty recovers by 1 more.",
+    },
+  ],
+  odin: [
+    {
+      affinity: "lore",
+      name: "Raven learning",
+      text: "A learning piece on Odin. Walks are more likely still to leave a relic, and they teach 2 more.",
+    },
+    {
+      affinity: "ward",
+      name: "Wanderer's ward",
+      text: "A ward piece on Odin. Vell's anger climbs more slowly.",
+    },
+  ],
+  zeus: [
+    {
+      affinity: "purse",
+      name: "Sky purse",
+      text: "A coin piece on Zeus. A successful call pays 2 more gold.",
+    },
+    {
+      affinity: "ward",
+      name: "Weather ward",
+      text: "A ward piece on Zeus. Vell's anger climbs more slowly again.",
+    },
+    {
+      affinity: "relic",
+      relic: "carter-knot",
+      name: "Knot under the sky",
+      text: "Carter's Knot on Zeus. A successful call pays 4 more gold, and the next call comes 1 dawn sooner.",
+    },
+  ],
+};
+
+export function heroAbilities(id: HeroId): HeroAbility[] {
+  return ABILITIES[id] ?? [];
+}
+
+export function heroSynergies(id: HeroId): HeroSynergy[] {
+  return SYNERGIES[id] ?? [];
+}
+
+export function gearMatches(gear: Gear, synergy: HeroSynergy): boolean {
+  if (synergy.affinity === "relic") return Boolean(synergy.relic && gear.relic === synergy.relic);
+  if (synergy.affinity === "hand") return gear.slot === "hand";
+  if (synergy.affinity === "charm") return gear.slot === "charm";
+  if (synergy.affinity === "smith") return isSmithGear(gear);
+  if (synergy.affinity === "hunt") return isHuntGear(gear);
+  if (synergy.affinity === "lore-or-charm") return gear.trait === "lore" || gear.slot === "charm";
+  if (synergy.affinity === "hunt-or-ward") return isHuntGear(gear) || gear.trait === "ward";
+  return gear.trait === synergy.affinity;
+}
 
 const RARITY_RANK: Record<HeroRarity, number> = { common: 0, uncanny: 1, legendary: 2, divine: 3 };
 
@@ -454,6 +720,277 @@ export function wearsAnyGear(state: GameState, hero: HeroRecord): boolean {
   });
 }
 
+interface FieldKit {
+  id: HeroId;
+  gear: Gear[];
+}
+
+function fieldKits(state: GameState): FieldKit[] {
+  const kits: FieldKit[] = [];
+  for (const hero of state.heroes ?? []) {
+    if (!hero.fielded || !hero.unlocked || !wearsAnyGear(state, hero)) continue;
+    const gear: Gear[] = [];
+    for (const slot of WORN_SLOTS) {
+      const gearId = hero.worn?.[slot];
+      const piece = gearId ? gearInPack(state, gearId, slot) : undefined;
+      if (piece) gear.push(piece);
+    }
+    kits.push({ id: hero.id, gear });
+  }
+  return kits;
+}
+
+function kitHas(kit: FieldKit, affinity: GearAffinity, relic?: RelicId): boolean {
+  return kit.gear.some((gear) => gearMatches(gear, { affinity, relic, name: "", text: "" }));
+}
+
+function wornBy(state: GameState, hero: HeroRecord | undefined): Gear[] {
+  if (!hero) return [];
+  const gear: Gear[] = [];
+  for (const slot of WORN_SLOTS) {
+    const gearId = hero.worn?.[slot];
+    const piece = gearId ? gearInPack(state, gearId, slot) : undefined;
+    if (piece) gear.push(piece);
+  }
+  return gear;
+}
+
+const PROJECT_EXTRA_CAP = 2;
+const RELIEF_CAP = 6;
+const CREATURE_RENOWN_CAP = 6;
+const STRENGTH_RENOWN_CAP = 4;
+const TEACH_CAP = 4;
+const SALE_CAP = 2;
+const SOONER_CAP = 3;
+const WAGON_EXTRA_CAP = 8;
+const IRE_EASE_CAP = 2;
+const HOME_LOYALTY_CAP = 4;
+
+export function heroHomeLoyalty(state: GameState): number {
+  let sum = 0;
+  for (const kit of fieldKits(state)) {
+    if (kit.id === "sela") sum += 1 + (kitHas(kit, "ward") ? 1 : 0);
+    if (kit.id === "dorrie" && kitHas(kit, "lore")) sum += 1;
+    if (kit.id === "athena") sum += 2 + (kitHas(kit, "lore") ? 1 : 0);
+  }
+  return Math.min(HOME_LOYALTY_CAP, sum);
+}
+
+export function heroAllLoyalty(state: GameState): number {
+  return fieldKits(state).some((kit) => kit.id === "zeus") ? 1 : 0;
+}
+
+export function heroHearthSave(state: GameState): number {
+  return fieldKits(state).some((kit) => kit.id === "dorrie") ? 1 : 0;
+}
+
+export function heroProjectExtra(state: GameState, labor: { id: string; bench?: string }): number {
+  let extra = 0;
+  for (const kit of fieldKits(state)) {
+    if (kit.id === "athena") extra += 1 + (kitHas(kit, "lore") ? 1 : 0);
+    if (kit.id === "theseus" && (labor.id === "hall" || labor.id === "border")) extra += 1;
+    if (kit.id === "moth" && labor.id === "bench" && labor.bench === "forge" && kitHas(kit, "smith")) extra += 1;
+  }
+  return Math.min(PROJECT_EXTRA_CAP, extra);
+}
+
+export function heroProjectLine(state: GameState, labor: { id: string; bench?: string }): string | null {
+  const extra = heroProjectExtra(state, labor);
+  if (extra <= 0) return null;
+  const names: string[] = [];
+  for (const kit of fieldKits(state)) {
+    if (kit.id === "athena") names.push(heroSpec(kit.id).name);
+    if (kit.id === "theseus" && (labor.id === "hall" || labor.id === "border")) names.push(heroSpec(kit.id).name);
+    if (kit.id === "moth" && labor.id === "bench" && labor.bench === "forge" && kitHas(kit, "smith")) names.push(heroSpec(kit.id).name);
+  }
+  if (names.length === 0) return null;
+  return `${names.join(" and ")} ${names.length === 1 ? "hurries" : "hurry"} the work by ${extra}.`;
+}
+
+export function heroBorderWarmth(state: GameState): number {
+  return fieldKits(state).some((kit) => kit.id === "theseus") ? 2 : 0;
+}
+
+export function heroBargainRelief(state: GameState): number {
+  let sum = 0;
+  for (const kit of fieldKits(state)) {
+    if (kit.id === "tam") sum += 1 + (kitHas(kit, "ward") ? 1 : 0);
+    if (kit.id === "heracles") {
+      sum += 2;
+      if (kitHas(kit, "hand")) sum += 2;
+      if (kitHas(kit, "relic", "unspoken-hem")) sum += 2;
+    }
+  }
+  return Math.min(RELIEF_CAP, sum);
+}
+
+export function heroBargainLine(state: GameState, saved: number): string {
+  const names = fieldKits(state)
+    .filter((kit) => kit.id === "tam" || kit.id === "heracles")
+    .map((kit) => heroSpec(kit.id).name);
+  const who = names.length > 0 ? names.join(" and ") : "A hero";
+  return `${who} cheapens the bargain by ${saved} gold.`;
+}
+
+export function heroCreatureRenown(state: GameState): number {
+  let sum = 0;
+  for (const kit of fieldKits(state)) {
+    if (kit.id !== "beowulf") continue;
+    sum += 2;
+    if (kitHas(kit, "hunt-or-ward")) sum += 2;
+    if (kitHas(kit, "relic", "barrow-band")) sum += 1;
+  }
+  return Math.min(CREATURE_RENOWN_CAP, sum);
+}
+
+export function heroStrengthRenown(state: GameState): number {
+  let sum = 0;
+  for (const kit of fieldKits(state)) {
+    if (kit.id === "heracles" && kitHas(kit, "hand")) sum += 2;
+    if (kit.id === "tam" && kitHas(kit, "ward")) sum += 1;
+  }
+  return Math.min(STRENGTH_RENOWN_CAP, sum);
+}
+
+export function heroExtraTeach(state: GameState): number {
+  let sum = 0;
+  for (const kit of fieldKits(state)) {
+    if (kit.id === "odysseus") {
+      if (kitHas(kit, "lore-or-charm")) sum += 2;
+      if (kitHas(kit, "relic", "ford-bell")) sum += 2;
+    }
+    if (kit.id === "odin" && kitHas(kit, "lore")) sum += 2;
+    if (kit.id === "theseus" && kitHas(kit, "lore")) sum += 1;
+  }
+  return Math.min(TEACH_CAP, sum);
+}
+
+export function heroRelicBonus(state: GameState, source: "walk" | "crossing" | "expedition"): number {
+  let sum = 0;
+  for (const kit of fieldKits(state)) {
+    if (kit.id === "odysseus" && source === "walk") {
+      sum += 0.1;
+      if (kitHas(kit, "lore-or-charm")) sum += 0.08;
+      if (kitHas(kit, "relic", "ford-bell")) sum += 0.06;
+    }
+    if (kit.id === "odin") {
+      if (source === "walk") sum += 0.14 + (kitHas(kit, "lore") ? 0.08 : 0);
+      if (source === "crossing") sum += 0.1;
+    }
+  }
+  return Math.min(0.4, sum);
+}
+
+export function heroMeetingBonus(state: GameState, source: "walk" | "crossing" | "expedition"): number {
+  let sum = 0;
+  for (const kit of fieldKits(state)) {
+    if (kit.id === "moth" && source === "walk") sum += 0.03 + (kitHas(kit, "hunt") ? 0.04 : 0);
+    if (kit.id === "odin") sum += 0.04;
+  }
+  return Math.min(0.12, sum);
+}
+
+export function heroSaleBonus(state: GameState): number {
+  let sum = 0;
+  for (const kit of fieldKits(state)) {
+    if (kit.id !== "ivy") continue;
+    sum += 1;
+    if (kitHas(kit, "purse")) sum += 1;
+  }
+  return Math.min(SALE_CAP, sum);
+}
+
+export function heroCallSooner(state: GameState): number {
+  let sum = 0;
+  for (const kit of fieldKits(state)) {
+    if (kit.id === "bran") sum += 1 + (kitHas(kit, "purse") ? 1 : 0);
+    if (kit.id === "zeus" && kitHas(kit, "relic", "carter-knot")) sum += 1;
+  }
+  return Math.min(SOONER_CAP, sum);
+}
+
+export function heroWagonExtra(state: GameState): number {
+  let sum = 0;
+  for (const kit of fieldKits(state)) {
+    if (kit.id === "bran" && kitHas(kit, "purse")) sum += 2;
+    if (kit.id === "zeus") {
+      sum += 3;
+      if (kitHas(kit, "purse")) sum += 2;
+      if (kitHas(kit, "relic", "carter-knot")) sum += 4;
+    }
+  }
+  return Math.min(WAGON_EXTRA_CAP, sum);
+}
+
+export function heroIreEase(state: GameState): number {
+  let sum = 0;
+  for (const kit of fieldKits(state)) {
+    if (kit.id === "beowulf" && kitHas(kit, "hunt-or-ward")) sum += 1;
+    if (kit.id === "odin" && kitHas(kit, "ward")) sum += 1;
+    if (kit.id === "zeus") sum += 1 + (kitHas(kit, "ward") ? 1 : 0);
+  }
+  return Math.min(IRE_EASE_CAP, sum);
+}
+
+/** How far the Barrow Band cools the warmest sworn bond. Beowulf softens it. */
+export function heroBandCool(state: GameState): number {
+  const beowulf = fieldKits(state).find((kit) => kit.id === "beowulf");
+  return beowulf && kitHas(beowulf, "relic", "barrow-band") ? 2 : 4;
+}
+
+export function heroSaltQuiet(state: GameState): boolean {
+  return fieldKits(state).some((kit) => kit.id === "ivy" && kitHas(kit, "relic", "salt-charter"));
+}
+
+export function heroForgeFiner(state: GameState): boolean {
+  return fieldKits(state).some((kit) => kit.id === "moth" && kitHas(kit, "smith"));
+}
+
+export type SynergyState = "active" | "ready" | "open";
+
+export interface SynergyRead {
+  name: string;
+  text: string;
+  state: SynergyState;
+}
+
+export function heroSynergyRead(state: GameState, heroId: HeroId): SynergyRead[] {
+  const record = (state.heroes ?? []).find((hero) => hero.id === heroId);
+  const worn = wornBy(state, record);
+  const fielded = Boolean(record?.unlocked && record.fielded && worn.length > 0);
+  return heroSynergies(heroId).map((synergy) => {
+    const matched = worn.some((gear) => gearMatches(gear, synergy));
+    const status: SynergyState = matched && fielded ? "active" : matched ? "ready" : "open";
+    return { name: synergy.name, text: synergy.text, state: status };
+  });
+}
+
+export function heroPieceNote(state: GameState, heroId: HeroId, gear: Gear): string | null {
+  const hits = heroSynergies(heroId).filter((synergy) => gearMatches(gear, synergy));
+  if (hits.length === 0) return null;
+  const record = (state.heroes ?? []).find((hero) => hero.id === heroId);
+  const wearing = Boolean(record && Object.values(record.worn ?? {}).includes(gear.id));
+  const fielded = Boolean(record?.unlocked && record.fielded && wearsAnyGear(state, record));
+  const lead = wearing && fielded ? "Synergy active" : wearing ? "Synergy ready when they take the road" : "Wakes if they wear this on the road";
+  return `${lead}. ${hits.map((hit) => `${hit.name}: ${hit.text}`).join(" ")}`;
+}
+
+/** Notes for the armory. Only unlocked heroes, and only pieces they can wear. */
+export function gearHeroNotes(state: GameState, gear: Gear): string[] {
+  if (gear.slot === "hoard") return [];
+  const notes: string[] = [];
+  for (const spec of HEROES) {
+    const record = (state.heroes ?? []).find((hero) => hero.id === spec.id);
+    if (!record?.unlocked) continue;
+    const hits = heroSynergies(spec.id).filter((synergy) => gearMatches(gear, synergy));
+    for (const hit of hits) {
+      const where = record.fielded ? "out" : "at the hold";
+      notes.push(`${spec.name} (${where}) — ${hit.name}. ${hit.text}`);
+    }
+  }
+  return notes;
+}
+
 function gearedEdge(state: GameState, key: "road" | "ford" | "wagon", cap: number): number {
   let sum = 0;
   for (const hero of state.heroes ?? []) {
@@ -582,7 +1119,7 @@ export function maybeRecruit(state: GameState, source: "walk" | "crossing" | "ex
   const roll = worldRng(
     ((state.seed ?? 0) ^ Math.imul((state.day ?? 1) + 91, 0x9e3779b1) ^ Math.imul((state.miles ?? 0) + FIND_SALT[source], 0x85ebca6b)) >>> 0,
   );
-  const chance = source === "walk" ? 0.05 : source === "crossing" ? 0.04 : 0.06;
+  const chance = Math.min(0.22, (source === "walk" ? 0.05 : source === "crossing" ? 0.04 : 0.06) + heroMeetingBonus(state, source));
   if (roll() >= chance) return null;
   const weights = locked.map((hero) => {
     const rarity = heroSpec(hero.id).rarity;
