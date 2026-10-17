@@ -364,8 +364,10 @@ export interface CrossingChoice {
   id: string;
   label: string;
   detail: string;
-  branch: "base" | "alt";
+  branch: "base" | "alt" | "best";
   gamble?: boolean;
+  /** The outcome this choice does not currently give, when a hero would change it. */
+  aside?: string;
 }
 
 export interface Crossing {
@@ -392,6 +394,10 @@ export interface Petition {
   holdId: HoldId;
   title: string;
   body: string;
+  /** Who the hall wants, and what fails if they are absent. */
+  ask?: string;
+  /** Whether that hero is ready right now. */
+  standing?: string;
   choices: CrossingChoice[];
 }
 

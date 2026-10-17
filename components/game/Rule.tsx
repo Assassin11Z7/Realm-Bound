@@ -12,7 +12,7 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { holdById } from "@/lib/game/content";
 import { chooseCrossing, choosePetition, dismissCrossing, setEdict, stockSettlement } from "@/lib/game/engine";
-import { EDICTS, modsBlurb } from "@/lib/game/realm";
+import { EDICTS, modsBlurb, shownPetition } from "@/lib/game/realm";
 import { ownsRelic } from "@/lib/game/world";
 import type { EdictId, GameState, HoldId, Result } from "@/lib/game/types";
 import { useFrame } from "./frame";
@@ -68,23 +68,38 @@ export function MarksCard({ state }: { state: GameState }) {
 }
 
 export function PetitionCard({ state, act }: { state: GameState; act: (result: Result) => void }) {
-  if (!state.petition) return null;
+  const petition = shownPetition(state);
+  if (!petition) return null;
   return (
-    <div className="rounded-2xl bg-card p-4 ring-1 ring-gold/50">
+    <div className="rounded-2xl bg-card p-4 ring-1 ring-gold/50" data-petition={petition.id}>
       <p className="text-xs tracking-wide text-[#8d6b2e] uppercase">The people ask</p>
-      <p className="mt-1 font-display text-2xl leading-tight">{state.petition.title}</p>
-      <p className="mt-2 text-sm leading-relaxed">{state.petition.body}</p>
+      <p className="mt-1 font-display text-2xl leading-tight">{petition.title}</p>
+      <p className="mt-2 text-sm leading-relaxed">{petition.body}</p>
+      {petition.ask && <p className="mt-3 rounded-xl bg-[#f4ead7] px-3 py-2 text-sm leading-relaxed text-[#1c1612]">{petition.ask}</p>}
+      {petition.standing && (
+        <p className="mt-2 text-sm leading-relaxed text-[#3d4a62]" data-standing="">
+          {petition.standing}
+        </p>
+      )}
       <div className="mt-3 flex flex-col gap-2">
-        {state.petition.choices.map((choice) => (
+        {petition.choices.map((choice) => (
           <Button
             key={choice.id}
             type="button"
             variant="secondary"
+            data-choice={choice.id}
+            data-branch={choice.branch}
             className="h-auto min-h-11 flex-col items-start gap-0.5 py-2 text-left whitespace-normal"
             onClick={() => act(choosePetition(state, choice.id))}
           >
             <span>{choice.label}</span>
-            <span className="text-xs font-normal opacity-80">{choice.detail}</span>
+            <span className="text-xs font-normal opacity-80">{choice.aside ? `Now. ${choice.detail}` : choice.detail}</span>
+            {choice.aside && (
+              <span className="text-xs font-normal text-[#3d4a62]">
+                {choice.branch === "alt" ? "The other outcomes. " : "The other outcome. "}
+                {choice.aside}
+              </span>
+            )}
           </Button>
         ))}
       </div>
@@ -230,7 +245,13 @@ export function CrossingDialog({ state, act }: { state: GameState; act: (result:
                     onClick={() => act(chooseCrossing(state, choice.id))}
                   >
                     <span>{choice.gamble ? `Roll · ${choice.label}` : choice.label}</span>
-                    <span className="text-xs font-normal opacity-80">{choice.detail}</span>
+                    <span className="text-xs font-normal opacity-80">{choice.aside ? `Now. ${choice.detail}` : choice.detail}</span>
+                    {choice.aside && (
+                      <span className="text-xs font-normal text-[#3d4a62]">
+                        {choice.branch === "alt" ? "The other outcomes. " : "The other outcome. "}
+                        {choice.aside}
+                      </span>
+                    )}
                   </Button>
                 ))}
                 <Button type="button" variant="ghost" className="h-11" onClick={() => act(dismissCrossing(state))}>

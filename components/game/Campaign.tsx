@@ -28,6 +28,7 @@ import {
   startProject,
   startRealmProject,
 } from "@/lib/game/progress";
+import { borderPathRead } from "@/lib/game/heroes";
 import type { CaptainOrder, GameState, HoldId, RealmBench, RealmProjectId, Result, SkillId } from "@/lib/game/types";
 
 const ORDERS: { id: CaptainOrder; label: string }[] = [
@@ -159,6 +160,7 @@ export function RealmProjects({ state, act }: { state: GameState; act: (result: 
                 ? "Seal the day to sink the first dawn of labor. The cost is already paid."
                 : `${realmProjectDawns(labor.id) - labor.spent === 1 ? "1 dawn of labor remains." : `${realmProjectDawns(labor.id) - labor.spent} dawns of labor remain.`} It keeps going while the wagons are away.`}
             </p>
+            {labor.id === "border" && <BorderAsk state={state} />}
           </div>
         </div>
       )}
@@ -188,6 +190,7 @@ export function RealmProjects({ state, act }: { state: GameState; act: (result: 
                 <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                   {spec.dawns} dawns. {spec.blurb}
                 </p>
+                {spec.id === "border" && <BorderAsk state={state} />}
                 {waiting && spec.id === "watchtower" && (
                   <StartButton state={state} id="watchtower" onStart={() => begin("watchtower")} />
                 )}
@@ -242,6 +245,15 @@ export function RealmProjects({ state, act }: { state: GameState; act: (result: 
         </div>
       )}
     </div>
+  );
+}
+
+function BorderAsk({ state }: { state: GameState }) {
+  const read = borderPathRead(state);
+  return (
+    <p className={`mt-2 text-xs leading-relaxed ${read.met ? "text-moss" : "text-[#3d4a62]"}`} data-border-ask={read.met ? "met" : "open"}>
+      {read.line}
+    </p>
   );
 }
 
