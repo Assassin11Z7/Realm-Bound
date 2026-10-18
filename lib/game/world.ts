@@ -504,9 +504,9 @@ export function openingQuests(seed: number, home: HoldId): Quest[] {
   return [
     {
       id: "visit",
-      title: `Walk to ${place.name}`,
+      title: `Set out for ${place.name}`,
       giver: "The road",
-      detail: `Set your boots in ${place.name}. The map is not the walk.`,
+      detail: `The company sets foot in ${place.name}. The map is not the journey.`,
       kind: "visit",
       target: visit,
       need: 1,
@@ -530,7 +530,7 @@ export function openingQuests(seed: number, home: HoldId): Quest[] {
       id: "loot",
       title: "Bring something back",
       giver: "The ditch",
-      detail: "Walk until the road leaves a found thing in your pack.",
+      detail: "Set out until the road leaves a found thing in the pack.",
       kind: "loot",
       target: "any",
       need: 1,

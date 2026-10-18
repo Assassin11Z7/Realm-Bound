@@ -1487,13 +1487,17 @@ export function restHero(state: GameState, heroId: HeroId): Result {
 
 const FIND_SALT = { walk: 17, crossing: 29, expedition: 43 };
 
-export function maybeRecruit(state: GameState, source: "walk" | "crossing" | "expedition"): string | null {
+export function maybeRecruit(state: GameState, source: "walk" | "crossing" | "expedition", meetingBonus = 0): string | null {
   const locked = (state.heroes ?? []).filter((hero) => !hero.unlocked);
   if (locked.length === 0) return null;
   const roll = worldRng(
     ((state.seed ?? 0) ^ Math.imul((state.day ?? 1) + 91, 0x9e3779b1) ^ Math.imul((state.miles ?? 0) + FIND_SALT[source], 0x85ebca6b)) >>> 0,
   );
-  const chance = Math.min(0.22, (source === "walk" ? 0.05 : source === "crossing" ? 0.04 : 0.06) + heroMeetingBonus(state, source));
+  const extra = Math.max(0, meetingBonus);
+  const chance = Math.min(
+    0.22 + extra,
+    (source === "walk" ? 0.05 : source === "crossing" ? 0.04 : 0.06) + heroMeetingBonus(state, source) + extra,
+  );
   if (roll() >= chance) return null;
   const weights = locked.map((hero) => {
     const rarity = heroSpec(hero.id).rarity;

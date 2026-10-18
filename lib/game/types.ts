@@ -224,6 +224,49 @@ export interface Cutscene {
   beats: SceneBeat[];
 }
 
+/** How a finished road sequence pays. */
+export type RoadTone = "clean" | "mixed" | "bargain" | "setback";
+
+export interface RoadChoice {
+  id: string;
+  label: string;
+  detail: string;
+  tone: RoadTone;
+  /** Why a hero or a piece opened or improved this choice. */
+  because?: string;
+  /** A kit effect that still applies when the road is settled. */
+  boon?: "hunt" | "bell" | "ward" | "lore" | "weather";
+  /** Gold a bargain choice asks for. Short gold turns the road into a setback. */
+  pay?: number;
+}
+
+export interface RoadBeat {
+  id: string;
+  title: string;
+  body: string;
+  choices: RoadChoice[];
+}
+
+export interface RoadOutcome {
+  tone: RoadTone;
+  title: string;
+  line: string;
+  /** Ordinary find, if it went into the pack. Treasures use the hoard slot. */
+  gearName?: string;
+  gearSlot?: GearSlot;
+  /** Unique relic, if one came back in the pack. */
+  relicName?: string;
+}
+
+/** A journey in progress. Choices are fixed when the company sets out. */
+export interface RoadJourney {
+  dest: HoldId;
+  index: number;
+  picks: string[];
+  beats: RoadBeat[];
+  outcome: RoadOutcome | null;
+}
+
 export type Outcome = "held" | "held-late" | "lost";
 
 export type ExpeditionPhase = "called" | "idle";
@@ -494,6 +537,8 @@ export interface GameState {
   /** Successful wagon calls (held or held late). */
   triumphs: number;
   scene: Cutscene | null;
+  /** The company's road, from the moment they set out until the outcome is read. */
+  road: RoadJourney | null;
   campaign: Campaign;
   tutorial: Tutorial;
   expedition: Expedition;

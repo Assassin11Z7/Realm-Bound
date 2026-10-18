@@ -3,6 +3,7 @@ import { normalizeExpedition, normalizePolitics } from "./expedition";
 import { KNOT_ACT, normalizeHeroState } from "./heroes";
 import { emptyBrew } from "./craft";
 import { normalizeCampaign } from "./progress";
+import { normalizeRoad } from "./road";
 import { normalizeRealm } from "./realm";
 import { WORN_SLOTS, fillGear } from "./world";
 import type { Cutscene, GameState, Gear, GearSlot, GoodId, PotionId, Quest, Rumor } from "./types";
@@ -154,6 +155,7 @@ export function parseSave(raw: string): GameState | null {
     value.worn = legalWorn(value.worn, value.pack);
     value.quests = Array.isArray(value.quests) ? value.quests.filter(legalQuest) : [];
     value.scene = legalScene(value.scene);
+    value.road = normalizeRoad(value.road);
     value.tutorial = legalTutorial(value.tutorial);
     value.expedition = normalizeExpedition(value);
     value.politics = normalizePolitics(value.politics);

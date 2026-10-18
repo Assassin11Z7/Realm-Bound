@@ -82,6 +82,7 @@ import {
   tickSettlements,
 } from "./realm";
 import { blankExpedition, blankPolitics, CHARTER_PAY, EXPEDITION_GRACE, expeditionDue, markCalled, markDeparted, takeExpeditionPrize, wagonsOpen } from "./expedition";
+import { PLAIN_TUNE, describeRoad, judgeRoad, roadBeats, type RoadTune } from "./road";
 import {
   WATCH_FIND_LUCK,
   WATCH_RELIC_BIAS,
@@ -100,6 +101,7 @@ import {
   relicSpec,
   rewardScene,
   roadFind,
+  rollGear,
   spendPardon,
   starterCloak,
   wardBonus,
@@ -812,6 +814,7 @@ export function createGame(setup: NewGameSetup): GameState {
     heroTasks: [],
     triumphs: 0,
     scene: null,
+    road: null,
     campaign: blankCampaign([]),
     tutorial: { step: "wagons" },
     expedition: blankExpedition(),
@@ -1476,57 +1479,137 @@ export function chooseOmen(state: GameState, choiceId: string): Result {
   return ok(next, next.chronicle[next.chronicle.length - 1]?.text ?? "The omen is answered.");
 }
 
-export function travel(state: GameState, holdId: HoldId): Result {
-  if (state.scene) return fail(state, "The scene is not finished.");
-  const here = state.where ?? state.player.holdId;
-  if (holdId === here) return fail(state, "You are already standing there.");
-  const next = draft(state);
+function packRoadGear(next: GameState, gear: NonNullable<ReturnType<typeof roadFind>["gear"]>): boolean {
+  if (carriedWeight(next) + gearWeight(gear) > carryCap(next)) {
+    next.player.gold += 2;
+    note(next, `The bag is too heavy. You leave ${gear.name} and take 2 gold instead.`);
+    return false;
+  }
+  next.pack = [...(next.pack ?? []), gear];
+  bumpQuest(next, "loot", "any", 1);
+  return true;
+}
+
+/** Moves the company and rolls the find. `narrate` keeps the old caption scene for a direct travel. */
+function applyRoad(
+  next: GameState,
+  holdId: HoldId,
+  tune: RoadTune,
+  narrate: boolean,
+): { message: string; gearName?: string; gearSlot?: GameState["pack"][number]["slot"]; relicName?: string } {
   const watch = (next.campaign?.realmWorks ?? []).some((work) => work.id === "watchtower");
+  const relicBias = (watch ? WATCH_RELIC_BIAS : 0) + tune.relicBias;
   const found = roadFind(
     next.seed ?? 0,
     next.day,
     next.miles ?? 0,
     holdId,
-    luckOf(next) + (watch ? WATCH_FIND_LUCK : 0),
-    watch ? WATCH_RELIC_BIAS : 0,
+    luckOf(next) + (watch ? WATCH_FIND_LUCK : 0) + tune.luck,
+    relicBias,
   );
   next.where = holdId;
   next.miles = (next.miles ?? 0) + 1;
-  next.player.gold = Math.max(0, next.player.gold + found.gold);
-  next.wyrm.ire = Math.max(0, Math.min(100, next.wyrm.ire + found.ire));
-  if (found.gear) {
-    if (carriedWeight(next) + gearWeight(found.gear) > carryCap(next)) {
-      next.player.gold += 2;
-      note(next, `The bag is too heavy. You leave ${found.gear.name} and take 2 gold instead.`);
-    } else {
-      next.pack = [...(next.pack ?? []), found.gear];
-      bumpQuest(next, "loot", "any", 1);
+  if (tune.pay > 0) next.player.gold = Math.max(0, next.player.gold - tune.pay);
+  next.player.gold = Math.max(0, next.player.gold + found.gold + tune.goldDelta);
+  next.wyrm.ire = Math.max(0, Math.min(100, next.wyrm.ire + found.ire + tune.ireDelta));
+  let gearName: string | undefined;
+  let gearSlot: GameState["pack"][number]["slot"] | undefined;
+  let triedGear = false;
+  if (found.gear && tune.keepGear) {
+    triedGear = true;
+    if (packRoadGear(next, found.gear)) {
+      gearName = found.gear.name;
+      gearSlot = found.gear.slot;
+    }
+  } else if (found.gear) {
+    note(next, `The company leaves ${found.gear.name} in the mud outside ${holdById(holdId).name}.`);
+  }
+  if (tune.forceGear && tune.keepGear && !triedGear) {
+    const extra = rollGear(next.seed ?? 0, next.day, (next.miles ?? 0) + 120, relicBias);
+    if (packRoadGear(next, extra)) {
+      gearName = extra.name;
+      gearSlot = extra.slot;
     }
   }
   if ((next.tonics?.luck ?? 0) > 0) next.tonics.luck -= 1;
-  const relic = awardUniqueRelic(next, "walk", heroRelicBonus(next, "walk"));
+  const relic = awardUniqueRelic(next, "walk", heroRelicBonus(next, "walk") + tune.relicBonus);
+  let relicName: string | undefined;
   if (relic?.packed) {
-    const blurb = relic.gear.relic ? relicSpec(relic.gear.relic)?.blurb : "";
-    const spoken = blurb ? `${blurb.charAt(0).toUpperCase()}${blurb.slice(1)}` : "";
-    found.scene.beats.push({
-      speaker: relic.gear.name,
-      line: spoken ? `${relic.gear.line} ${spoken}.` : relic.gear.line,
-      art: "/art/good-relics.jpg",
-    });
+    relicName = relic.gear.name;
+    if (narrate) {
+      const blurb = relic.gear.relic ? relicSpec(relic.gear.relic)?.blurb : "";
+      const spoken = blurb ? `${blurb.charAt(0).toUpperCase()}${blurb.slice(1)}` : "";
+      found.scene.beats.push({
+        speaker: relic.gear.name,
+        line: spoken ? `${relic.gear.line} ${spoken}.` : relic.gear.line,
+        art: "/art/good-relics.jpg",
+      });
+    }
     note(next, `The walk left ${relic.gear.name}. ${relic.gear.line}`);
   } else if (relic) {
     note(next, `${relic.gear.name} lay on the track, and the bag could not take it.`);
   }
   bumpQuest(next, "visit", holdId, 1);
-  next.scene = found.scene;
-  note(next, found.line);
+  if (narrate) next.scene = found.scene;
+  if (!(found.gear && !tune.keepGear)) note(next, found.line);
   let teach = 3 + (next.campaign?.skills.includes("scholar") ? 2 : 0) + loreBonus(next) + heroRoadTeach(next) + heroExtraTeach(next);
   if (wornRelic(next, "ford-bell")) teach += 3;
   grantDeed(next, teach);
-  const met = maybeRecruit(next, "walk");
+  const met = maybeRecruit(next, "walk", tune.meetingBonus);
   if (met) note(next, met);
   const walked = relic?.packed ? `${found.line} ${relic.gear.name} came with you.` : found.line;
-  return ok(next, met ? `${walked} ${met}` : walked);
+  return { message: met ? `${walked} ${met}` : walked, gearName, gearSlot, relicName };
+}
+
+export function travel(state: GameState, holdId: HoldId): Result {
+  if (state.scene) return fail(state, "The scene is not finished.");
+  if (state.road) return fail(state, "The company is already on the road.");
+  const here = state.where ?? state.player.holdId;
+  if (holdId === here) return fail(state, "You are already standing there.");
+  const next = draft(state);
+  const moved = applyRoad(next, holdId, PLAIN_TUNE, true);
+  return ok(next, moved.message);
+}
+
+export function beginRoad(state: GameState, holdId: HoldId): Result {
+  if (state.scene) return fail(state, "The scene is not finished.");
+  if (state.road?.outcome) return fail(state, "Read what the road brought back first.");
+  if (state.road) return fail(state, "The company is already on the road.");
+  const here = state.where ?? state.player.holdId;
+  if (holdId === here) return fail(state, "The company is already there.");
+  const next = draft(state);
+  const place = holdById(holdId).name;
+  next.road = { dest: holdId, index: 0, picks: [], beats: roadBeats(next, holdId), outcome: null };
+  return ok(next, `The company sets out for ${place}.`);
+}
+
+export function chooseRoad(state: GameState, choiceId: string): Result {
+  const road = state.road;
+  if (!road || road.outcome) return fail(state, "The company is not choosing a road.");
+  const beat = road.beats[road.index];
+  if (!beat?.choices.some((choice) => choice.id === choiceId)) return fail(state, "That is not a choice on this road.");
+  const next = draft(state);
+  const journey = next.road;
+  if (!journey) return fail(state, "The company is not choosing a road.");
+  journey.picks.push(choiceId);
+  if (journey.index + 1 < journey.beats.length) {
+    journey.index += 1;
+    const label = beat.choices.find((choice) => choice.id === choiceId)?.label ?? "The company goes on.";
+    return ok(next, label);
+  }
+  const judged = judgeRoad(journey, next.player.gold);
+  const applied = applyRoad(next, journey.dest, judged.tune, false);
+  const outcome = describeRoad(judged, holdById(journey.dest).name, applied.gearName, applied.relicName, applied.gearSlot);
+  journey.outcome = outcome;
+  note(next, outcome.line);
+  return ok(next, outcome.line);
+}
+
+export function dismissRoad(state: GameState): Result {
+  if (!state.road?.outcome) return fail(state, "The road is not finished.");
+  const next = draft(state);
+  next.road = null;
+  return ok(next, "The company is back from the road.");
 }
 
 export function advanceTutorial(state: GameState): Result {
