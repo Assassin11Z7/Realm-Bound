@@ -40,6 +40,7 @@ import {
   deposit,
   dismissOutcome,
   gift,
+  knotTheCall,
   releaseExpedition,
   offerRelic,
   pledgeFromHall,
@@ -60,6 +61,7 @@ import {
 import { COACH, dawnsLeftLabel, whatNow } from "@/lib/game/coach";
 import { bandYieldNote, influenceCap } from "@/lib/game/world";
 import { allianceBoard, expeditionDue, wagonsOpen } from "@/lib/game/expedition";
+import { knotCallRead } from "@/lib/game/heroes";
 import type { GameState, GoodId, HeroId, HoldId, LevyGood, Result } from "@/lib/game/types";
 import { GOODS, LEVY_GOODS } from "@/lib/game/types";
 import { GoodThumb, Portrait } from "./art";
@@ -841,6 +843,7 @@ function StatusPanel({
   const due = expeditionDue(state);
   const verdict = state.expedition?.lastVerdict;
   const clock = called ? dawnsLeftLabel(state.day, due) : `Day ${state.expedition?.nextCallDay ?? "—"}`;
+  const knot = knotCallRead(state);
   return (
     <>
       <div className="wm-event overflow-hidden rounded-2xl ring-1 ring-[#8d6b2e]/45" data-coach="wagons">
@@ -885,6 +888,18 @@ function StatusPanel({
             {state.expedition?.nextCallDay ?? "—"}. Until then, grow the hold and keep the oaths.
             {(state.campaign?.realmWorks ?? []).some((work) => work.id === "border") ? " A cleared border path brings them two dawns sooner." : ""}
           </p>
+        )}
+        {knot && (
+          <div className="mt-4 rounded-xl bg-[#f6ead0] px-3 py-3 ring-1 ring-[#8d6b2e]/40" data-knot-call={knot.spent ? "spent" : "open"}>
+            <p className="text-sm font-medium text-[#6a4a12]">{knot.spent ? "The knotted call has already been sent." : knot.title}</p>
+            <p className="mt-1 text-sm leading-relaxed text-[#6a4a12]">{knot.detail}</p>
+            <p className="mt-1 text-xs leading-relaxed text-[#8d6b2e]">{knot.because}</p>
+            {!knot.spent && (
+              <Button type="button" className="mt-3 h-11 w-full" onClick={() => act(knotTheCall(state))}>
+                {knot.title}
+              </Button>
+            )}
+          </div>
         )}
         </div>
       </div>

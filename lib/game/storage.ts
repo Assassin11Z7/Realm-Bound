@@ -1,6 +1,6 @@
 import { legalTutorial } from "./coach";
 import { normalizeExpedition, normalizePolitics } from "./expedition";
-import { normalizeHeroState } from "./heroes";
+import { KNOT_ACT, normalizeHeroState } from "./heroes";
 import { emptyBrew } from "./craft";
 import { normalizeCampaign } from "./progress";
 import { normalizeRealm } from "./realm";
@@ -158,6 +158,7 @@ export function parseSave(raw: string): GameState | null {
     value.expedition = normalizeExpedition(value);
     value.politics = normalizePolitics(value.politics);
     value.pardonCall = typeof value.pardonCall === "number" && Number.isFinite(value.pardonCall) ? Math.floor(value.pardonCall) : null;
+    value.relicActs = Array.isArray(value.relicActs) ? value.relicActs.filter((item) => item === KNOT_ACT) : [];
     value.campaign = normalizeCampaign(
       value.campaign,
       value.compact.members.map((member) => member.id).filter((id) => typeof id === "string"),

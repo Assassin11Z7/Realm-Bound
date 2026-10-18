@@ -273,6 +273,15 @@ function Company({
                   <p className={`mt-1 text-sm leading-relaxed ${synergy.state === "active" ? "text-[#6a4a12]" : "text-muted-foreground"}`}>
                     {synergy.text}
                   </p>
+                  {synergy.unlock && (
+                    <p
+                      className={`mt-1 text-sm leading-relaxed ${synergy.state === "active" ? "text-[#6a4a12]" : "text-muted-foreground"}`}
+                      data-relic-unlock={synergy.state}
+                    >
+                      {synergy.state === "active" ? "Unlock active. " : "Unlock. "}
+                      {synergy.unlock}
+                    </p>
+                  )}
                 </li>
               ))}
             </ul>

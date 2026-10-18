@@ -338,7 +338,7 @@ export interface Threat {
   art: string;
 }
 
-export type EdictId = "custom" | "dole" | "tithe" | "close-rolls" | "open-rolls" | "hearth-rite" | "salt-road";
+export type EdictId = "custom" | "dole" | "tithe" | "close-rolls" | "open-rolls" | "hearth-rite" | "salt-road" | "brine-fords" | "barrow-watch";
 
 export interface Lasting {
   yield?: number;
@@ -368,6 +368,8 @@ export interface CrossingChoice {
   gamble?: boolean;
   /** The outcome this choice does not currently give, when a hero would change it. */
   aside?: string;
+  /** Why this choice is on the table, when a relic and a hero opened it. */
+  because?: string;
 }
 
 export interface Crossing {
@@ -496,6 +498,8 @@ export interface GameState {
   politics: Politics;
   /** Expedition cycle in which the Unspoken Hem already swallowed a failure. */
   pardonCall: number | null;
+  /** One-time relic decisions already spent. `carter-knot` is the knotted wagon call. */
+  relicActs: string[];
 }
 
 export interface NewGameSetup {

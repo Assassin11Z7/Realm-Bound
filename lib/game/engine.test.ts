@@ -34,6 +34,8 @@ import {
   dismissOutcome,
   equipGear,
   equipOnHero,
+  knotTheCall,
+  openBellRoad,
   releaseExpedition,
   restHeroAtHold,
   sellGear,
@@ -66,13 +68,15 @@ import {
   heroSynergyRead,
   heroWagonExtra,
   heroWagonGold,
+  heroWearsRelic,
+  knotCallRead,
 } from "./heroes";
 import { parseSave } from "./storage";
 import type { FactionId, GameState, GoodId, HeroId, HoldId, NewGameSetup } from "./types";
 import { GOODS, LEVY_GOODS } from "./types";
 import { chooseSkill, dismissRealmNotice, realmProjectCost, setCaptainOrder, startProject, startRealmProject } from "./progress";
 import { craft, drinkPotion, storeGear } from "./craft";
-import { availableCreatureIds, creatureCount, forceCrossing, forcePetition, shownPetition } from "./realm";
+import { availableCreatureIds, creatureCount, edictAvailable, forceCrossing, forcePetition, shownCrossing, shownPetition } from "./realm";
 import { EXPEDITION_GAP, allianceBoard, expeditionGap } from "./expedition";
 import {
   RELIC_EXPEDITION_CHANCE,
@@ -1590,3 +1594,132 @@ test("hero decrees and the border path change bonds and loyalty", () => {
   assert.match(laid.compact.members[0].lastNote, /Theseus/);
   assert.equal(shownPetition(forcePetition(createGame(setup()), "three-voices"))?.ask, undefined);
 });
+
+function wearRelic(id: HeroId, relic: Parameters<typeof makeRelic>[0], gearId: string) {
+  const woke = wake(createGame(setup()), id);
+  woke.pack.push(makeRelic(relic, gearId));
+  const worn = equipOnHero(woke, id, gearId);
+  assert.equal(worn.error, undefined);
+  return worn.state;
+}
+
+test("relic and hero pairs open choices the season did not have", () => {
+  const plainFord = forceCrossing(createGame(setup()), "toll-hag");
+  assert.equal(plainFord.crossing?.choices.some((choice) => choice.id === "labor"), false);
+
+  const cloaked = wearRelic("heracles", "unspoken-hem", "hem-labor");
+  assert.equal(heroWearsRelic(cloaked, "heracles", "unspoken-hem"), false);
+  const waiting = forceCrossing(cloaked, "toll-hag");
+  assert.equal(shownCrossing(waiting)?.choices.some((choice) => choice.id === "labor"), false);
+  const laborer = sendHeroOut(waiting, "heracles");
+  assert.equal(laborer.error, undefined);
+  assert.equal(laborer.state.crossing?.choices.some((choice) => choice.id === "labor"), false);
+  const liveLabor = shownCrossing(laborer.state)?.choices.find((choice) => choice.id === "labor");
+  assert.match(liveLabor?.because ?? "", /Heracles wears the Unspoken Hem/);
+  assert.equal(heroSynergyRead(laborer.state, "heracles").find((row) => row.name === "Hem of the labor")?.state, "active");
+  const beforeGold = laborer.state.player.gold;
+  const beforeIron = laborer.state.player.stash.iron;
+  const worked = chooseCrossing(laborer.state, "labor");
+  assert.equal(worked.error, undefined);
+  assert.equal(worked.state.player.gold, beforeGold);
+  assert.equal(worked.state.player.stash.iron, beforeIron + 2);
+  assert.ok(worked.state.player.renown > laborer.state.player.renown);
+  assert.match(worked.state.chronicle.map((entry) => entry.text).join(" "), /Unspoken Hem/);
+
+  const charter = wearRelic("ivy", "salt-charter", "ivy-brine");
+  assert.equal(edictAvailable(charter, "brine-fords"), false);
+  assert.ok(setEdict(charter, "greenmere", "brine-fords").error);
+  const runner = sendHeroOut(charter, "ivy").state;
+  assert.equal(edictAvailable(runner, "brine-fords"), true);
+  assert.equal(edictAvailable(runner, "salt-road"), true);
+  const widow = shownCrossing(forceCrossing(charter, "salt-widow"));
+  assert.equal(widow?.choices.some((choice) => choice.id === "brine"), false);
+  const taught = shownCrossing(forceCrossing(runner, "salt-widow"));
+  assert.match(taught?.choices.find((choice) => choice.id === "brine")?.because ?? "", /Ivy wears the Salt Charter/);
+  const brinedByWidow = chooseCrossing(forceCrossing(runner, "salt-widow"), "brine");
+  assert.equal(brinedByWidow.error, undefined);
+  assert.equal(brinedByWidow.state.settlements[0].edict, "brine-fords");
+
+  const frost = sendHeroOut(wearRelic("ivy", "salt-charter", "ivy-frost"), "ivy").state;
+  frost.day = 10;
+  const salted = sealDay(setEdict(structuredClone(frost), "greenmere", "salt-road").state).state;
+  const brined = sealDay(setEdict(structuredClone(frost), "greenmere", "brine-fords").state).state;
+  assert.equal(homeOf(brined)?.hearth, (homeOf(salted)?.hearth ?? 0) + 1);
+  assert.equal(homeOf(brined)?.mood, (homeOf(salted)?.mood ?? 0) + 1);
+  assert.equal(brined.wyrm.ire, salted.wyrm.ire);
+
+  const sky = sendHeroOut(wearRelic("zeus", "carter-knot", "zeus-sky"), "zeus").state;
+  assert.equal(knotCallRead(sky)?.who, "zeus");
+  assert.match(knotCallRead(sky)?.because ?? "", /Zeus wears Carter's Knot/);
+  const knotted = knotTheCall(sky);
+  assert.equal(knotted.error, undefined);
+  assert.equal(knotted.state.compact.levy.grain, 4);
+  assert.equal(knotted.state.compact.levy.iron, 2);
+  assert.equal(knotted.state.compact.levy.salt, 2);
+  assert.ok(knotTheCall(knotted.state).error);
+  const kept = parseSave(JSON.stringify(knotted.state));
+  assert.ok(kept?.relicActs.includes("carter-knot"));
+  assert.ok(knotTheCall(kept!).error);
+
+  const idle = sendHeroOut(wearRelic("zeus", "carter-knot", "zeus-idle"), "zeus").state;
+  idle.expedition.phase = "idle";
+  idle.expedition.nextCallDay = idle.day + 6;
+  const sooner = knotTheCall(idle);
+  assert.equal(sooner.error, undefined);
+  assert.equal(sooner.state.expedition.nextCallDay, idle.day + 4);
+  assert.equal(sooner.state.compact.levy.grain, idle.compact.levy.grain);
+
+  const wool = sendHeroOut(wearRelic("bran", "carter-knot", "bran-wool-knot"), "bran").state;
+  const woolKnot = knotTheCall(wool);
+  assert.equal(woolKnot.error, undefined);
+  assert.equal(woolKnot.state.compact.levy.grain, 2);
+  assert.equal(woolKnot.state.compact.levy.iron, 0);
+  assert.equal(woolKnot.state.compact.levy.salt, 0);
+  assert.match(woolKnot.state.chronicle.map((entry) => entry.text).join(" "), /Bran/);
+
+  const bareQuarrel = shownPetition(forcePetition(createGame(setup()), "border-quarrel"));
+  assert.equal(bareQuarrel?.choices.some((choice) => choice.id === "barrow"), false);
+  assert.equal(edictAvailable(createGame(setup()), "barrow-watch"), false);
+  const bandedHold = wearRelic("beowulf", "barrow-band", "wolf-band");
+  const banded = sendHeroOut(bandedHold, "beowulf").state;
+  assert.equal(edictAvailable(banded, "barrow-watch"), true);
+  const named = shownPetition(forcePetition(banded, "border-quarrel"))?.choices.find((choice) => choice.id === "barrow");
+  assert.match(named?.because ?? "", /Beowulf wears the Barrow Band/);
+  const before = banded.compact.members.map((member) => member.contentment);
+  const settled = choosePetition(forcePetition(banded, "border-quarrel"), "barrow");
+  assert.equal(settled.error, undefined);
+  assert.equal(homeOf(settled.state)?.edict, "barrow-watch");
+  assert.equal(homeOf(settled.state)?.mood, (homeOf(banded)?.mood ?? 0) + 6);
+  assert.ok(settled.state.compact.members.some((member, index) => member.contentment === before[index] + 12));
+  const cooled = sealDay(structuredClone(banded)).state;
+  const watched = structuredClone(banded);
+  watched.settlements.find((item) => item.holdId === watched.player.holdId)!.edict = "barrow-watch";
+  const held = sealDay(watched).state;
+  const cooledBond = cooled.compact.members.map((member) => member.contentment);
+  const heldBond = held.compact.members.map((member) => member.contentment);
+  assert.ok(heldBond.some((value, index) => value === cooledBond[index] + 2));
+  assert.match(held.chronicle.map((entry) => entry.text).join(" "), /barrow watch/);
+
+  assert.equal(availableCreatureIds(createGame(setup())).includes("bell-road"), false);
+  const sailor = sendHeroOut(wearRelic("odysseus", "ford-bell", "ody-road"), "odysseus").state;
+  assert.equal(availableCreatureIds(sailor).includes("bell-road"), true);
+  assert.equal(bellRoadReady(sailor), true);
+  for (const hero of sailor.heroes) {
+    if (hero.id !== "zeus") hero.unlocked = true;
+  }
+  const ringing = openBellRoad(sailor);
+  assert.equal(ringing.error, undefined);
+  assert.equal(ringing.state.crossing?.id, "bell-road");
+  assert.match(ringing.state.crossing?.body ?? "", /Odysseus wears the Ford Bell/);
+  assert.match(ringing.state.crossing?.choices.find((choice) => choice.id === "answer")?.because ?? "", /Ford Bell/);
+  const met = chooseCrossing(ringing.state, "answer");
+  assert.equal(met.error, undefined);
+  assert.equal(met.state.heroes.find((hero) => hero.id === "zeus")?.unlocked, true);
+  assert.match(met.message ?? "", /Zeus answers the Ford Bell/);
+  assert.match(met.message ?? "", /Odysseus wears the Ford Bell/);
+  assert.ok(openBellRoad(met.state).error);
+});
+
+function bellRoadReady(state: GameState) {
+  return availableCreatureIds(state).includes("bell-road") && !(state.creaturesSeen ?? []).includes("bell-road");
+}
