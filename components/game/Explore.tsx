@@ -6,11 +6,18 @@ import { holdById } from "@/lib/game/content";
 import { drinkPotion, storeGear, storePotion, takeGear, takePotion } from "@/lib/game/craft";
 import { POTIONS } from "@/lib/game/craft";
 import { beginRoad, chooseRoad, claimQuest, dismissRoad, openBellRoad, sellGear, unequipFromHero } from "@/lib/game/engine";
-import { activeRelicPairs, bellRoadRead, fieldedNames, gearBearer, gearHeroNotes, heroFordRenown, heroRelicBonus, heroRoadTeach, heroWagonGold } from "@/lib/game/heroes";
-import { WORN_SLOTS, carryCap, carriedWeight, gearCompare, gearWeight, luckOf, pardonReady, relicFindChance, storedWeight, traitText, vaultCap, wornRelic } from "@/lib/game/world";
+import { activeRelicPairs, bellRoadRead, fieldedNames, gearBearer, gearHeroGlance, heroFordRenown, heroRelicBonus, heroRoadTeach, heroSpec, heroWagonGold } from "@/lib/game/heroes";
+import { WORN_SLOTS, carryCap, carriedWeight, gearEffect, gearVersus, gearWeight, luckOf, pardonReady, relicFindChance, storedWeight, vaultCap, wornRelic } from "@/lib/game/world";
 import { ROAD_ART, ROAD_BEAT_LABEL } from "./art";
 import { Metric } from "./stat";
-import type { Cutscene, GameState, Gear, GearSlot, HoldId, PotionId, Rarity, Result, WornSlot } from "@/lib/game/types";
+import type { Cutscene, GameState, Gear, GearSlot, HoldId, PotionId, Rarity, Result, RoadTone, WornSlot } from "@/lib/game/types";
+
+const TONE_LABEL: Record<RoadTone, string> = {
+  clean: "Clear",
+  mixed: "Mixed",
+  bargain: "Bargain",
+  setback: "Setback",
+};
 
 const RARITY_CLASS: Record<Rarity, string> = {
   common: "text-[#6b5344]",
@@ -86,6 +93,7 @@ function GearRow({
   worn,
   bearer,
   against,
+  againstBearer,
   notes,
   paired = false,
   onSell,
@@ -97,6 +105,7 @@ function GearRow({
   worn: boolean;
   bearer?: string | null;
   against?: Gear | null;
+  againstBearer?: string | null;
   notes?: string[];
   paired?: boolean;
   onSell?: () => void;
@@ -105,7 +114,8 @@ function GearRow({
   onTake?: () => void;
 }) {
   const unique = Boolean(gear.relic);
-  const compare = unique ? gearCompare(gear, against ?? null, worn) : "";
+  const effect = gearEffect(gear);
+  const versus = gear.slot === "hoard" ? null : gearVersus(gear, worn ? gear : (against ?? null), worn ? bearer : againstBearer);
   return (
     <div
       className={`wm-gear flex items-start gap-3 px-3 py-3 ${unique ? "wm-relic" : ""} ${paired ? "wm-relic-live" : ""}`}
@@ -123,18 +133,29 @@ function GearRow({
               {gear.rarity}
             </span>
           )}
+          <span className="wm-rarity-badge is-quiet" data-rarity={gear.rarity}>
+            {gear.slot === "hoard" ? "Treasure" : gear.slot}
+          </span>
+          <span className="text-[10px] tracking-wide text-muted-foreground uppercase">{gearWeight(gear)} wt</span>
           {paired ? (
             <span className="rounded-full bg-[#7c2a24] px-2 py-0.5 text-[10px] tracking-wide text-[#f4ead7] uppercase">Unlock live</span>
           ) : null}
         </div>
-        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{gear.line}</p>
-        <p className={`text-xs ${unique ? "text-[#6a4a12]" : "text-muted-foreground"}`}>
-          {traitText(gear)} · {gearWeight(gear)} wt
-          {bearer ? ` · ${bearer}` : worn ? " · worn" : ""}
-        </p>
-        {compare && <p className="mt-1 text-xs leading-relaxed text-[#6a4a12]">{compare}</p>}
-        {notes?.map((note) => (
-          <p key={note} className="mt-1.5 text-xs leading-relaxed text-[#3d4a62]" data-gear-synergy="yes">
+        <p className={`mt-1.5 text-xs ${unique ? "text-[#6a4a12]" : "text-[#1c1612]"}`}>{effect}</p>
+        {versus && (
+          <dl className="mt-2 grid grid-cols-[3.25rem_1fr] gap-x-2 gap-y-0.5 text-xs">
+            <dt className="text-[10px] tracking-[0.12em] text-[#8d6b2e] uppercase">Worn</dt>
+            <dd>{versus.worn}</dd>
+            {versus.delta ? (
+              <>
+                <dt className="text-[10px] tracking-[0.12em] text-[#8d6b2e] uppercase">This</dt>
+                <dd className={unique ? "text-[#6a4a12]" : undefined}>{versus.delta}</dd>
+              </>
+            ) : null}
+          </dl>
+        )}
+        {notes?.slice(0, 3).map((note) => (
+          <p key={note} className="mt-1.5 text-xs text-[#3d4a62]" data-gear-synergy="yes">
             {note}
           </p>
         ))}
@@ -165,10 +186,19 @@ function GearRow({
   );
 }
 
-function wornInSlot(state: GameState, slot: Gear["slot"]): Gear | null {
+function wornInSlot(state: GameState, slot: Gear["slot"]): { gear: Gear; bearer: string } | null {
+  if (slot === "hoard") return null;
+  const ranked = [...(state.heroes ?? [])].sort((a, b) => Number(b.fielded) - Number(a.fielded));
+  for (const hero of ranked) {
+    const gearId = hero.worn?.[slot];
+    const gear = gearId ? (state.pack ?? []).find((item) => item.id === gearId) : undefined;
+    if (!gear) continue;
+    const name = heroSpec(hero.id).name;
+    return { gear, bearer: hero.fielded ? name : `${name}, at the hold` };
+  }
   const id = (state.worn ?? {})[slot];
-  if (!id) return null;
-  return (state.pack ?? []).find((item) => item.id === id) ?? null;
+  const gear = id ? (state.pack ?? []).find((item) => item.id === id) : undefined;
+  return gear ? { gear, bearer: "Company" } : null;
 }
 
 export function RoadDepart({
@@ -209,36 +239,68 @@ export function RoadSequence({
   if (!road) return null;
   const place = holdById(road.dest).name;
   if (road.outcome) {
-    const gear = road.outcome.gearName ? (state.pack ?? []).find((item) => item.name === road.outcome?.gearName) : undefined;
-    const relic = road.outcome.relicName ? (state.pack ?? []).find((item) => item.name === road.outcome?.relicName) : undefined;
-    const slot = gear?.slot ?? road.outcome.gearSlot;
-    const hoard = slot === "hoard";
-    const wearable = Boolean((gear && gear.slot !== "hoard") || relic || (slot && slot !== "hoard"));
+    const outcome = road.outcome;
+    const keptGear = outcome.gearKept !== false;
+    const keptRelic = outcome.relicKept !== false;
+    const gear = keptGear && outcome.gearName ? (state.pack ?? []).find((item) => item.name === outcome.gearName && !item.relic) : undefined;
+    const relic = keptRelic && outcome.relicName ? (state.pack ?? []).find((item) => item.name === outcome.relicName && item.relic) : undefined;
+    const hoard = Boolean(gear && gear.slot === "hoard");
+    const wearable = Boolean((gear && gear.slot !== "hoard") || (relic && relic.slot !== "hoard"));
+    const pairs = activeRelicPairs(state);
+    const marks = outcome.marks ?? [];
+    const gearWorn = gear ? wornInSlot(state, gear.slot) : null;
+    const relicWorn = relic ? wornInSlot(state, relic.slot) : null;
     return (
-      <section className="wm-event overflow-hidden rounded-2xl ring-1 ring-[#8d6b2e]/40" data-road-outcome={road.outcome.tone} id="road-sequence">
+      <section className="wm-event overflow-hidden rounded-2xl ring-1 ring-[#8d6b2e]/40" data-road-outcome={outcome.tone} id="road-sequence">
         <img src={ROAD_ART.last} alt="" className="h-40 w-full object-cover" />
         <div className="p-5">
-        <p className="wm-kicker">{road.outcome.title}</p>
-        <p className="mt-3 font-display text-[1.7rem] leading-none">{place}</p>
-        <p className="mt-3 text-sm leading-relaxed">{road.outcome.line}</p>
-        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-          Wearable finds sit in the armory, beside what a hero already wears. Treasures sit under Loot. The bag is goods.
-        </p>
-        <div className="mt-4 flex flex-col gap-2">
-          {wearable && onOpen && (
-            <Button type="button" variant="outline" className="h-11 w-full" onClick={() => onOpen("armory")}>
-              Compare it in the Armory
-            </Button>
+          <p className="wm-kicker">{place}</p>
+          <p className="mt-3 font-display text-[1.7rem] leading-none">{outcome.title}</p>
+          <p className="mt-2 text-sm leading-relaxed">{outcome.line}</p>
+          {marks.length > 0 && (
+            <ul className="mt-4 flex flex-col gap-1.5" data-road-ledger="yes">
+              {marks.map((mark) => (
+                <li key={mark.label} data-road-mark={mark.label} className="flex items-baseline justify-between gap-3 border-b border-[#8d6b2e]/20 pb-1.5">
+                  <span className="text-[10px] tracking-[0.14em] text-[#8d6b2e] uppercase">{mark.label}</span>
+                  <span className="text-right text-sm">{mark.value}</span>
+                </li>
+              ))}
+            </ul>
           )}
-          {hoard && onOpen && (
-            <Button type="button" variant="outline" className="h-11 w-full" onClick={() => onOpen("loot")}>
-              Compare it under Loot
-            </Button>
+          {(gear || relic) && <p className="mt-4 text-[11px] tracking-[0.16em] text-[#8d6b2e] uppercase">Brought back</p>}
+          {relic && (
+            <div className="mt-2">
+              <GearRow
+                gear={relic}
+                worn={false}
+                against={relicWorn?.gear}
+                againstBearer={relicWorn?.bearer}
+                notes={gearHeroGlance(state, relic)}
+                paired={Boolean(relic.relic && pairs.some((pair) => pair.id.endsWith(`:${relic.relic}`)))}
+              />
+            </div>
           )}
-          <Button type="button" className="h-12 w-full" onClick={() => act(dismissRoad(state))}>
-            Back to the road
-          </Button>
-        </div>
+          {gear && gear.id !== relic?.id && (
+            <div className="mt-2">
+              <GearRow gear={gear} worn={false} against={gearWorn?.gear} againstBearer={gearWorn?.bearer} notes={gearHeroGlance(state, gear)} />
+            </div>
+          )}
+          <p className="mt-3 text-xs text-muted-foreground">Wearable kit is in the Armory. Treasure is under Loot.</p>
+          <div className="mt-4 flex flex-col gap-2">
+            {wearable && onOpen && (
+              <Button type="button" variant="outline" className="h-11 w-full" onClick={() => onOpen("armory")}>
+                Compare it in the Armory
+              </Button>
+            )}
+            {hoard && onOpen && (
+              <Button type="button" variant="outline" className="h-11 w-full" onClick={() => onOpen("loot")}>
+                Compare it under Loot
+              </Button>
+            )}
+            <Button type="button" className="h-12 w-full" onClick={() => act(dismissRoad(state))}>
+              Back to the road
+            </Button>
+          </div>
         </div>
       </section>
     );
@@ -268,7 +330,10 @@ export function RoadSequence({
             className="rounded-xl bg-[#fbf6ec] px-3 py-3 text-left ring-1 ring-[#8d6b2e]/35"
             onClick={() => act(chooseRoad(state, choice.id))}
           >
-            <span className="block text-sm font-medium">{choice.label}</span>
+            <span className="flex items-center justify-between gap-2">
+              <span className="text-sm font-medium">{choice.label}</span>
+              <span className="shrink-0 text-[10px] tracking-[0.14em] text-[#8d6b2e] uppercase">{TONE_LABEL[choice.tone]}</span>
+            </span>
             <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">{choice.detail}</span>
             {choice.because && <span className="mt-1.5 block text-xs leading-relaxed text-[#8d6b2e]">{choice.because}</span>}
           </button>
@@ -355,22 +420,24 @@ export function ExplorePanel({
                     worn
                     bearer={gearBearer(state, piece.id)?.name ?? hero.id}
                     against={piece}
-                    notes={gearHeroNotes(state, piece)}
+                    notes={gearHeroGlance(state, piece)}
                     paired={relicLive(piece)}
                     onSell={() => act(sellGear(state, piece.id))}
                     onWear={() => act(unequipFromHero(state, hero.id, slot as WornSlot))}
                     onStore={() => act(storeGear(state, piece.id))}
                   />
                 ))}
-                {better && !better.relic && (
-                  <p className="mt-3 text-sm leading-relaxed">
-                    In the pack, {better.name} is luck {better.luck}
-                    {gear ? `, against ${wornLuck} worn.` : ". The slot is empty."}
+                {better && (
+                  <p className="mt-3 text-xs text-[#6b5344]">
+                    Pack · {better.name} · {gearEffect(better)}
+                    {gear ? ` · vs ${gear.name} · luck ${wornLuck}` : " · slot empty"}
                   </p>
                 )}
-                {better?.relic && <p className="mt-3 text-sm leading-relaxed text-[#6a4a12]">{gearCompare(better, gear ?? null, false)}</p>}
                 {relicLoose && relicLoose.id !== better?.id && (
-                  <p className="mt-3 text-sm leading-relaxed text-[#6a4a12]">{gearCompare(relicLoose, gear ?? null, false)}</p>
+                  <p className="mt-2 text-xs text-[#6a4a12]">
+                    Pack · {relicLoose.name} · {gearEffect(relicLoose)}
+                    {gear ? ` · vs ${gear.name}` : " · slot empty"}
+                  </p>
                 )}
               </li>
             );
@@ -385,8 +452,9 @@ export function ExplorePanel({
                 <GearRow
                   gear={gear}
                   worn={false}
-                  against={wornInSlot(state, gear.slot)}
-                  notes={gearHeroNotes(state, gear)}
+                  against={wornInSlot(state, gear.slot)?.gear}
+                  againstBearer={wornInSlot(state, gear.slot)?.bearer}
+                  notes={gearHeroGlance(state, gear)}
                   paired={relicLive(gear)}
                   onSell={() => act(sellGear(state, gear.id))}
                   onStore={() => act(storeGear(state, gear.id))}
@@ -414,7 +482,7 @@ export function ExplorePanel({
                 <GearRow
                   gear={gear}
                   worn={false}
-                  notes={gearHeroNotes(state, gear)}
+                  notes={gearHeroGlance(state, gear)}
                   paired={relicLive(gear)}
                   onSell={() => act(sellGear(state, gear.id))}
                   onStore={() => act(storeGear(state, gear.id))}
@@ -438,8 +506,9 @@ export function ExplorePanel({
                 <GearRow
                   gear={gear}
                   worn={false}
-                  against={wornInSlot(state, gear.slot)}
-                  notes={gearHeroNotes(state, gear)}
+                  against={wornInSlot(state, gear.slot)?.gear}
+                  againstBearer={wornInSlot(state, gear.slot)?.bearer}
+                  notes={gearHeroGlance(state, gear)}
                   paired={relicLive(gear)}
                   onTake={() => act(takeGear(state, gear.id))}
                 />

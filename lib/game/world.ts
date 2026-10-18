@@ -374,6 +374,32 @@ export function starterCloak(): Gear {
   };
 }
 
+/** One line for the armory and the road card. Flavor captions stay on `gear.line`. */
+export function gearEffect(gear: Gear): string {
+  const spec = gear.relic ? relicSpec(gear.relic) : undefined;
+  if (spec) return spec.blurb;
+  if (gear.slot === "hoard") return `Treasure · ${gear.worth}g`;
+  const parts: string[] = [];
+  if (isHuntGear(gear)) parts.push("Hunt");
+  if (gear.slot === "hand") parts.push("Smith");
+  if (gear.trait === "purse") parts.push("Coin", "caravan +1");
+  else if (gear.trait === "ward") parts.push("Guard", "Vell slower");
+  else if (gear.trait === "lore") parts.push("Learning", "teaches more");
+  else parts.push(`Luck +${gear.luck}`);
+  return parts.join(" · ");
+}
+
+/** Worn piece against this one. `delta` is null when this piece is the one already worn. */
+export function gearVersus(gear: Gear, worn: Gear | null, bearer?: string | null): { worn: string; delta: string | null } {
+  if (worn?.id === gear.id) return { worn: bearer ? `${bearer} wears this` : "Worn now", delta: null };
+  if (!worn) return { worn: `Empty ${gear.slot}`, delta: null };
+  const who = bearer ? `${bearer} · ` : "";
+  if (gear.relic) return { worn: `${who}${worn.name} · ${gearEffect(worn)}`, delta: "Unique" };
+  const delta = gear.luck - worn.luck;
+  const luck = delta === 0 ? "Same luck" : delta > 0 ? `+${delta} luck` : `${delta} luck`;
+  return { worn: `${who}${worn.name} · ${gearEffect(worn)}`, delta: luck };
+}
+
 export function traitText(gear: Gear): string {
   const spec = gear.relic ? relicSpec(gear.relic) : undefined;
   if (spec) return `Unique relic · ${spec.blurb} · sell ${gear.worth}g`;

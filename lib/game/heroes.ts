@@ -1570,6 +1570,21 @@ export function heroPieceNote(state: GameState, heroId: HeroId, gear: Gear): str
   return `${lead}. ${hits.map((hit) => `${hit.name}: ${hit.text}`).join(" ")}`;
 }
 
+/** Short armory labels. Full sentences stay on `gearHeroNotes`. */
+export function gearHeroGlance(state: GameState, gear: Gear): string[] {
+  if (gear.slot === "hoard") return [];
+  const lines: string[] = [];
+  for (const spec of HEROES) {
+    const record = (state.heroes ?? []).find((hero) => hero.id === spec.id);
+    if (!record?.unlocked) continue;
+    const hits = heroSynergies(spec.id).filter((synergy) => gearMatches(gear, synergy));
+    for (const hit of hits) {
+      lines.push(`${spec.name} · ${hit.name} · ${record.fielded ? "out" : "at the hold"}`);
+    }
+  }
+  return lines;
+}
+
 /** Notes for the armory. Only unlocked heroes, and only pieces they can wear. */
 export function gearHeroNotes(state: GameState, gear: Gear): string[] {
   if (gear.slot === "hoard") return [];
