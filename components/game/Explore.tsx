@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import { holdById } from "@/lib/game/content";
 import { drinkPotion, storeGear, storePotion, takeGear, takePotion } from "@/lib/game/craft";
 import { POTIONS } from "@/lib/game/craft";
-import { claimQuest, sellGear, travel, unequipFromHero } from "@/lib/game/engine";
-import { fieldedNames, gearBearer, gearHeroNotes, heroFordRenown, heroRoadTeach, heroWagonGold } from "@/lib/game/heroes";
+import { claimQuest, openBellRoad, sellGear, travel, unequipFromHero } from "@/lib/game/engine";
+import { activeRelicPairs, bellRoadRead, fieldedNames, gearBearer, gearHeroNotes, heroFordRenown, heroRoadTeach, heroWagonGold } from "@/lib/game/heroes";
 import { WORN_SLOTS, carryCap, carriedWeight, gearCompare, gearWeight, luckOf, pardonReady, storedWeight, traitText, vaultCap, wornRelic } from "@/lib/game/world";
 import type { Cutscene, GameState, Gear, GearSlot, HoldId, PotionId, Rarity, Result, WornSlot } from "@/lib/game/types";
 
@@ -194,6 +194,11 @@ export function ExplorePanel({
           {(state.tonics?.luck ?? 0) > 0 ? ` Luck drink, ${state.tonics.luck} walks.` : ""}
           {names.length > 0 ? ` Out: ${names.join(", ")}.` : " No hero is on the road."}
         </p>
+        {activeRelicPairs(state).map((pair) => (
+          <p key={pair.id} className="rounded-xl bg-[#f6ead0] px-3 py-2 text-sm leading-relaxed text-[#6a4a12]" data-relic-pair={pair.id}>
+            {pair.hero} wears the {pair.relic}. {pair.opens}
+          </p>
+        ))}
         {wornRelic(state, "unspoken-hem") && (
           <p className="text-sm leading-relaxed text-[#6a4a12]">
             {pardonReady(state)
@@ -354,6 +359,7 @@ export function ExplorePanel({
     );
   }
 
+  const bell = bellRoadRead(state);
   return (
     <div className="flex flex-col gap-4">
       <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
@@ -372,6 +378,19 @@ export function ExplorePanel({
           {standing ? "You stand here" : `Walk to ${selected.name}`}
         </Button>
       </div>
+      {bell && (
+        <div className="rounded-2xl bg-[#f6ead0] p-4 ring-1 ring-[#8d6b2e]" data-bell-road={bell.open ? "open" : "heard"}>
+          <p className="text-[11px] tracking-[0.16em] text-[#8d6b2e] uppercase">The Ford Bell</p>
+          <p className="mt-1 font-display text-xl">{bell.open ? "The bell is ringing" : "The bell has rung"}</p>
+          <p className="mt-2 text-sm leading-relaxed">{bell.detail}</p>
+          <p className="mt-2 text-xs leading-relaxed text-[#8d6b2e]">{bell.because}</p>
+          {bell.open && (
+            <Button type="button" className="mt-3 h-11 w-full" onClick={() => act(openBellRoad(state))}>
+              Go to the sound
+            </Button>
+          )}
+        </div>
+      )}
       <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
         <p className="font-display text-xl">Tasks on this road</p>
         <ul className="mt-3 flex flex-col gap-4">
