@@ -7,6 +7,7 @@ import { MILL_COST, SHRINE_COST, STAKE_COST, WYRM_NAME, holdById } from "@/lib/g
 import { chooseOmen, dismissOmen, fulfillOath, offerTribute, raiseMill, raiseShrine, raiseStake } from "@/lib/game/engine";
 import type { GameState, Result } from "@/lib/game/types";
 import { OMEN_ART } from "./art";
+import { Stat } from "./stat";
 import { useFrame } from "./frame";
 import {
   Dialog,
@@ -31,7 +32,10 @@ export function WyrmCard({ state, act }: { state: GameState; act: (result: Resul
       <div className="px-4 pt-3 pb-4">
         <div className="flex items-center justify-between text-xs">
           <span>Anger</span>
-          <span>{ire}/100</span>
+          <span className="font-display text-lg leading-none text-[#e6c56e]">
+            <Stat value={ire} />
+            <span className="text-xs text-[#f4ead7]/70">/100</span>
+          </span>
         </div>
         <Progress value={ire} className="mt-1 h-1.5 bg-white/10" />
         <p className="mt-3 text-sm leading-relaxed text-[#f4ead7]/80">
@@ -44,7 +48,7 @@ export function WyrmCard({ state, act }: { state: GameState; act: (result: Resul
           <Button type="button" variant="secondary" className="h-11" onClick={() => act(offerTribute(state, "salt"))}>
             Offer 3 salt
           </Button>
-          <Button type="button" variant="outline" className="h-11 border-white/20 bg-transparent text-[#f4ead7] hover:bg-white/10" onClick={() => act(offerTribute(state, "relic"))}>
+          <Button type="button" variant="outline" className="h-11 border-white/40 bg-white/5 text-[#f8f1e4] hover:bg-white/15" onClick={() => act(offerTribute(state, "relic"))}>
             Offer a relic
           </Button>
         </div>

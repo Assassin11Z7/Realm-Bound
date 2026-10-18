@@ -260,6 +260,82 @@
   z-index: 5;
 }
 .wm-tab { animation: wm-tab 280ms ease-out both; }
+
+.wm-stat {
+  font-family: var(--font-fraunces), Georgia, serif;
+  font-weight: 560;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+}
+@keyframes wm-pulse {
+  0% { background-color: rgba(230, 197, 110, 0.85); box-shadow: 0 0 0 4px rgba(124, 42, 36, 0.16); }
+  100% { background-color: transparent; box-shadow: 0 0 0 0 transparent; }
+}
+.wm-pulse {
+  border-radius: 0.35rem;
+  animation: wm-pulse 720ms ease-out;
+}
+
+.wm-seal {
+  letter-spacing: 0.03em;
+  box-shadow: 0 12px 24px rgba(124, 42, 36, 0.32);
+}
+
+.wm-event {
+  background:
+    linear-gradient(180deg, rgba(230, 197, 110, 0.22), rgba(251, 246, 236, 0) 46%),
+    #fbf6ec;
+  box-shadow: 0 16px 34px rgba(35, 25, 16, 0.07);
+}
+
+.wm-kicker {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: #1c1612;
+  color: #e6c56e;
+  padding: 0.2rem 0.6rem;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.wm-hero-live {
+  background: linear-gradient(180deg, #fffaf2 0%, #fbf6ec 100%);
+  box-shadow: 0 12px 24px rgba(35, 25, 16, 0.06);
+}
+.wm-hero-live[data-rarity="common"] { box-shadow: inset 0 0 0 1.5px #3e5c49, 0 12px 24px rgba(62, 92, 73, 0.1); }
+.wm-hero-live[data-rarity="uncanny"] { box-shadow: inset 0 0 0 1.5px #3d4a62, 0 12px 24px rgba(61, 74, 98, 0.1); }
+.wm-hero-live[data-rarity="legendary"] { box-shadow: inset 0 0 0 1.5px #8d6b2e, 0 12px 24px rgba(141, 107, 46, 0.12); }
+.wm-hero-live[data-rarity="divine"] { box-shadow: inset 0 0 0 1.5px #6a3d78, 0 0 0 3px rgba(230, 197, 110, 0.35), 0 12px 24px rgba(106, 61, 120, 0.12); }
+
+.wm-hero-locked {
+  background: #e6dfd2;
+  box-shadow: inset 0 0 0 1.5px #1c1612;
+}
+.wm-hero-locked .wm-portrait {
+  opacity: 0.92;
+}
+
+.wm-soon {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(230, 197, 110, 0.28), transparent 58%),
+    repeating-linear-gradient(135deg, transparent, transparent 7px, rgba(141, 107, 46, 0.06) 7px, rgba(141, 107, 46, 0.06) 8px),
+    #f7f1e4;
+  box-shadow: inset 0 0 0 1.5px rgba(28, 22, 18, 0.35);
+}
+
+.wm-relic {
+  background: linear-gradient(180deg, #fbf3df, #f3e4c4);
+  box-shadow: inset 0 0 0 2px #8d6b2e, 0 8px 18px rgba(141, 107, 46, 0.16);
+}
+.wm-relic-live {
+  box-shadow: inset 0 0 0 2px #7c2a24, 0 0 0 3px rgba(230, 197, 110, 0.7);
+}
+
+.wm-ability {
+  border-left: 3px solid #8d6b2e;
+}
 .wm-scroll {
   scrollbar-width: thin;
   scrollbar-color: #8d6b2e transparent;
@@ -273,7 +349,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .wm-drift, .wm-breathe, .wm-ire, .wm-hold, .wm-rise, .wm-toast, .wm-tab, .wm-stamp, .wm-press:active, .wm-tumble, .wm-scene {
+  .wm-drift, .wm-breathe, .wm-ire, .wm-hold, .wm-rise, .wm-toast, .wm-tab, .wm-stamp, .wm-press:active, .wm-tumble, .wm-scene, .wm-pulse {
     animation: none !important;
   }
   .wm-dawn { display: none; }
