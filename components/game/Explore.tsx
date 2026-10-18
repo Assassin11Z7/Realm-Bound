@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { holdById } from "@/lib/game/content";
 import { drinkPotion, storeGear, storePotion, takeGear, takePotion } from "@/lib/game/craft";
 import { POTIONS } from "@/lib/game/craft";
-import { claimQuest, openBellRoad, sellGear, travel, unequipFromHero } from "@/lib/game/engine";
+import { beginRoad, chooseRoad, claimQuest, dismissRoad, openBellRoad, sellGear, unequipFromHero } from "@/lib/game/engine";
 import { activeRelicPairs, bellRoadRead, fieldedNames, gearBearer, gearHeroNotes, heroFordRenown, heroRelicBonus, heroRoadTeach, heroWagonGold } from "@/lib/game/heroes";
 import { WORN_SLOTS, carryCap, carriedWeight, gearCompare, gearWeight, luckOf, pardonReady, relicFindChance, storedWeight, traitText, vaultCap, wornRelic } from "@/lib/game/world";
 import { Metric } from "./stat";
@@ -165,6 +165,107 @@ function wornInSlot(state: GameState, slot: Gear["slot"]): Gear | null {
   return (state.pack ?? []).find((item) => item.id === id) ?? null;
 }
 
+export function RoadDepart({
+  state,
+  holdId,
+  act,
+}: {
+  state: GameState;
+  holdId: HoldId;
+  act: (result: Result) => void;
+}) {
+  const here = state.where ?? state.player.holdId;
+  const selected = holdById(holdId);
+  const standing = holdId === here;
+  return (
+    <Button
+      type="button"
+      data-road-action="set-out"
+      className="h-12 w-full text-base"
+      disabled={standing || Boolean(state.scene)}
+      onClick={() => act(beginRoad(state, holdId))}
+    >
+      {standing ? `The company is at ${selected.name}` : `Set out for ${selected.name}`}
+    </Button>
+  );
+}
+
+export function RoadSequence({
+  state,
+  act,
+  onOpen,
+}: {
+  state: GameState;
+  act: (result: Result) => void;
+  onOpen?: (section: "armory" | "loot") => void;
+}) {
+  const road = state.road;
+  if (!road) return null;
+  const place = holdById(road.dest).name;
+  if (road.outcome) {
+    const gear = road.outcome.gearName ? (state.pack ?? []).find((item) => item.name === road.outcome?.gearName) : undefined;
+    const relic = road.outcome.relicName ? (state.pack ?? []).find((item) => item.name === road.outcome?.relicName) : undefined;
+    const slot = gear?.slot ?? road.outcome.gearSlot;
+    const hoard = slot === "hoard";
+    const wearable = Boolean((gear && gear.slot !== "hoard") || relic || (slot && slot !== "hoard"));
+    return (
+      <section className="wm-event rounded-2xl p-5 ring-1 ring-[#8d6b2e]/40" data-road-outcome={road.outcome.tone} id="road-sequence">
+        <p className="wm-kicker">{road.outcome.title}</p>
+        <p className="mt-3 font-display text-[1.7rem] leading-none">{place}</p>
+        <p className="mt-3 text-sm leading-relaxed">{road.outcome.line}</p>
+        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+          Wearable finds sit in the armory, beside what a hero already wears. Treasures sit under Loot. The bag is goods.
+        </p>
+        <div className="mt-4 flex flex-col gap-2">
+          {wearable && onOpen && (
+            <Button type="button" variant="outline" className="h-11 w-full" onClick={() => onOpen("armory")}>
+              Compare it in the Armory
+            </Button>
+          )}
+          {hoard && onOpen && (
+            <Button type="button" variant="outline" className="h-11 w-full" onClick={() => onOpen("loot")}>
+              Compare it under Loot
+            </Button>
+          )}
+          <Button type="button" className="h-12 w-full" onClick={() => act(dismissRoad(state))}>
+            Back to the road
+          </Button>
+        </div>
+      </section>
+    );
+  }
+  const beat = road.beats[Math.min(road.index, road.beats.length - 1)];
+  if (!beat) return null;
+  const names = fieldedNames(state);
+  return (
+    <section className="wm-event rounded-2xl p-5 ring-1 ring-[#8d6b2e]/40" data-road-beat={beat.id} id="road-sequence">
+      <p className="wm-kicker">
+        The road · {road.index + 1} of {road.beats.length}
+      </p>
+      <p className="mt-3 font-display text-[1.7rem] leading-none">{beat.title}</p>
+      <p className="mt-2 text-sm leading-relaxed">{beat.body}</p>
+      <p className="mt-2 text-xs leading-relaxed text-[#6a4a12]">
+        {names.length > 0 ? `Out with the company: ${names.join(", ")}.` : "No hero is out. The road has only the gear left worn."}
+      </p>
+      <div className="mt-4 flex flex-col gap-2">
+        {beat.choices.map((choice) => (
+          <button
+            key={choice.id}
+            type="button"
+            data-road-choice={choice.id}
+            className="rounded-xl bg-[#fbf6ec] px-3 py-3 text-left ring-1 ring-[#8d6b2e]/35"
+            onClick={() => act(chooseRoad(state, choice.id))}
+          >
+            <span className="block text-sm font-medium">{choice.label}</span>
+            <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">{choice.detail}</span>
+            {choice.because && <span className="mt-1.5 block text-xs leading-relaxed text-[#8d6b2e]">{choice.because}</span>}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function bestLoose(state: GameState, slot: GearSlot, wornId?: string): Gear | null {
   const options = (state.pack ?? []).filter((item) => item.slot === slot && item.id !== wornId);
   if (options.length === 0) return null;
@@ -184,8 +285,6 @@ export function ExplorePanel({
 }) {
   const here = state.where ?? state.player.holdId;
   const place = holdById(here);
-  const selected = holdById(holdId);
-  const standing = holdId === here;
   const wornIds = new Set(Object.values(state.worn ?? {}));
   const heroWornIds = new Set(
     (state.heroes ?? []).flatMap((hero) => Object.values(hero.worn ?? {}).filter((id): id is string => Boolean(id))),
@@ -386,15 +485,17 @@ export function ExplorePanel({
         </div>
         <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
           {fieldedNames(state).length > 0
-            ? `${fieldedNames(state).join(", ")} ${fieldedNames(state).length === 1 ? "walks" : "walk"} with the gear.`
-            : "No hero is out, so the road has only what was left worn."}
-          {heroRoadTeach(state) > 0 ? ` Walks teach +${heroRoadTeach(state)}.` : ""}
+            ? `${fieldedNames(state).join(", ")} ${fieldedNames(state).length === 1 ? "is" : "are"} out with the company.`
+            : "No hero is out, so the road has only the gear left worn."}
+          {heroRoadTeach(state) > 0 ? ` The road teaches +${heroRoadTeach(state)}.` : ""}
           {heroFordRenown(state) > 0 ? ` Crossings grant +${heroFordRenown(state)} renown.` : ""}
           {heroWagonGold(state) > 0 ? ` A successful call pays +${heroWagonGold(state)} gold.` : ""}
         </p>
-        <Button type="button" className="mt-4 h-12 w-full text-base" disabled={standing} onClick={() => act(travel(state, holdId))}>
-          {standing ? "You stand here" : `Walk to ${selected.name}`}
-        </Button>
+        {!state.road && (
+          <div className="mt-4">
+            <RoadDepart state={state} holdId={holdId} act={act} />
+          </div>
+        )}
       </div>
       {bell && (
         <div className="wm-event rounded-2xl bg-[#f6ead0] p-5 ring-1 ring-[#8d6b2e]" data-bell-road={bell.open ? "open" : "heard"}>

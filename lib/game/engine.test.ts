@@ -27,7 +27,10 @@ import {
   setReserve,
   travel,
   advanceScene,
+  beginRoad,
+  chooseRoad,
   claimQuest,
+  dismissRoad,
   chooseCrossing,
   choosePetition,
   dismissCrossing,
@@ -652,6 +655,75 @@ test("the road rolls a find, a scene, and a claimable walk", () => {
   const same = travel(createGame(setup({ holdId: "ashfold" })), "vesper");
   const repeat = travel(createGame(setup({ holdId: "ashfold" })), "vesper");
   assert.equal(same.state.scene?.beats[0]?.line, repeat.state.scene?.beats[0]?.line);
+});
+
+test("setting out asks three beats, then pays the pack", () => {
+  let state = createGame(setup());
+  const blocked = beginRoad(state, "ashfold");
+  assert.ok(blocked.error);
+  while (state.scene) state = advanceScene(state).state;
+  const begun = beginRoad(state, "ashfold");
+  assert.equal(begun.error, undefined);
+  assert.equal(begun.state.where, "greenmere");
+  assert.equal(begun.state.road?.beats.length, 3);
+  assert.equal(begun.state.scene, null);
+  for (const beat of begun.state.road?.beats ?? []) {
+    assert.ok(beat.choices.length >= 2 && beat.choices.length <= 3);
+  }
+  assert.equal(begun.state.road?.beats[0]?.choices.some((choice) => choice.id === "deer"), false);
+  const busy = travel(begun.state, "woolford");
+  assert.ok(busy.error);
+
+  let clean = begun.state;
+  for (const id of ["ridge", "pass", "press"]) {
+    const step = chooseRoad(clean, id);
+    assert.equal(step.error, undefined);
+    clean = step.state;
+  }
+  assert.equal(clean.where, "ashfold");
+  assert.equal(clean.miles, state.miles + 1);
+  assert.equal(clean.scene, null);
+  assert.equal(clean.road?.outcome?.tone, "clean");
+  assert.match(clean.road?.outcome?.line ?? "", /clean road/);
+  const home = dismissRoad(clean);
+  assert.equal(home.error, undefined);
+  assert.equal(home.state.road, null);
+
+  const broke = beginRoad({ ...home.state, player: { ...home.state.player, gold: 0 } }, "vesper");
+  assert.equal(broke.error, undefined);
+  let poor = broke.state;
+  for (const id of ["ridge", "pass", "pay"]) {
+    poor = chooseRoad(poor, id).state;
+  }
+  assert.equal(poor.road?.outcome?.tone, "setback");
+  assert.match(poor.road?.outcome?.line ?? "", /purse is short/);
+  assert.equal(poor.where, "vesper");
+
+  const hunter = gearOut(dismissRoad(poor).state, "moth", "Deer spear", "moth-spear");
+  const deerRoad = beginRoad(hunter, "woolford");
+  const deer = deerRoad.state.road?.beats[0]?.choices.find((choice) => choice.id === "deer");
+  assert.ok(deer);
+  assert.match(deer?.because ?? "", /Moth Quill/);
+  assert.match(deer?.because ?? "", /Deer spear/);
+
+  const belled = wake(createGame(setup()), "odysseus");
+  while (belled.scene) belled.scene = advanceScene(belled).state.scene;
+  belled.pack.push(makeRelic("ford-bell", "ody-bell"));
+  const ringing = sendHeroOut(equipOnHero(belled, "odysseus", "ody-bell").state, "odysseus");
+  assert.equal(ringing.error, undefined);
+  const bellRoad = beginRoad(ringing.state, "ashfold");
+  const bell = bellRoad.state.road?.beats[1]?.choices.find((choice) => choice.id === "bell");
+  assert.ok(bell);
+  assert.match(bell?.because ?? "", /Ford Bell/);
+  assert.match(bell?.because ?? "", /Odysseus/);
+
+  let paid = beginRoad(home.state, "saltmere").state;
+  const before = paid.player.gold;
+  for (const id of ["ditch", "fire", "pay"]) paid = chooseRoad(paid, id).state;
+  assert.equal(paid.road?.outcome?.tone, "bargain");
+  assert.match(paid.road?.outcome?.line ?? "", /pays 6 gold/);
+  assert.ok(paid.player.gold <= before - 6 + 12);
+  assert.equal(paid.scene, null);
 });
 
 test("treasures have their own names, and a hoard piece can be sold", () => {

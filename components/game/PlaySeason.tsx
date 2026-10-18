@@ -70,7 +70,7 @@ import { BannerMark } from "./marks";
 import { chapterName, powerOf, xpNeed } from "@/lib/game/progress";
 import { CaptainOrders, HoldWorks, MissionList, RealmProjects, SkillDialog, ThreatCard } from "./Campaign";
 import { CraftBench } from "./Craft";
-import { CutsceneView, ExplorePanel } from "./Explore";
+import { CutsceneView, ExplorePanel, RoadDepart, RoadSequence } from "./Explore";
 import { HeroesPanel } from "./Heroes";
 import { FateRoll, OathRow, OmenDialog, WorksCard, WyrmCard } from "./Myth";
 import { CrossingDialog, MarksCard, PeoplePanel, PetitionCard } from "./Rule";
@@ -127,7 +127,7 @@ const INTRO: Record<string, { eyebrow: string; title: string; lede: string }> = 
   map: {
     eyebrow: "Realm",
     title: "The valley",
-    lede: "Tap a hold to read it. Walking there is on the Road tab.",
+    lede: "Tap a hold. Set out is under your hand, on this map.",
   },
   bonds: {
     eyebrow: "Realm",
@@ -212,7 +212,7 @@ const INTRO: Record<string, { eyebrow: string; title: string; lede: string }> = 
   explore: {
     eyebrow: "Road",
     title: "The road",
-    lede: "Walk the valley. The caravan, when it comes, trades here.",
+    lede: "The company sets out from the map. The caravan, when it comes, trades here.",
   },
   bag: {
     eyebrow: "Road",
@@ -299,6 +299,14 @@ export function PlaySeason({
   useEffect(() => {
     mainRef.current?.scrollTo({ top: 0 });
   }, [tab, section]);
+
+  const roadBeat = state.road ? `${state.road.dest}:${state.road.index}:${state.road.picks.length}:${state.road.outcome?.tone ?? ""}` : "";
+  useEffect(() => {
+    if (!roadBeat) return;
+    const showing = (tab === "realm" && section === "map") || (tab === "road" && section === "explore");
+    if (!showing) return;
+    mainRef.current?.scrollTo({ top: 0 });
+  }, [roadBeat, tab, section]);
 
   useEffect(() => {
     const root = screenRef.current ?? document.body;
@@ -450,6 +458,9 @@ export function PlaySeason({
       <div className="relative min-h-0 flex-1">
         <div ref={mainRef} role="tabpanel" aria-label={intro.title} className="wm-scroll h-full overflow-y-auto overscroll-y-contain px-5 py-6">
           <div key={`${tab}-${section}`} className="wm-tab flex flex-col gap-6 pb-12">
+            {state.road && ((tab === "realm" && section === "map") || (tab === "road" && section === "explore")) && (
+              <RoadSequence state={state} act={act} onOpen={(part) => go("road", part)} />
+            )}
             <header className="pb-1">
               <p className="text-[11px] tracking-[0.18em] text-[#8d6b2e] uppercase">{intro.eyebrow}</p>
               <h2 className="mt-1.5 font-display text-[2rem] leading-none">{intro.title}</h2>
@@ -514,8 +525,8 @@ export function PlaySeason({
             {tab === "compact" && section === "alliance" && <AlliancePanel state={state} />}
             {tab === "road" && section === "explore" && (
               <>
-                <RoadMarket state={state} act={act} />
                 <ExplorePanel state={state} holdId={holdId} act={act} part="explore" />
+                <RoadMarket state={state} act={act} />
               </>
             )}
             {tab === "road" && section === "bag" && (
@@ -536,6 +547,18 @@ export function PlaySeason({
         )}
       </div>
 
+      {tab === "realm" && section === "map" && !state.road && (
+        <div className="shrink-0 px-4 pt-2">
+          <RoadDepart state={state} holdId={holdId} act={act} />
+        </div>
+      )}
+      {state.road && !((tab === "realm" && section === "map") || (tab === "road" && section === "explore")) && (
+        <div className="shrink-0 px-4 pt-2">
+          <Button type="button" variant="outline" className="h-11 w-full" onClick={() => go("realm", "map")}>
+            The company is still on the road
+          </Button>
+        </div>
+      )}
       {coach && (
         <div className="wm-rise shrink-0 px-4 pt-2" data-coach="lesson">
           <div className="rounded-2xl bg-[#1c1612] p-3 text-[#f4ead7] ring-2 ring-[#e6c56e]">
