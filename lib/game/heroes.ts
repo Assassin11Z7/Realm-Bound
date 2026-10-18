@@ -800,6 +800,176 @@ export function borderPathRead(state: GameState): { met: boolean; line: string }
   };
 }
 
+export interface PoliticalRead {
+  met: boolean;
+  who: string | null;
+  line: string;
+  wait: string;
+}
+
+function nameList(names: string[]): string {
+  if (names.length <= 1) return names[0] ?? "No one";
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  return `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
+}
+
+function martialRead(state: GameState): PoliticalRead {
+  const gate: HeroGate = { ids: ["beowulf", "heracles", "theseus"] };
+  const posture = heroPosture(state, gate);
+  const who = heroPostureWho(state, gate);
+  const wait = "The joint watch is ready to close, and it waits. Beowulf, Heracles, or Theseus must be fielded and wearing gear.";
+  if ((posture === "ready" || posture === "best") && who) {
+    return {
+      met: true,
+      who,
+      wait,
+      line: `Ready. ${who} is out and wearing gear, so the joint watch can close on its last dawn.`,
+    };
+  }
+  const held = gate.ids.find((id) => heroWhere(state, id) === "hold");
+  if (held) {
+    return {
+      met: false,
+      who: null,
+      wait,
+      line: `${heroSpec(held).name} is at the hold and wearing gear. Field them before the last dawn, or the joint watch waits.`,
+    };
+  }
+  const bare = gate.ids.find((id) => heroWhere(state, id) === "bare");
+  if (bare) {
+    return {
+      met: false,
+      who: null,
+      wait,
+      line: `${heroSpec(bare).name} wears nothing. Gear them and send them out before the last dawn, or the joint watch waits.`,
+    };
+  }
+  return {
+    met: false,
+    who: null,
+    wait,
+    line: "Needs Beowulf, Heracles, or Theseus fielded and wearing gear on the last dawn. None of them is out and geared now.",
+  };
+}
+
+function counselRead(state: GameState): PoliticalRead {
+  const gate: HeroGate = { ids: ["athena", "odin"] };
+  const posture = heroPosture(state, gate);
+  const who = heroPostureWho(state, gate);
+  const wait = "The hall of counsel is ready to close, and it waits. Athena or Odin must be fielded and wearing gear.";
+  if ((posture === "ready" || posture === "best") && who) {
+    return {
+      met: true,
+      who,
+      wait,
+      line: `Ready. ${who} is out and wearing gear, so the rite can close on its last dawn.`,
+    };
+  }
+  const held = gate.ids.find((id) => heroWhere(state, id) === "hold");
+  if (held) {
+    return {
+      met: false,
+      who: null,
+      wait,
+      line: `${heroSpec(held).name} is at the hold and wearing gear. Field them before the last dawn, or the rite waits.`,
+    };
+  }
+  const bare = gate.ids.find((id) => heroWhere(state, id) === "bare");
+  if (bare) {
+    return {
+      met: false,
+      who: null,
+      wait,
+      line: `${heroSpec(bare).name} wears nothing. Gear them and send them out before the last dawn, or the rite waits.`,
+    };
+  }
+  return {
+    met: false,
+    who: null,
+    wait,
+    line: "Needs Athena or Odin fielded and wearing gear on the last dawn. Neither is out and geared now.",
+  };
+}
+
+function charterRead(state: GameState): PoliticalRead {
+  const gate: HeroGate = { ids: [], best: ["bran", "zeus"], company: true };
+  const posture = heroPosture(state, gate);
+  const who = heroPostureWho(state, gate);
+  const wait = "The drivers' charter is ready to close, and it waits. Bran, Zeus, or any geared company must be on the road.";
+  if ((posture === "best" || posture === "ready") && who) {
+    return {
+      met: true,
+      who,
+      wait,
+      line:
+        posture === "best"
+          ? `Ready. ${who} is out and wearing gear, so the charter can close on its last dawn.`
+          : `Ready. ${who} is out and wearing gear. Any geared company can close the charter. Bran or Zeus would be named on it.`,
+    };
+  }
+  const held = (["bran", "zeus"] as const).find((id) => heroWhere(state, id) === "hold");
+  if (held) {
+    return {
+      met: false,
+      who: null,
+      wait,
+      line: `${heroSpec(held).name} is at the hold and wearing gear. Field them, or send any geared hero, before the last dawn.`,
+    };
+  }
+  const bare = (state.heroes ?? []).find((hero) => hero.unlocked && hero.fielded && heroWhere(state, hero.id) === "bare");
+  if (bare) {
+    return {
+      met: false,
+      who: null,
+      wait,
+      line: `${heroSpec(bare.id).name} is on the road and wears nothing. Gear them before the last dawn, or the charter waits.`,
+    };
+  }
+  return {
+    met: false,
+    who: null,
+    wait,
+    line: "Needs Bran, Zeus, or any hero fielded and wearing gear on the last dawn. No geared company is on the road.",
+  };
+}
+
+function oathstoneRead(state: GameState): PoliticalRead {
+  const names = fieldedNames(state);
+  const met = names.length >= 2;
+  const wait = "The oath stone is already begun. It does not ask for the company again.";
+  if (met) {
+    return {
+      met,
+      who: nameList(names),
+      wait,
+      line: `Ready to begin. ${nameList(names)} are on the road. The stone does not ask for them again after it starts.`,
+    };
+  }
+  if (names.length === 1) {
+    return {
+      met,
+      who: null,
+      wait,
+      line: `Needs two heroes fielded before it can begin. ${names[0]} is on the road. One more must take it.`,
+    };
+  }
+  return {
+    met,
+    who: null,
+    wait,
+    line: "Needs two heroes fielded before it can begin. No one is on the road.",
+  };
+}
+
+/** Hero requirement for a political realm project. Null for the older works. */
+export function politicalRead(state: GameState, id: string): PoliticalRead | null {
+  if (id === "compact") return martialRead(state);
+  if (id === "counsel") return counselRead(state);
+  if (id === "charter") return charterRead(state);
+  if (id === "oathstone") return oathstoneRead(state);
+  return null;
+}
+
 function fieldKits(state: GameState): FieldKit[] {
   const kits: FieldKit[] = [];
   for (const hero of state.heroes ?? []) {

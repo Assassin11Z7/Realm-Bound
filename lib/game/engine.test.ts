@@ -60,6 +60,7 @@ import {
   heroIreEase,
   heroMeetingBonus,
   heroProjectExtra,
+  politicalRead,
   heroRelicBonus,
   heroRoadTeach,
   heroSaleBonus,
@@ -76,8 +77,8 @@ import type { FactionId, GameState, GoodId, HeroId, HoldId, NewGameSetup } from 
 import { GOODS, LEVY_GOODS } from "./types";
 import { chooseSkill, dismissRealmNotice, realmProjectCost, setCaptainOrder, startProject, startRealmProject } from "./progress";
 import { craft, drinkPotion, storeGear } from "./craft";
-import { availableCreatureIds, creatureCount, edictAvailable, forceCrossing, forcePetition, shownCrossing, shownPetition } from "./realm";
-import { EXPEDITION_GAP, allianceBoard, expeditionGap } from "./expedition";
+import { availableCreatureIds, creatureCount, edictAvailable, forceCrossing, forcePetition, offerPetition, shownCrossing, shownPetition } from "./realm";
+import { CHARTER_PAY, CHARTER_SOONER, EXPEDITION_GAP, allianceBoard, expeditionGap } from "./expedition";
 import {
   RELIC_EXPEDITION_CHANCE,
   RELIC_WALK_CHANCE,
@@ -879,7 +880,8 @@ test("letting a failed expedition go pays survival loot and keeps the seats", ()
   const board = allianceBoard(state);
   assert.equal(board.seats[0].holder, "you");
   assert.ok(board.seats.some((seat) => seat.holder === "awaiting-player"));
-  assert.equal(board.goals.length, 3);
+  assert.equal(board.goals.length, 4);
+  assert.equal(board.goals.find((goal) => goal.id === "oath-stone")?.progress, 0);
   assert.equal(board.conflict.rivalName, null);
   const later = pledgeFromHall(state, "iron", 1);
   assert.ok(later.error);
@@ -1593,6 +1595,191 @@ test("hero decrees and the border path change bonds and loyalty", () => {
   assert.match(laid.campaign.realmNotice ?? "", /Theseus/);
   assert.match(laid.compact.members[0].lastNote, /Theseus/);
   assert.equal(shownPetition(forcePetition(createGame(setup()), "three-voices"))?.ask, undefined);
+});
+
+test("political projects ask for heroes and leave a lasting mark", () => {
+  const fresh = createGame(setup());
+  assert.equal(fresh.politics.sharedGoals.length, 0);
+  assert.equal(politicalRead(fresh, "compact")?.met, false);
+  assert.match(politicalRead(fresh, "compact")?.line ?? "", /Beowulf/);
+  assert.equal(politicalRead(fresh, "counsel")?.met, false);
+  assert.match(politicalRead(fresh, "counsel")?.line ?? "", /Athena/);
+  assert.equal(politicalRead(fresh, "charter")?.met, true);
+  assert.match(politicalRead(fresh, "charter")?.line ?? "", /Sela/);
+  assert.match(politicalRead(fresh, "charter")?.line ?? "", /Bran/);
+  assert.equal(politicalRead(fresh, "oathstone")?.met, false);
+  assert.match(startRealmProject(fresh, "oathstone").error ?? "", /two heroes/i);
+  assert.equal(politicalRead(gearOut(createGame(setup()), "theseus"), "compact")?.met, true);
+  assert.equal(politicalRead(gearOut(createGame(setup()), "heracles", "Road knife", "labor-watch"), "compact")?.met, true);
+  assert.equal(politicalRead(gearOut(createGame(setup()), "odin", "Crow bead", "odin-counsel"), "counsel")?.met, true);
+  assert.equal(politicalRead(restHeroAtHold(createGame(setup()), "sela").state, "charter")?.met, false);
+  assert.match(politicalRead(gearOut(createGame(setup()), "tam"), "charter")?.line ?? "", /Tam|Sela|geared/);
+
+  const rested = restHeroAtHold(createGame(setup()), "sela").state;
+  rested.player.gold += 40;
+  rested.player.stash.salt += 4;
+  const charterStarted = startRealmProject(rested, "charter");
+  assert.equal(charterStarted.error, undefined);
+  assert.equal(charterStarted.state.player.gold, rested.player.gold - 12);
+  assert.equal(charterStarted.state.player.stash.salt, rested.player.stash.salt - 2);
+  const charterLabor = charterStarted.state.campaign.realmLabor;
+  assert.ok(charterLabor);
+  charterLabor.spent = 2;
+  const charterWait = sealDay(charterStarted.state).state;
+  assert.equal(charterWait.campaign.realmLabor?.id, "charter");
+  assert.equal(charterWait.campaign.realmLabor?.spent, 2);
+  assert.ok(charterWait.chronicle.some((entry) => /Bran, Zeus, or any geared company/.test(entry.text)));
+  const chartered = gearOut(charterWait, "bran", "Salt cloak", "charter-bran");
+  chartered.politics.conflictHeat = 20;
+  chartered.expedition.phase = "idle";
+  chartered.outcome = "held";
+  chartered.outcomeDismissed = true;
+  chartered.expedition.nextCallDay = chartered.day + 20;
+  const charterDone = sealDay(chartered).state;
+  assert.equal(charterDone.campaign.realmLabor, null);
+  assert.ok(charterDone.campaign.realmWorks.some((work) => work.id === "charter"));
+  assert.equal(charterDone.politics.conflictHeat, 12);
+  assert.equal(charterDone.expedition.phase, "idle");
+  assert.equal(charterDone.expedition.nextCallDay, chartered.day + 20 - CHARTER_SOONER);
+  const withoutCharter = structuredClone(charterDone);
+  withoutCharter.campaign.realmWorks = withoutCharter.campaign.realmWorks.filter((work) => work.id !== "charter");
+  assert.equal(expeditionGap(charterDone), expeditionGap(withoutCharter) - CHARTER_SOONER);
+  assert.ok(charterDone.politics.sharedGoals.includes("charter"));
+  const cooled = sealDay(charterDone).state;
+  assert.equal(cooled.politics.conflictHeat, charterDone.politics.conflictHeat - 1);
+
+  const paidPlain = createGame(setup());
+  paidPlain.player.stash.grain += 30;
+  paidPlain.player.stash.iron += 20;
+  paidPlain.player.stash.salt += 20;
+  let plainHeld = pledgePersonal(paidPlain, "grain", 20).state;
+  plainHeld = pledgePersonal(plainHeld, "iron", 12).state;
+  plainHeld = pledgePersonal(plainHeld, "salt", 10).state;
+  const paidCharter = createGame(setup());
+  paidCharter.campaign.realmWorks = [{ id: "charter" }];
+  paidCharter.player.stash.grain += 30;
+  paidCharter.player.stash.iron += 20;
+  paidCharter.player.stash.salt += 20;
+  let charterHeld = pledgePersonal(paidCharter, "grain", 20).state;
+  charterHeld = pledgePersonal(charterHeld, "iron", 12).state;
+  charterHeld = pledgePersonal(charterHeld, "salt", 10).state;
+  assert.equal(charterHeld.outcome, "held");
+  assert.equal(charterHeld.player.gold, plainHeld.player.gold + CHARTER_PAY);
+
+  let counsel = createGame(setup());
+  counsel.player.gold += 40;
+  counsel.player.stash.wool += 4;
+  const counselStarted = startRealmProject(counsel, "counsel");
+  assert.equal(counselStarted.error, undefined);
+  assert.equal(counselStarted.state.player.stash.wool, counsel.player.stash.wool - 2);
+  const counselLabor = counselStarted.state.campaign.realmLabor;
+  assert.ok(counselLabor);
+  counselLabor.spent = 2;
+  const counselWait = sealDay(counselStarted.state).state;
+  assert.equal(counselWait.campaign.realmLabor?.spent, 2);
+  assert.ok(counselWait.chronicle.some((entry) => /Athena or Odin/.test(entry.text)));
+  assert.ok(setEdict(counselWait, counselWait.player.holdId, "counsel").error);
+  const wise = gearOut(counselWait, "athena");
+  assert.equal(politicalRead(wise, "counsel")?.met, true);
+  const counselDone = sealDay(wise).state;
+  assert.equal(counselDone.campaign.realmLabor, null);
+  assert.equal(influenceCap(counselDone), 80);
+  counselDone.campaign.realmWorks.push({ id: "hall" });
+  assert.equal(influenceCap(counselDone), 80);
+  assert.ok(counselDone.politics.sharedGoals.includes("counsel"));
+  const law = setEdict(counselDone, counselDone.player.holdId, "counsel");
+  assert.equal(law.error, undefined);
+  const stripped = structuredClone(law.state);
+  const strippedHome = stripped.settlements.find((item) => item.holdId === stripped.player.holdId);
+  assert.ok(strippedHome);
+  strippedHome.edict = "custom";
+  const moodOf = (state: GameState) => state.settlements.find((item) => item.holdId === state.player.holdId)?.mood ?? 0;
+  assert.equal(moodOf(sealDay(law.state).state), moodOf(sealDay(stripped).state) + 2);
+
+  function prepCompact(state: GameState, hero: boolean) {
+    const next = hero ? gearOut(state, "beowulf", "Deer spear", "watch-spear") : state;
+    next.player.gold += 40;
+    next.player.stash.iron += 4;
+    next.compact.members[0].contentment = 40;
+    const started = startRealmProject(next, "compact", next.compact.members[0].holdId);
+    assert.equal(started.error, undefined);
+    const labor = started.state.campaign.realmLabor;
+    assert.ok(labor);
+    labor.spent = 3;
+    started.state.expedition.phase = "idle";
+    started.state.outcome = "held";
+    started.state.outcomeDismissed = true;
+    started.state.expedition.nextCallDay = started.state.day + 30;
+    return started.state;
+  }
+  const compactWait = sealDay(prepCompact(createGame(setup()), false)).state;
+  const compactDone = sealDay(prepCompact(createGame(setup()), true)).state;
+  assert.equal(compactWait.campaign.realmLabor?.id, "compact");
+  assert.equal(compactWait.expedition.phase, "idle");
+  assert.equal(compactDone.campaign.realmLabor, null);
+  assert.equal(compactDone.expedition.phase, "idle");
+  assert.equal(compactDone.compact.members[0].contentment, compactWait.compact.members[0].contentment + 10);
+  assert.match(compactDone.campaign.realmNotice ?? "", /Beowulf/);
+  assert.ok(compactDone.politics.sharedGoals.some((goal) => goal.startsWith("compact:")));
+  const savedCompact = parseSave(JSON.stringify(prepCompact(createGame(setup()), true)));
+  assert.equal(savedCompact?.campaign.realmLabor?.id, "compact");
+  assert.equal(savedCompact?.campaign.realmLabor?.holdId, compactDone.compact.members[0].holdId);
+  const watched = createGame(setup());
+  watched.campaign.realmWorks = [{ id: "compact", holdId: watched.compact.members[0].holdId }];
+  const alone = createGame(setup());
+  assert.equal(
+    sealDay(watched).state.compact.members[0].contentment,
+    sealDay(alone).state.compact.members[0].contentment + 3,
+  );
+  const petitionIds = ["oven-line", "firewood", "column", "three-voices", "watch-law", "border-quarrel", "olive-court", "long-parley", "wagon-oath"];
+  const quiet = createGame(setup());
+  quiet.day = 15;
+  quiet.petitionsSeen = petitionIds;
+  quiet.omen = null;
+  quiet.crossing = null;
+  quiet.petition = null;
+  const quietHome = quiet.settlements.find((item) => item.holdId === quiet.player.holdId);
+  assert.ok(quietHome);
+  quietHome.bread = 1;
+  quiet.expedition.phase = "idle";
+  quiet.outcome = "held";
+  quiet.outcomeDismissed = true;
+  assert.equal(offerPetition(quiet), null);
+  quiet.campaign.realmWorks = [{ id: "compact", holdId: quiet.compact.members[0].holdId }];
+  assert.match(offerPetition(quiet) ?? "", /joint watch/i);
+  const asked = forcePetition(quiet, "joint-watch");
+  asked.politics.conflictHeat = 10;
+  const beforeBond = asked.compact.members.map((member) => member.contentment);
+  const kept = choosePetition(asked, "keep");
+  assert.equal(kept.error, undefined);
+  assert.equal(kept.state.politics.conflictHeat, 7);
+  assert.ok(kept.state.compact.members.some((member, index) => member.contentment === beforeBond[index] + 6));
+
+  const company = gearOut(createGame(setup()), "tam");
+  assert.equal(politicalRead(company, "oathstone")?.met, true);
+  company.player.gold += 40;
+  company.player.stash.relics += 2;
+  const stoneStarted = startRealmProject(company, "oathstone");
+  assert.equal(stoneStarted.error, undefined);
+  assert.equal(stoneStarted.state.player.stash.relics, company.player.stash.relics - 1);
+  const stoneLabor = stoneStarted.state.campaign.realmLabor;
+  assert.ok(stoneLabor);
+  stoneLabor.spent = 4;
+  const stoneDone = sealDay(stoneStarted.state).state;
+  assert.equal(stoneDone.campaign.realmLabor, null);
+  assert.ok(stoneDone.politics.sharedGoals.includes("oathstone"));
+  assert.equal(allianceBoard(stoneDone).goals.find((goal) => goal.id === "oath-stone")?.progress, 1);
+  assert.match(allianceBoard(stoneDone).seats[0].note, /oath stone/i);
+  assert.ok(stoneDone.marks.some((mark) => mark.id.startsWith("politics:oathstone")));
+  const twin = structuredClone(stoneDone);
+  twin.campaign.realmWorks = twin.campaign.realmWorks.filter((work) => work.id !== "oathstone");
+  assert.equal(
+    sealDay(stoneDone).state.compact.members[0].contentment,
+    sealDay(twin).state.compact.members[0].contentment + 1,
+  );
+  const savedStone = parseSave(JSON.stringify(stoneDone));
+  assert.ok(savedStone?.politics.sharedGoals.includes("oathstone"));
+  assert.ok(savedStone?.campaign.realmWorks.some((work) => work.id === "oathstone"));
 });
 
 function wearRelic(id: HeroId, relic: Parameters<typeof makeRelic>[0], gearId: string) {

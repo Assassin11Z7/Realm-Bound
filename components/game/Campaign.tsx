@@ -17,7 +17,6 @@ import {
   endureThreat,
   hasRealmWork,
   payThreat,
-  realmProjectOpen,
   realmLaborTitle,
   realmProjectArt,
   realmProjectCost,
@@ -28,8 +27,8 @@ import {
   startProject,
   startRealmProject,
 } from "@/lib/game/progress";
-import { borderPathRead } from "@/lib/game/heroes";
-import type { CaptainOrder, GameState, HoldId, RealmBench, RealmProjectId, Result, SkillId } from "@/lib/game/types";
+import { borderPathRead, politicalRead } from "@/lib/game/heroes";
+import type { CaptainOrder, GameState, HoldId, RealmBench, RealmLabor, RealmProjectId, Result, SkillId } from "@/lib/game/types";
 import { Stat } from "./stat";
 
 const ORDERS: { id: CaptainOrder; label: string }[] = [
@@ -115,6 +114,22 @@ export function HoldWorks({ state, act }: { state: GameState; act: (result: Resu
   );
 }
 
+function laborNote(state: GameState, labor: RealmLabor): string {
+  const dawns = realmProjectDawns(labor.id);
+  const ask = politicalRead(state, labor.id);
+  const last = labor.spent >= dawns - 1 && labor.spent > 0;
+  const gated = labor.id === "compact" || labor.id === "counsel" || labor.id === "charter";
+  if (last && gated && ask && !ask.met) {
+    return "The last dawn is here, and the work is waiting on its hero. The cost is already paid. Seal the day again once they are ready. It keeps going while the wagons are away.";
+  }
+  if (last && gated && ask?.met) {
+    return "The last dawn is here, and the hero is ready. Seal the day to close it. It keeps going while the wagons are away.";
+  }
+  if (labor.spent === 0) return "Seal the day to sink the first dawn of labor. The cost is already paid.";
+  const left = dawns - labor.spent;
+  return `${left === 1 ? "1 dawn of labor remains." : `${left} dawns of labor remain.`} It keeps going while the wagons are away.`;
+}
+
 export function RealmProjects({ state, act }: { state: GameState; act: (result: Result) => void }) {
   const camp = state.campaign;
   const [picking, setPicking] = useState(false);
@@ -165,12 +180,15 @@ export function RealmProjects({ state, act }: { state: GameState; act: (result: 
               Dawn <Stat value={labor.spent} className="text-base text-foreground" /> of {realmProjectDawns(labor.id)}
             </p>
             <Progress value={(labor.spent / realmProjectDawns(labor.id)) * 100} className="mt-3 h-2" />
-            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-              {labor.spent === 0
-                ? "Seal the day to sink the first dawn of labor. The cost is already paid."
-                : "It keeps going while the wagons are away."}
-            </p>
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{laborNote(state, labor)}</p>
             {labor.id === "border" && <BorderAsk state={state} />}
+            {labor.id === "oathstone" ? (
+              <p className="mt-2 text-xs leading-relaxed text-moss" data-political-ask="oathstone" data-ask="met">
+                Two heroes were on the road when this began. The stone does not ask for them again.
+              </p>
+            ) : (
+              <PoliticalAsk state={state} id={labor.id} />
+            )}
           </div>
         </div>
       )}
@@ -180,18 +198,10 @@ export function RealmProjects({ state, act }: { state: GameState; act: (result: 
           Each one takes more than a dawn. What it changes stays after the wagons leave.
           {labor ? " One project rises at a time." : ""}
         </p>
-        {!labor && !realmProjectOpen(state) ? (
-          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">Every project you can raise is already standing.</p>
-        ) : (
+        {REALM_PROJECTS.some((spec) => !spec.politics && !realmCardDone(state, spec.id, sworn.length, works)) ? (
         <ul className="mt-3 flex flex-col gap-3">
-          {REALM_PROJECTS.map((spec) => {
-            const done =
-              spec.id === "bench"
-                ? hasRealmWork(state, "bench", "forge") && hasRealmWork(state, "bench", "loom")
-                : spec.id === "border"
-                  ? sworn.length === 0 && works.some((work) => work.id === "border")
-                  : hasRealmWork(state, spec.id);
-            if (done) return null;
+          {REALM_PROJECTS.filter((spec) => !spec.politics).map((spec) => {
+            if (realmCardDone(state, spec.id, sworn.length, works)) return null;
             const rising = labor?.id === spec.id;
             if (rising) return null;
             return (
@@ -239,8 +249,11 @@ export function RealmProjects({ state, act }: { state: GameState; act: (result: 
             );
           })}
         </ul>
+        ) : (
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">Every project you can raise is already standing.</p>
         )}
       </div>
+      <PoliticsProjects state={state} waiting={waiting} laborId={labor?.id} onBegin={begin} />
       {works.length > 0 && (
         <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
           <p className="font-display text-xl">Standing</p>
@@ -253,6 +266,102 @@ export function RealmProjects({ state, act }: { state: GameState; act: (result: 
             ))}
           </ul>
         </div>
+      )}
+    </div>
+  );
+}
+
+function realmCardDone(state: GameState, id: RealmProjectId, openPaths: number, works: { id: RealmProjectId }[]): boolean {
+  if (id === "bench") return hasRealmWork(state, "bench", "forge") && hasRealmWork(state, "bench", "loom");
+  if (id === "border") return openPaths === 0 && works.some((work) => work.id === "border");
+  return hasRealmWork(state, id);
+}
+
+function PoliticalAsk({ state, id }: { state: GameState; id: RealmProjectId }) {
+  const read = politicalRead(state, id);
+  if (!read) return null;
+  return (
+    <p
+      className={`mt-2 text-xs leading-relaxed ${read.met ? "text-moss" : "text-[#3d4a62]"}`}
+      data-political-ask={id}
+      data-ask={read.met ? "met" : "open"}
+    >
+      {read.line}
+    </p>
+  );
+}
+
+function PoliticsProjects({
+  state,
+  waiting,
+  laborId,
+  onBegin,
+}: {
+  state: GameState;
+  waiting: boolean;
+  laborId?: RealmProjectId;
+  onBegin: (id: RealmProjectId, target?: HoldId | RealmBench) => void;
+}) {
+  const [picking, setPicking] = useState(false);
+  const works = state.campaign?.realmWorks ?? [];
+  const sworn = state.compact.members.filter((member) => member.inCompact && !hasRealmWork(state, "compact", undefined, member.holdId));
+  const visible = REALM_PROJECTS.filter((spec) => {
+    if (!spec.politics || laborId === spec.id) return false;
+    if (spec.id === "compact") return !(sworn.length === 0 && works.some((work) => work.id === "compact"));
+    return !hasRealmWork(state, spec.id);
+  });
+  return (
+    <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10" data-section="politics">
+      <p className="font-display text-xl">Politics</p>
+      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+        Bonds, laws, the wagons, and a shared goal. Each one asks for a hero before it starts or on the last dawn. The change stays after the wagons leave.
+      </p>
+      {visible.length === 0 ? (
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">Every political project you can raise is already standing.</p>
+      ) : (
+        <ul className="mt-3 flex flex-col gap-3">
+          {visible.map((spec) => (
+            <li key={spec.id} className="rounded-xl bg-background px-3 py-3" data-project={spec.id}>
+              <p className="text-sm font-medium">{spec.name}</p>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                {spec.dawns} dawns. {spec.blurb}
+              </p>
+              <PoliticalAsk state={state} id={spec.id} />
+              {waiting && spec.id === "counsel" && <StartButton state={state} id="counsel" onStart={() => onBegin("counsel")} />}
+              {waiting && spec.id === "charter" && <StartButton state={state} id="charter" onStart={() => onBegin("charter")} />}
+              {waiting && spec.id === "oathstone" && <StartButton state={state} id="oathstone" onStart={() => onBegin("oathstone")} />}
+              {waiting && spec.id === "compact" && sworn.length === 0 && (
+                <p className="mt-2 text-xs text-muted-foreground">No sworn hold can share a watch.</p>
+              )}
+              {waiting && spec.id === "compact" && sworn.length > 0 && (
+                <>
+                  <Button type="button" variant="outline" className="mt-2 h-10" onClick={() => setPicking((open) => !open)}>
+                    Choose a sworn hold
+                  </Button>
+                  {picking && (
+                    <div className="mt-2 flex flex-col gap-2">
+                      {sworn.map((member) => (
+                        <Button
+                          key={member.id}
+                          type="button"
+                          variant="secondary"
+                          className="h-10"
+                          onClick={() => {
+                            setPicking(false);
+                            onBegin("compact", member.holdId);
+                          }}
+                        >
+                          {holdById(member.holdId).name} · {realmProjectCost(state, "compact").gold}g, {realmProjectCost(state, "compact").qty} iron
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+              {!waiting && <p className="mt-2 text-xs tracking-wide text-muted-foreground uppercase">Waits</p>}
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );

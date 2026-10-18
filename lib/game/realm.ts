@@ -28,10 +28,10 @@ import {
   meetByBell,
   type HeroGate,
 } from "./heroes";
-import { HALL_LOYALTY, awardUniqueRelic, gainRenown, hallFunded, ownedRelicIds, ownsRelic, pardonReady, spendPardon, worldRng } from "./world";
+import { HALL_LOYALTY, awardUniqueRelic, counselStanding, gainRenown, hallFunded, ownedRelicIds, ownsRelic, pardonReady, spendPardon, worldRng } from "./world";
 
 const HOLDS_OK = new Set<string>(HOLD_IDS);
-const EDICT_SET = new Set<EdictId>(["custom", "dole", "tithe", "close-rolls", "open-rolls", "hearth-rite", "salt-road", "brine-fords", "barrow-watch"]);
+const EDICT_SET = new Set<EdictId>(["custom", "dole", "tithe", "close-rolls", "open-rolls", "hearth-rite", "salt-road", "counsel", "brine-fords", "barrow-watch"]);
 
 export const EDICTS: { id: EdictId; name: string; detail: string; because?: string }[] = [
   { id: "custom", name: "Leave them be", detail: "Food and firewood fall by one each dawn. While both last, the people stay as they are." },
@@ -44,6 +44,11 @@ export const EDICTS: { id: EdictId; name: string; detail: string; because?: stri
     id: "salt-road",
     name: "Salt the road",
     detail: "The Salt Charter opens this law. Firewood lasts longer. While it stands, Vell's anger climbs one faster each dawn.",
+  },
+  {
+    id: "counsel",
+    name: "Hall counsel",
+    detail: "The hall of counsel opens this law. Mood rises by 2 each dawn while it stands.",
   },
   {
     id: "brine-fords",
@@ -1026,6 +1031,8 @@ const PETITIONS: {
   body: (place: string) => string;
   ask?: string;
   standing?: (state: GameState) => string;
+  /** When set, the petition stays out of the hall until this is true. */
+  ready?: (state: GameState) => boolean;
   choices: ChoiceDef[];
 }[] = [
   {
@@ -1417,6 +1424,37 @@ const PETITIONS: {
       },
     ],
   },
+  {
+    id: "joint-watch",
+    title: "The joint watch",
+    ready: (state) => (state.campaign?.realmWorks ?? []).some((work) => work.id === "compact"),
+    body: (place) =>
+      `Riders from the sworn watch are at the gate of ${place}. The compact is cut. They will keep the stones, or they will come home.`,
+    choices: [
+      {
+        id: "keep",
+        label: "Keep the watch",
+        detail: "The bond that shares the watch warms by 6. Conflict heat falls by 3.",
+        effect: {
+          bond: 6,
+          heat: -3,
+          bondNote: "The joint watch stayed on the stones.",
+          summary: "The joint watch stayed out. A sworn bond warmed, and the marches cooled.",
+        },
+      },
+      {
+        id: "home",
+        label: "Call them home",
+        detail: "Four gold from the riders. That bond cools by 3.",
+        effect: {
+          gold: 4,
+          bond: -3,
+          bondNote: "The joint watch was called home.",
+          summary: "You called the joint watch home. The riders paid, and a sworn bond cooled.",
+        },
+      },
+    ],
+  },
 ];
 
 interface RealmMods {
@@ -1768,6 +1806,7 @@ function openCreatures(state: GameState) {
 
 export function edictAvailable(state: GameState, edict: EdictId): boolean {
   if (edict === "salt-road") return ownsRelic(state, "salt-charter");
+  if (edict === "counsel") return counselStanding(state);
   if (edict === "brine-fords") return heroSaltQuiet(state);
   if (edict === "barrow-watch") return heroWearsRelic(state, "beowulf", "barrow-band");
   return true;
@@ -1963,11 +2002,19 @@ export function offerPetition(state: GameState): string | null {
   const first = (state.petitionsSeen ?? []).length === 0;
   const scheduled = state.day >= 14 && state.day % 5 === 0;
   if (!low && !first && !scheduled) return null;
-  const pool = PETITIONS.filter((item) => !(state.petitionsSeen ?? []).includes(item.id));
+  const pool = PETITIONS.filter((item) => {
+    if ((state.petitionsSeen ?? []).includes(item.id)) return false;
+    if (item.ready && !item.ready(state)) return false;
+    return true;
+  });
   if (pool.length === 0) return null;
   const rng = worldRng((state.seed ^ Math.imul(state.day, 0x27d4eb2d)) >>> 0);
   if (!low && !first && rng() >= 0.8) return null;
-  const picked = pool[Math.floor(rng() * pool.length) % pool.length];
+  const opened = pool.filter((item) => item.ready);
+  const picked =
+    opened.length > 0 && rng() < 0.7
+      ? opened[Math.floor(rng() * opened.length) % opened.length]
+      : pool[Math.floor(rng() * pool.length) % pool.length];
   const petition = buildPetition(picked.id, state.player.holdId, state.marks ?? [], homeMoodOf(state), state);
   if (!petition) return null;
   state.petition = petition;
@@ -2033,6 +2080,7 @@ export function tickSettlements(state: GameState): string[] {
     mood += heroAllLoyalty(state);
     if (settlement.edict === "dole") mood += settlement.bread > 0 ? 2 : -4;
     if (settlement.edict === "close-rolls") mood += 1;
+    if (settlement.edict === "counsel") mood += 2;
     if (settlement.edict === "brine-fords" || settlement.edict === "barrow-watch") mood += 1;
     if (settlement.edict === "tithe") mood -= 1;
     if (settlement.edict === "hearth-rite" && settlement.hearth > 0) mood += winter ? 3 : 2;
@@ -2064,6 +2112,9 @@ export function setEdict(state: GameState, holdId: HoldId, edict: EdictId): Resu
   if (!EDICT_SET.has(edict)) return fail(state, "That is not a law.");
   if (edict === "salt-road" && !ownsRelic(state, "salt-charter")) {
     return fail(state, "The Salt Charter is not among your goods. That law stays shut.");
+  }
+  if (edict === "counsel" && !counselStanding(state)) {
+    return fail(state, "The hall of counsel is not standing. That law stays shut.");
   }
   if (edict === "brine-fords" && !heroSaltQuiet(state)) {
     return fail(state, "Ivy is not on the road wearing the Salt Charter. Brine the fords stays shut.");

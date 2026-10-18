@@ -167,7 +167,7 @@ const INTRO: Record<string, { eyebrow: string; title: string; lede: string }> = 
   projects: {
     eyebrow: "Hold",
     title: "Realm projects",
-    lede: "Work that takes more than one dawn. It keeps standing after the wagons leave.",
+    lede: "Work that takes more than one dawn, including politics. It keeps standing after the wagons leave.",
   },
   craft: {
     eyebrow: "Hold",
@@ -182,7 +182,7 @@ const INTRO: Record<string, { eyebrow: string; title: string; lede: string }> = 
   company: {
     eyebrow: "Heroes",
     title: "The company",
-    lede: "Send more than one hero onto the road. Gear from the armory changes how that hero walks, crosses, and comes home. Decrees and the border path ask for some of them by name.",
+    lede: "Send more than one hero onto the road. Gear from the armory changes how that hero walks, crosses, and comes home. Decrees, the border path, and political projects ask for some of them by name.",
   },
   missions: {
     eyebrow: "Heroes",
@@ -972,6 +972,7 @@ function LoyaltyPanel({ state }: { state: GameState }) {
   const home = state.settlements?.find((item) => item.holdId === state.player.holdId);
   const cap = influenceCap(state);
   const funded = (state.campaign?.realmWorks ?? []).some((work) => work.id === "hall");
+  const counsel = (state.campaign?.realmWorks ?? []).some((work) => work.id === "counsel");
   return (
     <>
       <section className="rounded-2xl bg-card p-5 ring-1 ring-foreground/10">
@@ -993,7 +994,11 @@ function LoyaltyPanel({ state }: { state: GameState }) {
         </p>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
           {renownTitle(state.player.renown)}. Pledges, gifts, and answered roads raise your name.
-          {funded ? " The hall lets it reach 64." : " It holds at 40 until the hall is funded."}
+          {counsel
+            ? " The hall of counsel lets it reach 80."
+            : funded
+              ? " The hall lets it reach 64."
+              : " It holds at 40 until the hall is funded."}
         </p>
       </section>
       <section className="flex flex-col gap-3">

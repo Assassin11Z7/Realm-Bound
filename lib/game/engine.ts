@@ -81,7 +81,7 @@ import {
   stockSettlement as sendStores,
   tickSettlements,
 } from "./realm";
-import { blankExpedition, blankPolitics, EXPEDITION_GRACE, expeditionDue, markCalled, markDeparted, takeExpeditionPrize, wagonsOpen } from "./expedition";
+import { blankExpedition, blankPolitics, CHARTER_PAY, EXPEDITION_GRACE, expeditionDue, markCalled, markDeparted, takeExpeditionPrize, wagonsOpen } from "./expedition";
 import {
   WATCH_FIND_LUCK,
   WATCH_RELIC_BIAS,
@@ -308,6 +308,10 @@ function considerVictory(state: GameState) {
     if (heroPay > 0) {
       state.player.gold += heroPay;
       note(state, `Heroes on the road sweeten the drivers' pay by ${heroPay} gold.`);
+    }
+    if ((state.campaign?.realmWorks ?? []).some((work) => work.id === "charter")) {
+      state.player.gold += CHARTER_PAY;
+      note(state, `The drivers' charter sweetens the call by ${CHARTER_PAY} gold.`);
     }
     state.triumphs = (state.triumphs ?? 0) + 1;
     const met = maybeRecruit(state, "expedition");

@@ -249,12 +249,14 @@ export interface AwaitingSeat {
 
 /**
  * Alliance politics without a network layer.
- * Seats and heat are the hooks a later war can occupy.
+ * Seats, heat, and sharedGoals are the hooks a later war can occupy.
+ * sharedGoals lists finished political projects, such as "oathstone" or "compact:saltmere".
  */
 export interface Politics {
   conflictHeat: number;
   rivalName: string | null;
   awaitingSeats: AwaitingSeat[];
+  sharedGoals: string[];
 }
 
 export interface Player {
@@ -282,7 +284,7 @@ export type SkillId = "stores" | "step" | "coin" | "truce" | "bargain" | "eye" |
 export type BuildingId = "hall" | "yard" | "shrine" | "market" | "watch" | "forge" | "still" | "loom" | "strongroom";
 export type PotionId = "luck" | "calm" | "haste" | "purse" | "vigor";
 
-export const REALM_PROJECT_IDS = ["watchtower", "hall", "bench", "border"] as const;
+export const REALM_PROJECT_IDS = ["watchtower", "hall", "bench", "border", "compact", "counsel", "charter", "oathstone"] as const;
 export type RealmProjectId = (typeof REALM_PROJECT_IDS)[number];
 export type RealmBench = "forge" | "loom";
 
@@ -338,7 +340,7 @@ export interface Threat {
   art: string;
 }
 
-export type EdictId = "custom" | "dole" | "tithe" | "close-rolls" | "open-rolls" | "hearth-rite" | "salt-road" | "brine-fords" | "barrow-watch";
+export type EdictId = "custom" | "dole" | "tithe" | "close-rolls" | "open-rolls" | "hearth-rite" | "salt-road" | "counsel" | "brine-fords" | "barrow-watch";
 
 export interface Lasting {
   yield?: number;
