@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { holdById } from "@/lib/game/content";
 import { drinkPotion, storeGear, storePotion, takeGear, takePotion } from "@/lib/game/craft";
 import { POTIONS } from "@/lib/game/craft";
-import { claimQuest, sellGear, travel, unequipFromHero } from "@/lib/game/engine";
-import { fieldedNames, gearBearer, gearHeroNotes, heroFordRenown, heroRoadTeach, heroWagonGold } from "@/lib/game/heroes";
-import { WORN_SLOTS, carryCap, carriedWeight, gearCompare, gearWeight, luckOf, pardonReady, storedWeight, traitText, vaultCap, wornRelic } from "@/lib/game/world";
+import { claimQuest, openBellRoad, sellGear, travel, unequipFromHero } from "@/lib/game/engine";
+import { activeRelicPairs, bellRoadRead, fieldedNames, gearBearer, gearHeroNotes, heroFordRenown, heroRelicBonus, heroRoadTeach, heroWagonGold } from "@/lib/game/heroes";
+import { WORN_SLOTS, carryCap, carriedWeight, gearCompare, gearWeight, luckOf, pardonReady, relicFindChance, storedWeight, traitText, vaultCap, wornRelic } from "@/lib/game/world";
+import { Metric } from "./stat";
 import type { Cutscene, GameState, Gear, GearSlot, HoldId, PotionId, Rarity, Result, WornSlot } from "@/lib/game/types";
 
 const RARITY_CLASS: Record<Rarity, string> = {
@@ -101,26 +102,33 @@ function GearRow({
   onTake?: () => void;
 }) {
   const unique = Boolean(gear.relic);
+  const live = Boolean(notes && notes.length > 0);
   const compare = unique ? gearCompare(gear, against ?? null, worn) : "";
   return (
-    <div className={`flex items-start gap-2 ${unique ? "rounded-xl bg-[#f6ead0] px-2 py-2 ring-2 ring-[#8d6b2e]" : ""}`} data-relic={gear.relic ?? undefined}>
+    <div
+      className={`flex items-start gap-3 rounded-xl px-3 py-3 ${unique ? `wm-relic ${live ? "wm-relic-live" : ""}` : "bg-transparent"}`}
+      data-relic={gear.relic ?? undefined}
+    >
       <div className="min-w-0 flex-1">
-        <p className={`text-sm font-medium ${unique ? "text-[#6a4a12]" : RARITY_CLASS[gear.rarity]}`}>
-          {gear.name}
+        <p className={`text-sm font-medium ${unique ? "text-[#6a4a12]" : RARITY_CLASS[gear.rarity]}`}>{gear.name}</p>
+        <div className="mt-1 flex flex-wrap gap-1.5">
           {unique ? (
-            <span className="ml-2 rounded-full bg-[#8d6b2e] px-1.5 py-0.5 text-[10px] tracking-wide text-[#f4ead7] uppercase">Unique relic</span>
+            <span className="rounded-full bg-[#8d6b2e] px-2 py-0.5 text-[10px] tracking-wide text-[#f4ead7] uppercase">Unique relic</span>
           ) : (
-            <span className="ml-2 text-[10px] tracking-wide uppercase">{gear.rarity}</span>
+            <span className="text-[10px] tracking-wide text-muted-foreground uppercase">{gear.rarity}</span>
           )}
-        </p>
-        <p className="text-xs leading-relaxed text-muted-foreground">{gear.line}</p>
+          {unique && live ? (
+            <span className="rounded-full bg-[#7c2a24] px-2 py-0.5 text-[10px] tracking-wide text-[#f4ead7] uppercase">Hero unlock</span>
+          ) : null}
+        </div>
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{gear.line}</p>
         <p className={`text-xs ${unique ? "text-[#6a4a12]" : "text-muted-foreground"}`}>
           {traitText(gear)} · {gearWeight(gear)} wt
           {bearer ? ` · ${bearer}` : worn ? " · worn" : ""}
         </p>
         {compare && <p className="mt-1 text-xs leading-relaxed text-[#6a4a12]">{compare}</p>}
         {notes?.map((note) => (
-          <p key={note} className="mt-1 text-xs leading-relaxed text-[#3d4a62]" data-gear-synergy="yes">
+          <p key={note} className="mt-1.5 text-xs leading-relaxed text-[#3d4a62]" data-gear-synergy="yes">
             {note}
           </p>
         ))}
@@ -187,13 +195,23 @@ export function ExplorePanel({
 
   if (part === "armory") {
     const names = fieldedNames(state);
+    const relicPct = Math.round(relicFindChance(state, "walk", heroRelicBonus(state, "walk")) * 100);
     return (
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-5">
+        <div className="grid grid-cols-3 gap-2">
+          <Metric label="Luck" value={luckOf(state)} />
+          <Metric label="Relic chance" value={relicPct} suffix="%" />
+          <Metric label="Weight" value={carriedWeight(state)} suffix={`/${carryCap(state)}`} />
+        </div>
         <p className="text-sm text-muted-foreground">
-          Luck {luckOf(state)}. Carried {carriedWeight(state)} / {carryCap(state)} weight.
-          {(state.tonics?.luck ?? 0) > 0 ? ` Luck drink, ${state.tonics.luck} walks.` : ""}
-          {names.length > 0 ? ` Out: ${names.join(", ")}.` : " No hero is on the road."}
+          {(state.tonics?.luck ?? 0) > 0 ? `Luck drink, ${state.tonics.luck} walks. ` : ""}
+          {names.length > 0 ? `Out: ${names.join(", ")}.` : "No hero is on the road."}
         </p>
+        {activeRelicPairs(state).map((pair) => (
+          <p key={pair.id} className="rounded-xl bg-[#f6ead0] px-3 py-2 text-sm leading-relaxed text-[#6a4a12]" data-relic-pair={pair.id}>
+            {pair.hero} wears the {pair.relic}. {pair.opens}
+          </p>
+        ))}
         {wornRelic(state, "unspoken-hem") && (
           <p className="text-sm leading-relaxed text-[#6a4a12]">
             {pardonReady(state)
@@ -354,25 +372,44 @@ export function ExplorePanel({
     );
   }
 
+  const relicPct = Math.round(relicFindChance(state, "walk", heroRelicBonus(state, "walk")) * 100);
+  const bell = bellRoadRead(state);
   return (
-    <div className="flex flex-col gap-4">
-      <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
-        <p className="text-[11px] tracking-[0.16em] text-[#8d6b2e] uppercase">Where you stand</p>
-        <p className="mt-1 font-display text-2xl">{place.name}</p>
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          Luck on the road {luckOf(state)}. Miles walked {state.miles ?? 0}.
+    <div className="flex flex-col gap-5">
+      <div className="wm-event rounded-2xl p-5 ring-1 ring-[#8d6b2e]/40">
+        <p className="wm-kicker">On the road</p>
+        <p className="mt-3 font-display text-[2rem] leading-none">{place.name}</p>
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          <Metric label="Luck" value={luckOf(state)} />
+          <Metric label="Relic chance" value={relicPct} suffix="%" />
+          <Metric label="Miles" value={state.miles ?? 0} />
+        </div>
+        <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
           {fieldedNames(state).length > 0
-            ? ` ${fieldedNames(state).join(", ")} ${fieldedNames(state).length === 1 ? "walks" : "walk"} with the gear.`
-            : " No hero is out, so the road has only what was left worn."}
+            ? `${fieldedNames(state).join(", ")} ${fieldedNames(state).length === 1 ? "walks" : "walk"} with the gear.`
+            : "No hero is out, so the road has only what was left worn."}
           {heroRoadTeach(state) > 0 ? ` Walks teach +${heroRoadTeach(state)}.` : ""}
           {heroFordRenown(state) > 0 ? ` Crossings grant +${heroFordRenown(state)} renown.` : ""}
           {heroWagonGold(state) > 0 ? ` A successful call pays +${heroWagonGold(state)} gold.` : ""}
         </p>
-        <Button type="button" className="mt-4 h-11 w-full" disabled={standing} onClick={() => act(travel(state, holdId))}>
+        <Button type="button" className="mt-4 h-12 w-full text-base" disabled={standing} onClick={() => act(travel(state, holdId))}>
           {standing ? "You stand here" : `Walk to ${selected.name}`}
         </Button>
       </div>
-      <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+      {bell && (
+        <div className="wm-event rounded-2xl bg-[#f6ead0] p-5 ring-1 ring-[#8d6b2e]" data-bell-road={bell.open ? "open" : "heard"}>
+          <p className="wm-kicker">The Ford Bell</p>
+          <p className="mt-3 font-display text-2xl leading-none">{bell.open ? "The bell is ringing" : "The bell has rung"}</p>
+          <p className="mt-2 text-sm leading-relaxed">{bell.detail}</p>
+          <p className="mt-2 text-xs leading-relaxed text-[#8d6b2e]">{bell.because}</p>
+          {bell.open && (
+            <Button type="button" className="mt-3 h-11 w-full" onClick={() => act(openBellRoad(state))}>
+              Go to the sound
+            </Button>
+          )}
+        </div>
+      )}
+      <div className="rounded-2xl bg-card p-5 ring-1 ring-foreground/10">
         <p className="font-display text-xl">Tasks on this road</p>
         <ul className="mt-3 flex flex-col gap-4">
           {(state.quests ?? []).map((quest) => (

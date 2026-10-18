@@ -250,11 +250,12 @@ export function rollUniqueRelic(
   return makeRelic(piece.id, `relic-${day}-${miles}-${salt}-${stamp}`);
 }
 
-export function awardUniqueRelic(
+/** Chance a walk, crossing, or wagon call drops a unique relic. `bonus` is hero kit, already capped by the caller. */
+export function relicFindChance(
   state: GameState,
   source: "walk" | "crossing" | "expedition",
   bonus = 0,
-): { gear: Gear; packed: boolean } | null {
+): number {
   const watch = (state.campaign?.realmWorks ?? []).some((work) => work.id === "watchtower");
   const base =
     source === "expedition"
@@ -264,7 +265,15 @@ export function awardUniqueRelic(
       : source === "crossing"
         ? RELIC_CROSSING_CHANCE
         : RELIC_WALK_CHANCE + (watch ? 0.06 : 0);
-  const chance = Math.min(0.95, base + Math.max(0, bonus));
+  return Math.min(0.95, base + Math.max(0, bonus));
+}
+
+export function awardUniqueRelic(
+  state: GameState,
+  source: "walk" | "crossing" | "expedition",
+  bonus = 0,
+): { gear: Gear; packed: boolean } | null {
+  const chance = relicFindChance(state, source, bonus);
   const salt = source === "walk" ? 11 : source === "crossing" ? 41 : 90 + (state.expedition?.cycle ?? 1);
   const gear = rollUniqueRelic(state.seed ?? 0, state.day, state.miles ?? 0, salt, chance, ownedRelicIds(state));
   if (!gear) return null;

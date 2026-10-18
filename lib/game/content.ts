@@ -416,7 +416,7 @@ export const RULES: { title: string; body: string }[] = [
   },
   {
     title: "Unique relics",
-    body: "A walk or a creature crossing may leave a unique relic. Ordinary finds in the ditch stay ordinary. Wear the unique piece, or keep the Salt Charter, and the season itself changes.",
+    body: "A walk or a creature crossing may leave a unique relic. Ordinary finds in the ditch stay ordinary. Wear the unique piece, or keep the Salt Charter, and the season itself changes. Worn by the right hero, a unique relic can open a choice that was not there before.",
   },
   {
     title: "Where things live",

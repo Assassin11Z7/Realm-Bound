@@ -23,15 +23,17 @@ import {
   heroPostureWho,
   heroRelicBonus,
   heroSaltQuiet,
+  heroWearsRelic,
   heroWhere,
+  meetByBell,
   type HeroGate,
 } from "./heroes";
-import { HALL_LOYALTY, awardUniqueRelic, gainRenown, hallFunded, ownedRelicIds, ownsRelic, pardonReady, spendPardon, worldRng } from "./world";
+import { HALL_LOYALTY, awardUniqueRelic, counselStanding, gainRenown, hallFunded, ownedRelicIds, ownsRelic, pardonReady, spendPardon, worldRng } from "./world";
 
 const HOLDS_OK = new Set<string>(HOLD_IDS);
-const EDICT_SET = new Set<EdictId>(["custom", "dole", "tithe", "close-rolls", "open-rolls", "hearth-rite", "salt-road", "counsel"]);
+const EDICT_SET = new Set<EdictId>(["custom", "dole", "tithe", "close-rolls", "open-rolls", "hearth-rite", "salt-road", "counsel", "brine-fords", "barrow-watch"]);
 
-export const EDICTS: { id: EdictId; name: string; detail: string }[] = [
+export const EDICTS: { id: EdictId; name: string; detail: string; because?: string }[] = [
   { id: "custom", name: "Leave them be", detail: "Food and firewood fall by one each dawn. While both last, the people stay as they are." },
   { id: "dole", name: "Free bread", detail: "The food store empties faster. Mood rises while bread remains, and falls hard when it does not." },
   { id: "tithe", name: "Grain tax", detail: "While the food store is above 10, one grain comes to your stash each dawn and the people like you less." },
@@ -47,6 +49,18 @@ export const EDICTS: { id: EdictId; name: string; detail: string }[] = [
     id: "counsel",
     name: "Hall counsel",
     detail: "The hall of counsel opens this law. Mood rises by 2 each dawn while it stands.",
+  },
+  {
+    id: "brine-fords",
+    name: "Brine the fords",
+    detail: "Firewood lasts longer than Salt the road. Loyalty eases each dawn. Vell's anger does not climb for this law.",
+    because: "Open because Ivy wears the Salt Charter.",
+  },
+  {
+    id: "barrow-watch",
+    name: "The barrow watch",
+    detail: "Loyalty eases each dawn. While it stands, the Barrow Band does not cool a sworn bond.",
+    because: "Open because Beowulf wears the Barrow Band.",
   },
 ];
 
@@ -87,6 +101,12 @@ interface ChoiceDef {
   alt?: Effect;
   best?: Effect;
   gamble?: { stake: Effect; win: Effect; lose: Effect };
+  /** Hidden until this returns true. */
+  unlock?: (state: GameState) => boolean;
+  /** Shown on the choice when a relic and a hero opened it. */
+  because?: string;
+  /** A road meeting resolved when the choice is taken. */
+  meet?: "bell";
 }
 
 interface CreatureDef {
@@ -96,7 +116,7 @@ interface CreatureDef {
   body: string;
   art: string;
   disposition: "kind" | "grim";
-  requires?: (ctx: { markIds: string[]; day: number; relics: RelicId[] }) => boolean;
+  requires?: (ctx: { markIds: string[]; day: number; relics: RelicId[]; state: GameState }) => boolean;
   choices: ChoiceDef[];
 }
 
@@ -534,6 +554,19 @@ const CREATURES: CreatureDef[] = [
           },
         },
       },
+      {
+        id: "labor",
+        label: "Offer the labor",
+        detail: "No gold. Heracles works the ford. Two iron come home, renown rises by 2, and the mood steadies.",
+        because: "Open because Heracles wears the Unspoken Hem.",
+        unlock: (state) => heroWearsRelic(state, "heracles", "unspoken-hem"),
+        effect: {
+          goods: { iron: 2 },
+          renown: 2,
+          mood: 3,
+          summary: "Heracles offered the labor in the Unspoken Hem. The ford took no gold, and iron came home.",
+        },
+      },
     ],
   },
   {
@@ -892,6 +925,18 @@ const CREATURES: CreatureDef[] = [
         },
       },
       {
+        id: "brine",
+        label: "Ask her to brine the fords",
+        detail: "Brine the fords becomes the law. Firewood lasts longer than Salt the road, loyalty eases each dawn, and Vell's anger does not climb.",
+        because: "Open because Ivy wears the Salt Charter.",
+        unlock: (state) => heroSaltQuiet(state),
+        effect: {
+          edict: "brine-fords",
+          mood: 2,
+          summary: "Ivy's Salt Charter moved the Salt Widow to teach a stronger law. Brine the fords stands, and Vell's anger does not climb for it.",
+        },
+      },
+      {
         id: "close",
         label: "Close your hand",
         detail: "She leaves a thirst. Mood falls, and the dragon's anger climbs.",
@@ -899,6 +944,38 @@ const CREATURES: CreatureDef[] = [
           mood: -5,
           ire: 4,
           summary: "You closed your hand to the Salt Widow. The hold is thirsty, and Vell heard the salt crack.",
+        },
+      },
+    ],
+  },
+  {
+    id: "bell-road",
+    creature: "The bell ahead",
+    title: "A ring where no wagon is",
+    body: "The Ford Bell in Odysseus' hand rings where no wagon is. A traveler who was not coming has stopped to listen. This meeting is on the road because Odysseus wears the Ford Bell.",
+    art: "/art/caravan.jpg",
+    disposition: "kind",
+    requires: ({ state }) => heroWearsRelic(state, "odysseus", "ford-bell"),
+    choices: [
+      {
+        id: "answer",
+        label: "Answer the bell",
+        detail: "Someone the road was not going to send comes to the banner. Legendary and divine names answer first. If no one is left unanswered, renown rises.",
+        because: "Open because Odysseus wears the Ford Bell.",
+        meet: "bell",
+        effect: {
+          renown: 1,
+          summary: "You answered the Ford Bell. The road sent someone who was not coming.",
+        },
+      },
+      {
+        id: "fade",
+        label: "Let the ring fade",
+        detail: "A little renown. No one comes.",
+        because: "Open because Odysseus wears the Ford Bell.",
+        effect: {
+          renown: 1,
+          summary: "You let the Ford Bell fade. The traveler did not step forward.",
         },
       },
     ],
@@ -1200,6 +1277,21 @@ const PETITIONS: {
           summary: "You bought peace in the yard. A sworn bond warmed, and the stones can wait.",
         },
       },
+      {
+        id: "barrow",
+        label: "Name the barrow",
+        detail: "The quarrel becomes the barrow watch. One sworn bond warms by 12, loyalty rises by 6, and renown rises by 2. While that law stands, the Barrow Band does not cool a sworn bond.",
+        because: "Open because Beowulf wears the Barrow Band.",
+        unlock: (state) => heroWearsRelic(state, "beowulf", "barrow-band"),
+        effect: {
+          bond: 12,
+          mood: 6,
+          renown: 2,
+          edict: "barrow-watch",
+          bondNote: "Beowulf named the barrow. This oath is warm.",
+          summary: "Beowulf named the barrow. The quarrel became the barrow watch, a sworn bond warmed, and the band will not cool an oath while that law stands.",
+        },
+      },
     ],
   },
   {
@@ -1481,19 +1573,23 @@ function asideOf(choice: ChoiceDef, branch: "base" | "alt" | "best"): string | u
 function presentChoices(choices: ChoiceDef[], marks: Mark[], homeMood: number, state?: GameState): CrossingChoice[] {
   const ids = markIdsOf(marks);
   const passes = passCount(marks);
-  return choices.map((choice) => {
+  const shown: CrossingChoice[] = [];
+  for (const choice of choices) {
+    if (choice.unlock && (!state || !choice.unlock(state))) continue;
     const branch = branchOf(choice, ids, passes, homeMood, state);
     const aside = asideOf(choice, branch);
-    const shown: CrossingChoice = {
+    const row: CrossingChoice = {
       id: choice.id,
       label: choice.label,
       detail: branch === "best" && choice.bestDetail ? choice.bestDetail : branch === "alt" && choice.altDetail ? choice.altDetail : choice.detail,
       branch,
       gamble: Boolean(choice.gamble),
     };
-    if (aside) shown.aside = aside;
-    return shown;
-  });
+    if (aside) row.aside = aside;
+    if (choice.because) row.because = choice.because;
+    shown.push(row);
+  }
+  return shown;
 }
 
 function buildCrossing(def: CreatureDef, marks: Mark[], homeMood: number, state?: GameState): Crossing {
@@ -1523,6 +1619,15 @@ function buildPetition(id: string, place: HoldId, marks: Mark[], homeMood: numbe
     standing: spec.standing?.(state),
     choices: presentChoices(spec.choices, marks, homeMood, state),
   };
+}
+
+/** The open crossing, read against the relic and hero pairs who are out right now. */
+export function shownCrossing(state: GameState): Crossing | null {
+  if (state.omen || !state.crossing) return null;
+  const def = creatureById(state.crossing.id);
+  if (!def) return state.crossing;
+  const built = buildCrossing(def, state.marks ?? [], homeMoodOf(state), state);
+  return { ...built, body: state.crossing.body || built.body };
 }
 
 /** The open petition, read against the heroes who are out right now. */
@@ -1696,7 +1801,15 @@ function openCreatures(state: GameState) {
   const seen = state.creaturesSeen ?? [];
   const ids = markIdsOf(state.marks ?? []);
   const relics = ownedRelicIds(state);
-  return CREATURES.filter((def) => !seen.includes(def.id) && (!def.requires || def.requires({ markIds: ids, day: state.day, relics })));
+  return CREATURES.filter((def) => !seen.includes(def.id) && (!def.requires || def.requires({ markIds: ids, day: state.day, relics, state })));
+}
+
+export function edictAvailable(state: GameState, edict: EdictId): boolean {
+  if (edict === "salt-road") return ownsRelic(state, "salt-charter");
+  if (edict === "counsel") return counselStanding(state);
+  if (edict === "brine-fords") return heroSaltQuiet(state);
+  if (edict === "barrow-watch") return heroWearsRelic(state, "beowulf", "barrow-band");
+  return true;
 }
 
 export function availableCreatureIds(state: GameState): string[] {
@@ -1839,7 +1952,10 @@ export function chooseCrossing(state: GameState, choiceId: string): Result {
   const shown = crossing.choices.find((choice) => choice.id === choiceId);
   const def = creatureById(crossing.id);
   const spec = def?.choices.find((choice) => choice.id === choiceId);
-  if (!shown || !def || !spec) return fail(state, "That is not a choice they offer.");
+  const live = def ? presentChoices(def.choices, state.marks ?? [], homeMoodOf(state), state) : [];
+  const offered = live.find((choice) => choice.id === choiceId) ?? shown;
+  if (!offered || !def || !spec) return fail(state, "That is not a choice they offer.");
+  if (spec.unlock && !spec.unlock(state)) return fail(state, "That choice is shut.");
   if (spec.gamble) {
     const stake = easeBargain(state, spec.gamble.stake);
     const price = afford(state, stake);
@@ -1866,12 +1982,17 @@ export function chooseCrossing(state: GameState, choiceId: string): Result {
     const relicName = crossingRelicLine(next);
     return ok(next, withRelic(marked.summary, relicName), { face, won });
   }
-  const raw = effectOf(spec, shown.branch);
+  const raw = effectOf(spec, offered.branch);
   const effect = easeBargain(state, raw);
   const price = afford(state, effect);
   if (price) return fail(state, price);
   const result = finishChoice(state, `${crossing.id}:${choiceId}`, crossing.creature, choiceId, effect);
   if (!result.error) noteBargain(result.state, raw, effect);
+  if (!result.error && spec.meet === "bell") {
+    const line = meetByBell(result.state);
+    note(result.state, line);
+    result.message = result.message ? `${result.message} ${line}` : line;
+  }
   return result;
 }
 
@@ -1936,6 +2057,7 @@ export function tickSettlements(state: GameState): string[] {
     if (settlement.edict === "dole" || settlement.edict === "open-rolls") breadDecay += 1;
     if (settlement.edict === "hearth-rite") hearthDecay += 1;
     if (settlement.edict === "salt-road") hearthDecay = Math.max(0, hearthDecay - 1);
+    if (settlement.edict === "brine-fords") hearthDecay = Math.max(0, hearthDecay - 2);
     if (settlement.holdId === state.player.holdId) hearthDecay = Math.max(0, hearthDecay - heroHearthSave(state));
     const beforeBread = settlement.bread;
     const beforeHearth = settlement.hearth;
@@ -1959,6 +2081,7 @@ export function tickSettlements(state: GameState): string[] {
     if (settlement.edict === "dole") mood += settlement.bread > 0 ? 2 : -4;
     if (settlement.edict === "close-rolls") mood += 1;
     if (settlement.edict === "counsel") mood += 2;
+    if (settlement.edict === "brine-fords" || settlement.edict === "barrow-watch") mood += 1;
     if (settlement.edict === "tithe") mood -= 1;
     if (settlement.edict === "hearth-rite" && settlement.hearth > 0) mood += winter ? 3 : 2;
     if (settlement.edict === "open-rolls") {
@@ -1990,8 +2113,14 @@ export function setEdict(state: GameState, holdId: HoldId, edict: EdictId): Resu
   if (edict === "salt-road" && !ownsRelic(state, "salt-charter")) {
     return fail(state, "The Salt Charter is not among your goods. That law stays shut.");
   }
-  if (edict === "counsel" && !(state.campaign?.realmWorks ?? []).some((work) => work.id === "counsel")) {
+  if (edict === "counsel" && !counselStanding(state)) {
     return fail(state, "The hall of counsel is not standing. That law stays shut.");
+  }
+  if (edict === "brine-fords" && !heroSaltQuiet(state)) {
+    return fail(state, "Ivy is not on the road wearing the Salt Charter. Brine the fords stays shut.");
+  }
+  if (edict === "barrow-watch" && !heroWearsRelic(state, "beowulf", "barrow-band")) {
+    return fail(state, "Beowulf is not on the road wearing the Barrow Band. The barrow watch stays shut.");
   }
   const found = state.settlements?.find((item) => item.holdId === holdId);
   if (!found) return fail(state, "That settlement is not under your banner.");
@@ -2023,6 +2152,27 @@ export function stockSettlement(state: GameState, holdId: HoldId, kind: "bread" 
   else settlement.hearth = Math.min(40, settlement.hearth + gain);
   const place = holdById(holdId).name;
   const line = kind === "bread" ? `You sent ${qty} grain to ${place}. The food store can last longer.` : `You sent ${qty} timber to ${place}. The fires are fed.`;
+  note(next, line);
+  return ok(next, line);
+}
+
+/** Puts the Ford Bell's traveler on the road. The pair must be out, and the bell must not have rung yet. */
+export function beginBellRoad(state: GameState): Result {
+  if (!heroWearsRelic(state, "odysseus", "ford-bell")) {
+    return fail(state, "Odysseus is not on the road with the Ford Bell.");
+  }
+  if ((state.creaturesSeen ?? []).includes("bell-road")) {
+    return fail(state, "The bell has already called someone to this road.");
+  }
+  if (state.omen || state.crossing) return fail(state, "Someone is already on the road.");
+  if (state.petition) return fail(state, "The hall is already hearing a petition.");
+  const def = creatureById("bell-road");
+  if (!def) return fail(state, "The bell has nothing to say.");
+  const next = structuredClone(state);
+  next.omen = null;
+  next.crossing = buildCrossing(def, next.marks ?? [], homeMoodOf(next), next);
+  next.creaturesSeen = [...(next.creaturesSeen ?? []), "bell-road"];
+  const line = "The Ford Bell rings. Someone is on the road because Odysseus wears it.";
   note(next, line);
   return ok(next, line);
 }
@@ -2101,6 +2251,7 @@ function legalChoiceList(raw: CrossingChoice[] | undefined, specs: ChoiceDef[]):
       gamble: Boolean(spec.gamble),
     };
     if (aside) shown.aside = aside;
+    if (spec.because) shown.because = spec.because;
     choices.push(shown);
   }
   return choices;

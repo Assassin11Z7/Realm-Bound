@@ -51,6 +51,8 @@ import {
   heroExtraTeach,
   heroFordRenown,
   heroIreEase,
+  KNOT_ACT,
+  knotCallRead,
   heroRelicBonus,
   heroRoadTeach,
   heroSaleBonus,
@@ -66,6 +68,7 @@ import {
 import { applyDawnProgress, blankCampaign, grantXp, syncCampaign } from "./progress";
 import {
   blankSettlements,
+  beginBellRoad,
   chooseCrossing as answerCrossing,
   choosePetition as answerPetition,
   clearUnansweredCrossing,
@@ -615,10 +618,13 @@ function runDawn(state: GameState): string[] {
 function runEvening(state: GameState): string[] {
   const lines: string[] = [];
   if (wornRelic(state, "barrow-band")) {
+    const cool = heroBandCool(state);
     const bonded = [...state.compact.members].filter((member) => member.inCompact).sort((a, b) => b.contentment - a.contentment)[0];
-    if (bonded) {
-      bonded.contentment = Math.max(0, bonded.contentment - heroBandCool(state));
+    if (bonded && cool > 0) {
+      bonded.contentment = Math.max(0, bonded.contentment - cool);
       lines.push(`${bonded.name}'s bond cools under the Barrow Band.`);
+    } else if (cool === 0) {
+      lines.push("The barrow watch stands. The Barrow Band does not cool a sworn bond.");
     }
   }
   const order = [...state.compact.members].sort((a, b) => {
@@ -811,6 +817,7 @@ export function createGame(setup: NewGameSetup): GameState {
     expedition: blankExpedition(),
     politics: blankPolitics(),
     pardonCall: null,
+    relicActs: [],
   };
 
   const cloak = starterCloak();
@@ -1677,6 +1684,47 @@ export function choosePetition(state: GameState, choiceId: string): Result {
 
 export function setEdict(state: GameState, holdId: HoldId, edict: EdictId): Result {
   return remembered(enactEdict(state, holdId, edict));
+}
+
+/** Spends the one-time wagon choice opened by Carter's Knot on Zeus or Bran. */
+export function knotTheCall(state: GameState): Result {
+  const read = knotCallRead(state);
+  if (!read) return fail(state, "No one on the road wears Carter's Knot.");
+  if (read.spent) return fail(state, "That knotted call has already been sent.");
+  const called = wagonsOpen(state);
+  if (!called && typeof state.expedition?.nextCallDay !== "number") {
+    return fail(state, "The wagons have no day to come sooner.");
+  }
+  const next = draft(state);
+  next.relicActs = [...(next.relicActs ?? []), KNOT_ACT];
+  if (called) {
+    if (read.who === "zeus") {
+      next.compact.levy.grain += 4;
+      next.compact.levy.iron += 2;
+      next.compact.levy.salt += 2;
+      note(next, "Zeus knots the sky over the wagons. Four grain, two iron, and two salt arrive because he wears Carter's Knot.");
+    } else {
+      next.compact.levy.grain += 2;
+      note(next, "Bran knots the wool road. Two grain arrive on the wagons because he wears Carter's Knot.");
+    }
+    considerVictory(next);
+    return ok(next, read.who === "zeus" ? "The sky knot fills the wagons." : "The wool knot puts grain on the wagons.");
+  }
+  const exp = next.expedition;
+  const cut = read.who === "zeus" ? 2 : 1;
+  const soonest = next.day + 1;
+  exp.nextCallDay = Math.max(soonest, (exp.nextCallDay ?? soonest) - cut);
+  const line =
+    read.who === "zeus"
+      ? `Zeus knots the next call. The wagons return on day ${exp.nextCallDay}, because he wears Carter's Knot.`
+      : `Bran knots the next call. The wagons return on day ${exp.nextCallDay}, because he wears Carter's Knot.`;
+  note(next, line);
+  return ok(next, line);
+}
+
+/** Opens the Ford Bell's road meeting. */
+export function openBellRoad(state: GameState): Result {
+  return remembered(beginBellRoad(state));
 }
 
 export function stockSettlement(state: GameState, holdId: HoldId, kind: "bread" | "hearth", qty: number): Result {
