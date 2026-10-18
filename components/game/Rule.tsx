@@ -180,7 +180,12 @@ export function PeoplePanel({
             <DialogDescription>The law you set stays until you replace it.</DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-2">
-            {EDICTS.filter((edict) => edict.id !== "salt-road" || ownsRelic(state, "salt-charter") || ruling?.edict === "salt-road").map((edict) => {
+            {EDICTS.filter((edict) => {
+              if (ruling?.edict === edict.id) return true;
+              if (edict.id === "salt-road") return ownsRelic(state, "salt-charter");
+              if (edict.id === "counsel") return (state.campaign?.realmWorks ?? []).some((work) => work.id === "counsel");
+              return true;
+            }).map((edict) => {
               const standing = ruling?.edict === edict.id;
               return (
                 <Button

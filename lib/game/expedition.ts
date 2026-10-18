@@ -7,10 +7,15 @@ import { carryCap, carriedWeight, gearWeight, wornRelic } from "./world";
 export const EXPEDITION_GAP = 8;
 /** A cleared border path shortens that wait. */
 export const BORDER_SOONER = 2;
+/** The drivers' charter shortens that wait again. */
+export const CHARTER_SOONER = 2;
+/** Extra gold on every successful call once the drivers' charter stands. */
+export const CHARTER_PAY = 4;
 
 export function expeditionGap(state: GameState): number {
   let gap = EXPEDITION_GAP;
   if ((state.campaign?.realmWorks ?? []).some((work) => work.id === "border")) gap -= BORDER_SOONER;
+  if ((state.campaign?.realmWorks ?? []).some((work) => work.id === "charter")) gap -= CHARTER_SOONER;
   if (wornRelic(state, "carter-knot")) gap -= 3;
   gap -= heroCallSooner(state);
   return Math.max(4, gap);
@@ -90,6 +95,7 @@ export function blankPolitics(): Politics {
     conflictHeat: 0,
     rivalName: null,
     awaitingSeats: AWAITING_SEATS.map((seat) => ({ ...seat })),
+    sharedGoals: [],
   };
 }
 
@@ -167,10 +173,14 @@ export function normalizePolitics(value: Politics | undefined): Politics {
         .filter((seat) => seat && typeof seat.id === "string" && typeof seat.title === "string")
         .map((seat) => ({ id: seat.id.slice(0, 40), title: seat.title.slice(0, 40) }))
     : blank.awaitingSeats;
+  const sharedGoals = Array.isArray(value.sharedGoals)
+    ? [...new Set(value.sharedGoals.filter((id) => typeof id === "string" && id.trim()).map((id) => id.trim().slice(0, 40)))].slice(0, 12)
+    : [];
   return {
     conflictHeat: heat,
     rivalName,
     awaitingSeats: seats.length > 0 ? seats : blank.awaitingSeats,
+    sharedGoals,
   };
 }
 
@@ -298,6 +308,8 @@ export function allianceBoard(state: GameState): {
     state.works.shrine ||
     state.works.stake ||
     Object.values(state.campaign?.buildings ?? {}).some((level) => level > 0);
+  const stone =
+    (state.campaign?.realmWorks ?? []).some((work) => work.id === "oathstone") || (politics.sharedGoals ?? []).includes("oathstone");
   const goals: SharedGoalView[] = [
     {
       id: "oaths",
@@ -320,9 +332,22 @@ export function allianceBoard(state: GameState): {
       progress: raised ? 1 : 0,
       need: 1,
     },
+    {
+      id: "oath-stone",
+      title: "The oath stone",
+      detail: stone
+        ? "The stone is cut. Later alliance seats can read this shared goal."
+        : "A rare project under Hold. Two heroes must be fielded before it starts. When it stands, later seats can read it.",
+      progress: stone ? 1 : 0,
+      need: 1,
+    },
   ];
   return {
-    seats,
+    seats: seats.map((seat) =>
+      seat.id === "founder" && stone
+        ? { ...seat, note: "Your seat. The oath stone is cut, and a later player can read that shared goal." }
+        : seat,
+    ),
     goals,
     conflict: {
       title: politics.rivalName ? `${politics.rivalName} watches the marches` : "No rival compact yet",

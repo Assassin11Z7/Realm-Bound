@@ -1,5 +1,5 @@
 import { WYRM_NAME, holdById } from "./content";
-import { BORDER_SOONER } from "./expedition";
+import { BORDER_SOONER, CHARTER_SOONER } from "./expedition";
 import { rememberStance } from "./realm";
 import type {
   BuildingId,
@@ -20,7 +20,7 @@ import type {
   Threat,
 } from "./types";
 import { HOLD_IDS, REALM_PROJECT_IDS } from "./types";
-import { heroBorderSeal, heroBorderWarmth, heroProjectExtra, heroProjectLine, syncHeroTasks } from "./heroes";
+import { heroBorderSeal, heroBorderWarmth, heroProjectExtra, heroProjectLine, politicalRead, syncHeroTasks } from "./heroes";
 import { bumpQuest, carryCap, carriedWeight, companyGear, gearWeight, rewardScene, rollGear, worldRng } from "./world";
 
 export const SKILLS: Record<SkillId, { name: string; blurb: string }> = {
@@ -461,6 +461,12 @@ export function maybeThreat(state: GameState): string | null {
   return `${picked.title} stands on the road.`;
 }
 
+export const COMPACT_RECOVERY = 3;
+export const COMPACT_BOND = 10;
+export const OATH_RECOVERY = 1;
+export const CHARTER_HEAT = 8;
+export const CHARTER_COOL = 1;
+
 export const REALM_PROJECTS: {
   id: RealmProjectId;
   name: string;
@@ -470,6 +476,7 @@ export const REALM_PROJECTS: {
   qty: number;
   art: string;
   blurb: string;
+  politics?: boolean;
 }[] = [
   {
     id: "watchtower",
@@ -511,6 +518,50 @@ export const REALM_PROJECTS: {
     art: "/art/caravan.jpg",
     blurb: "Three dawns toward one sworn hold. That bond deepens, and the wagons return two dawns sooner.",
   },
+  {
+    id: "compact",
+    name: "Joint watch",
+    dawns: 4,
+    gold: 11,
+    good: "iron",
+    qty: 2,
+    art: "/art/hold-ashfold.jpg",
+    politics: true,
+    blurb: "Four dawns with one sworn hold. That bond recovers by 3 each dawn, and the joint watch may come to the hall.",
+  },
+  {
+    id: "counsel",
+    name: "Hall of counsel",
+    dawns: 3,
+    gold: 15,
+    good: "wool",
+    qty: 2,
+    art: "/art/hall.jpg",
+    politics: true,
+    blurb: "Three dawns. Influence can reach 80, and Hall counsel becomes a law.",
+  },
+  {
+    id: "charter",
+    name: "Drivers' charter",
+    dawns: 3,
+    gold: 12,
+    good: "salt",
+    qty: 2,
+    art: "/art/caravan.jpg",
+    politics: true,
+    blurb: "Three dawns. The wagons return 2 dawns sooner, a successful call pays 4 more gold, and conflict heat cools.",
+  },
+  {
+    id: "oathstone",
+    name: "Oath stone",
+    dawns: 5,
+    gold: 18,
+    good: "relics",
+    qty: 1,
+    art: "/art/antler.jpg",
+    politics: true,
+    blurb: "Five dawns. Sworn bonds recover by 1 each dawn, and later alliance seats can read the stone.",
+  },
 ];
 
 function isHold(value: unknown): value is HoldId {
@@ -527,7 +578,7 @@ function isRealmId(value: unknown): value is RealmProjectId {
 
 function legalRealmWork(value: Partial<RealmWork> | null | undefined): RealmWork | null {
   if (!value || !isRealmId(value.id)) return null;
-  if (value.id === "border") return isHold(value.holdId) ? { id: "border", holdId: value.holdId } : null;
+  if (value.id === "border" || value.id === "compact") return isHold(value.holdId) ? { id: value.id, holdId: value.holdId } : null;
   if (value.id === "bench") return isBench(value.bench) ? { id: "bench", bench: value.bench } : null;
   return { id: value.id };
 }
@@ -567,7 +618,11 @@ export function realmProjectArt(work: { id: RealmProjectId; bench?: RealmBench }
 export function realmLaborTitle(work: { id: RealmProjectId; holdId?: HoldId; bench?: RealmBench }): string {
   if (work.id === "bench") return work.bench === "loom" ? "The loom" : "The forge";
   if (work.id === "border" && work.holdId) return `Path to ${holdById(work.holdId).name}`;
+  if (work.id === "compact" && work.holdId) return `Joint watch with ${holdById(work.holdId).name}`;
   if (work.id === "hall") return "The hall";
+  if (work.id === "counsel") return "Hall of counsel";
+  if (work.id === "charter") return "Drivers' charter";
+  if (work.id === "oathstone") return "The oath stone";
   return "Watchtower";
 }
 
@@ -577,6 +632,10 @@ export function realmStanding(work: RealmWork): string {
   if (work.id === "bench" && work.bench === "loom") return "The loom can weave an ash cloak.";
   if (work.id === "bench") return "The forge can smith an ash staff. A worn smith piece adds 1 luck.";
   if (work.id === "border" && work.holdId) return `The path to ${holdById(work.holdId).name} stays clear.`;
+  if (work.id === "compact" && work.holdId) return `${holdById(work.holdId).name} recovers 3 loyalty each dawn. The joint watch may still come to the hall.`;
+  if (work.id === "counsel") return "Influence can reach 80. Hall counsel is a law you can set.";
+  if (work.id === "charter") return "The wagons return 2 dawns sooner, a successful call pays 4 more gold, and conflict heat cools by 1 each dawn.";
+  if (work.id === "oathstone") return "Sworn bonds recover 1 each dawn. Later alliance seats can read the oath stone.";
   return "The work stands.";
 }
 
@@ -594,7 +653,14 @@ export function realmProjectOpen(state: GameState): boolean {
   if (!hasRealmWork(state, "hall")) return true;
   if (!hasRealmWork(state, "bench", "forge")) return true;
   if (!hasRealmWork(state, "bench", "loom")) return true;
-  return state.compact.members.some((member) => member.inCompact && !hasRealmWork(state, "border", undefined, member.holdId));
+  if (!hasRealmWork(state, "counsel")) return true;
+  if (!hasRealmWork(state, "charter")) return true;
+  if (!hasRealmWork(state, "oathstone")) return true;
+  return state.compact.members.some(
+    (member) =>
+      member.inCompact &&
+      (!hasRealmWork(state, "border", undefined, member.holdId) || !hasRealmWork(state, "compact", undefined, member.holdId)),
+  );
 }
 
 export function realmProjectCost(state: GameState, id: RealmProjectId, bench?: RealmBench): { gold: number; good: GoodId; qty: number } {
@@ -605,7 +671,30 @@ export function realmProjectCost(state: GameState, id: RealmProjectId, bench?: R
   return { gold, good: spec.good, qty: spec.qty };
 }
 
+function rememberSharedGoal(state: GameState, id: string) {
+  if (!state.politics) return;
+  const goals = state.politics.sharedGoals ?? [];
+  if (goals.includes(id)) return;
+  state.politics.sharedGoals = [...goals, id];
+}
+
 function finishRealmLine(state: GameState, work: RealmWork): string {
+  if (work.id === "compact") {
+    const place = holdById(work.holdId ?? state.player.holdId);
+    const who = politicalRead(state, "compact")?.who ?? "A martial hero";
+    return `The joint watch with ${place.name} is sworn. ${who} stood the last dawn. That bond recovers by 3 each dawn, and the watch may come to the hall.`;
+  }
+  if (work.id === "counsel") {
+    const who = politicalRead(state, "counsel")?.who ?? "A leader";
+    return `The hall of counsel stands. ${who} closed the rite. Influence can reach 80, and Hall counsel is a law you can set.`;
+  }
+  if (work.id === "charter") {
+    const who = politicalRead(state, "charter")?.who ?? "A geared company";
+    return `The drivers' charter is sworn. ${who} closed it. The wagons return 2 dawns sooner, a successful call pays 4 more gold, and conflict heat cools.`;
+  }
+  if (work.id === "oathstone") {
+    return "The oath stone is cut. Sworn bonds recover by 1 each dawn, and later alliance seats can read this shared goal.";
+  }
   if (work.id === "watchtower") {
     return "The watchtower is raised. Walks find more on the road, and a relic is a little more likely.";
   }
@@ -630,6 +719,38 @@ function finishRealmLine(state: GameState, work: RealmWork): string {
 
 function applyRealmFinish(state: GameState, work: RealmWork): string {
   const camp = state.campaign;
+  if (work.id === "compact" && work.holdId) {
+    const place = holdById(work.holdId);
+    const member = state.compact.members.find((item) => item.holdId === work.holdId);
+    const who = politicalRead(state, "compact")?.who ?? "A martial hero";
+    if (member) {
+      member.contentment = Math.min(100, member.contentment + COMPACT_BOND);
+      member.lastNote = `${who} swore the joint watch. The bond with ${place.name} keeps recovering.`;
+    }
+    rememberSharedGoal(state, `compact:${work.holdId}`);
+  }
+  if (work.id === "counsel") rememberSharedGoal(state, "counsel");
+  if (work.id === "charter") {
+    rememberSharedGoal(state, "charter");
+    if (state.politics) state.politics.conflictHeat = Math.max(0, state.politics.conflictHeat - CHARTER_HEAT);
+    const exp = state.expedition;
+    if (exp?.phase === "idle" && typeof exp.nextCallDay === "number") {
+      exp.nextCallDay = Math.max(state.day + 1, exp.nextCallDay - CHARTER_SOONER);
+    }
+  }
+  if (work.id === "oathstone") {
+    rememberSharedGoal(state, "oathstone");
+    for (const member of state.compact.members) {
+      if (!member.inCompact) continue;
+      member.contentment = Math.min(100, member.contentment + 4);
+      member.lastNote = "The oath stone is cut. This bond will keep recovering.";
+    }
+  }
+  if (work.id === "compact" || work.id === "counsel" || work.id === "charter" || work.id === "oathstone") {
+    const line = finishRealmLine(state, work);
+    rememberStance(state, `politics:${work.id}:${work.holdId ?? "home"}`, realmLaborTitle(work), line);
+    return line;
+  }
   if (work.id === "bench" && work.bench && (camp.buildings[work.bench] ?? 0) < 1) {
     camp.buildings[work.bench] = 1;
   }
@@ -668,12 +789,34 @@ function advanceRealmLabor(state: GameState): string[] {
     if (!member) continue;
     member.contentment = Math.min(100, member.contentment + 2 + heroBorderWarmth(state));
   }
+  for (const work of camp.realmWorks ?? []) {
+    if (work.id !== "compact" || !work.holdId) continue;
+    const member = state.compact.members.find((item) => item.inCompact && item.holdId === work.holdId);
+    if (!member) continue;
+    member.contentment = Math.min(100, member.contentment + COMPACT_RECOVERY);
+  }
+  if ((camp.realmWorks ?? []).some((work) => work.id === "oathstone")) {
+    for (const member of state.compact.members) {
+      if (!member.inCompact) continue;
+      member.contentment = Math.min(100, member.contentment + OATH_RECOVERY);
+    }
+  }
+  if ((camp.realmWorks ?? []).some((work) => work.id === "charter") && state.politics && state.politics.conflictHeat > 0) {
+    state.politics.conflictHeat = Math.max(0, state.politics.conflictHeat - CHARTER_COOL);
+  }
   const labor = camp.realmLabor;
   if (!labor) return [];
   const extra = heroProjectExtra(state, labor);
   labor.spent += 1 + extra;
   const hurried = heroProjectLine(state, labor);
-  if (labor.spent < realmProjectDawns(labor.id)) return hurried ? [hurried] : [];
+  const dawns = realmProjectDawns(labor.id);
+  const ask = politicalRead(state, labor.id);
+  const closesOnHero = labor.id === "compact" || labor.id === "counsel" || labor.id === "charter";
+  if (labor.spent >= dawns && closesOnHero && ask && !ask.met) {
+    labor.spent = dawns - 1;
+    return [ask.wait];
+  }
+  if (labor.spent < dawns) return hurried ? [hurried] : [];
   const finished: RealmWork = { id: labor.id, holdId: labor.holdId, bench: labor.bench };
   camp.realmWorks = [...(camp.realmWorks ?? []), finished];
   camp.realmLabor = null;
@@ -699,12 +842,17 @@ export function startRealmProject(state: GameState, id: RealmProjectId, target?:
   if (camp.realmLabor) return fail(state, "A realm project is already rising. It finishes across several dawns.");
   let holdId: HoldId | undefined;
   let bench: RealmBench | undefined;
-  if (id === "border") {
+  if (id === "border" || id === "compact") {
     if (!isHold(target)) return fail(state, "Choose a sworn hold.");
     const member = state.compact.members.find((item) => item.holdId === target && item.inCompact);
     if (!member || target === state.player.holdId) return fail(state, "That hold is not sworn to you.");
-    if (hasRealmWork(state, "border", undefined, target)) return fail(state, "That path is already clear.");
+    if (hasRealmWork(state, id, undefined, target)) {
+      return fail(state, id === "compact" ? "That hold already shares the watch." : "That path is already clear.");
+    }
     holdId = target;
+  } else if (id === "oathstone") {
+    const read = politicalRead(state, "oathstone");
+    if (!read?.met) return fail(state, read?.line ?? "The oath stone needs two heroes on the road.");
   } else if (id === "bench") {
     if (!isBench(target)) return fail(state, "Choose the forge or the loom.");
     if (hasRealmWork(state, "bench", target)) return fail(state, target === "loom" ? "The loom is already expanded." : "The forge is already expanded.");
@@ -722,8 +870,15 @@ export function startRealmProject(state: GameState, id: RealmProjectId, target?:
   next.campaign.realmLabor = labor;
   const title = realmLaborTitle(labor);
   const dawns = realmProjectDawns(id);
-  note(next, `${title} is begun. It takes ${dawns} dawns. You paid ${cost.gold} gold and ${cost.qty} ${cost.good}.`);
-  return ok(next, `${title} will take ${dawns} dawns.`);
+  const read = politicalRead(next, id);
+  const need =
+    read && id !== "oathstone"
+      ? read.met
+        ? " The hero is ready for the last dawn."
+        : " It waits on the last dawn until the hero is ready."
+      : "";
+  note(next, `${title} is begun. It takes ${dawns} dawns. You paid ${cost.gold} gold and ${cost.qty} ${cost.good}.${need}`);
+  return ok(next, `${title} will take ${dawns} dawns.${need}`);
 }
 
 export function dismissRealmNotice(state: GameState): Result {

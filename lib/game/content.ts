@@ -420,7 +420,7 @@ export const RULES: { title: string; body: string }[] = [
   },
   {
     title: "Where things live",
-    body: "Realm holds the map, bonds, decrees, and the morning status. Hold holds people, loyalty, laws, works, projects, and benches. Heroes holds the roster, the company you send out, and the missions that unlock them. Neighbors holds oaths, trade, captain orders, and the seats kept for a later war. Road holds the walk, your bag, the armory, and loot.",
+    body: "Realm holds the map, bonds, decrees, and the morning status. Hold holds people, loyalty, laws, works, projects, and benches. Projects include politics: a joint watch, a hall of counsel, a drivers' charter, and an oath stone. Heroes holds the roster, the company you send out, and the missions that unlock them. Neighbors holds oaths, trade, captain orders, and the seats kept for a later war. Road holds the walk, your bag, the armory, and loot.",
   },
   {
     title: "Seal the day",

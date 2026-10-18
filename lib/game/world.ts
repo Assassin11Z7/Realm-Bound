@@ -294,13 +294,19 @@ export const WATCH_FIND_LUCK = 1;
 export const WATCH_RELIC_BIAS = 0.03;
 export const INFLUENCE_CAP = 40;
 export const INFLUENCE_HALL = 64;
+export const INFLUENCE_COUNSEL = 80;
 export const HALL_LOYALTY = 2;
 
 export function hallFunded(state: GameState): boolean {
   return (state.campaign?.realmWorks ?? []).some((work) => work.id === "hall");
 }
 
+export function counselStanding(state: GameState): boolean {
+  return (state.campaign?.realmWorks ?? []).some((work) => work.id === "counsel");
+}
+
 export function influenceCap(state: GameState): number {
+  if (counselStanding(state)) return INFLUENCE_COUNSEL;
   return hallFunded(state) ? INFLUENCE_HALL : INFLUENCE_CAP;
 }
 
