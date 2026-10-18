@@ -7,6 +7,7 @@ import {
   COMING_SOON,
   FIELD_CAP,
   HEROES,
+  activeRelicPairs,
   heroAbilities,
   heroEffectLine,
   heroPieceNote,
@@ -26,39 +27,23 @@ const RARITY_LABEL: Record<HeroRarity, string> = {
   divine: "Divine",
 };
 
-const RARITY_WASH: Record<HeroRarity, string> = {
-  common: "#3e5c49",
-  uncanny: "#3d4a62",
-  legendary: "#8d6b2e",
-  divine: "#6a3d78",
-};
-
-function HeroPortrait({ spec, locked, className = "h-24 w-20" }: { spec: HeroSpec; locked: boolean; className?: string }) {
-  const wash = RARITY_WASH[spec.rarity];
-  const stroke = locked ? "#1c1612" : spec.rarity === "divine" ? "#e6c56e" : "#1c1612";
-  const fill = locked ? "#d9d1c3" : wash;
-  const weight = locked ? 3.6 : 2.1;
+function HeroPortrait({ spec, locked, className = "w-20" }: { spec: HeroSpec; locked: boolean; className?: string }) {
   return (
-    <svg viewBox="0 0 80 96" className={`wm-portrait ${className}`} aria-hidden="true">
-      {!locked && <ellipse cx="40" cy="50" rx="32" ry="40" fill={wash} opacity="0.2" />}
-      <path d="M14 94 V60 Q40 42 66 60 V94 Z" fill={fill} stroke={stroke} strokeWidth={weight} />
-      <circle cx="40" cy="30" r="15" fill={fill} stroke={stroke} strokeWidth={weight} />
-      {spec.mark === "gate" && <path d="M27 18 h26 v7 h-26 z" fill="none" stroke={stroke} strokeWidth="2" />}
-      {spec.mark === "pike" && <path d="M40 6 v16 M36 10 h8" fill="none" stroke={stroke} strokeWidth="2" />}
-      {spec.mark === "wool" && <path d="M26 24 q14 -10 28 0" fill="none" stroke={stroke} strokeWidth="2" />}
-      {spec.mark === "hearth" && <path d="M34 36 h12 v6 h-12 z" fill="none" stroke={stroke} strokeWidth="2" />}
-      {spec.mark === "moth" && <path d="M22 28 q10 -14 18 0 q8 -14 18 0" fill="none" stroke={stroke} strokeWidth="2" />}
-      {spec.mark === "salt" && <path d="M32 14 h16 l-3 8 h-10 z" fill="none" stroke={stroke} strokeWidth="2" />}
-      {spec.mark === "lion" && <path d="M24 20 q16 -16 32 0 q-4 8 -16 6 q-12 2 -16 -6 z" fill="none" stroke={stroke} strokeWidth="2" />}
-      {spec.mark === "ship" && <path d="M30 70 h20 l-3 6 h-14 z M40 58 v12" fill="none" stroke={stroke} strokeWidth="2" />}
-      {spec.mark === "barrow" && <path d="M22 70 q18 -16 36 0" fill="none" stroke={stroke} strokeWidth="2" />}
-      {spec.mark === "maze" && <path d="M30 22 h14 v8 h-8 v6 h8" fill="none" stroke={stroke} strokeWidth="2" />}
-      {spec.mark === "owl" && (
-        <path d="M32 28 h5 v4 h-5 z M43 28 h5 v4 h-5 z M36 34 h8" fill="none" stroke={stroke} strokeWidth="2" />
-      )}
-      {spec.mark === "raven" && <path d="M48 24 q12 4 8 12 q-8 -2 -10 -8 z" fill="none" stroke={stroke} strokeWidth="2" />}
-      {spec.mark === "bolt" && <path d="M44 12 l-8 14 h6 l-4 12 12 -16 h-6 z" fill={locked ? "none" : "#e6c56e"} stroke={stroke} strokeWidth="1.6" />}
-    </svg>
+    <span className={`wm-portrait-well wm-rarity-${spec.rarity} ${locked ? "is-locked" : ""} ${className}`}>
+      <img
+        src={spec.portrait}
+        alt=""
+        className={`wm-portrait aspect-[3/4] ${locked ? "wm-portrait-ink" : ""}`}
+      />
+    </span>
+  );
+}
+
+function RarityMark({ rarity, quiet = false }: { rarity: HeroRarity; quiet?: boolean }) {
+  return (
+    <span className={`wm-rarity-badge ${quiet ? "is-quiet" : ""}`} data-rarity={rarity}>
+      {RARITY_LABEL[rarity]}
+    </span>
   );
 }
 
@@ -133,13 +118,14 @@ function Roster({ state, onOpen }: { state: GameState; onOpen: (id: HeroId, unlo
                     className={`flex h-full w-full flex-col items-center rounded-2xl px-2 py-4 text-center ${unlocked ? "wm-hero-live" : "wm-hero-locked"}`}
                   >
                     <HeroPortrait spec={spec} locked={!unlocked} />
-                    <p className={`mt-1.5 text-sm font-medium ${unlocked ? "" : "tracking-wide text-[#1c1612]"}`}>{spec.name}</p>
-                    <p
-                      className="text-[10px] tracking-wide uppercase"
-                      style={{ color: unlocked ? RARITY_WASH[spec.rarity] : "#5c5146" }}
-                    >
-                      {RARITY_LABEL[spec.rarity]}
-                      {record?.fielded ? " · out" : unlocked ? " · at the hold" : " · outline"}
+                    <p className={`wm-rarity-name mt-1.5 text-sm font-medium ${unlocked ? "" : "tracking-wide"}`} data-rarity={unlocked ? spec.rarity : undefined}>
+                      {spec.name}
+                    </p>
+                    <p className="mt-1 flex flex-col items-center gap-1">
+                      <RarityMark rarity={spec.rarity} quiet={!unlocked} />
+                      <span className="text-[10px] tracking-wide text-[#5c5146] uppercase">
+                        {record?.fielded ? "out" : unlocked ? "at the hold" : "outline"}
+                      </span>
                     </p>
                     {!unlocked && now && (
                       <p className="mt-1 line-clamp-3 text-[11px] leading-snug text-muted-foreground">
@@ -160,8 +146,8 @@ function Roster({ state, onOpen }: { state: GameState; onOpen: (id: HeroId, unlo
           {COMING_SOON.map((slot) => (
             <li key={slot.id} data-coming-soon={slot.id} className="wm-soon flex flex-col items-center rounded-2xl px-3 py-5 text-center">
               <p className="text-[10px] tracking-[0.2em] text-[#8d6b2e] uppercase">Reserved</p>
-              <div className="my-3 grid size-16 place-items-center rounded-full border border-dashed border-[#1c1612]/45 bg-[#fbf6ec]/70">
-                <span className="font-display text-2xl leading-none text-[#8d6b2e]">—</span>
+              <div className="wm-soon-frame my-3 w-20">
+                <img src="/art/heroes/reserved.jpg" alt="" className="wm-portrait wm-portrait-soon aspect-[3/4]" />
               </div>
               <p className="font-display text-lg leading-none">Coming Soon</p>
               <p className="mt-2 text-[11px] leading-snug text-muted-foreground">{slot.line}</p>
@@ -185,6 +171,7 @@ function Company({
   onFocus: (id: HeroId) => void;
 }) {
   const unlocked = HEROES.filter((hero) => (state.heroes ?? []).some((record) => record.id === hero.id && record.unlocked));
+  const pairs = activeRelicPairs(state);
   const spec = heroSpec(focus);
   const record = (state.heroes ?? []).find((hero) => hero.id === focus);
   const ready = Boolean(record?.unlocked);
@@ -203,15 +190,20 @@ function Company({
         {unlocked.map((hero) => {
           const row = (state.heroes ?? []).find((item) => item.id === hero.id);
           const active = hero.id === focus;
+          const paired = pairs.some((pair) => pair.id.startsWith(`${hero.id}:`));
           return (
             <button
               key={hero.id}
               type="button"
               onClick={() => onFocus(hero.id)}
-              className={`shrink-0 rounded-full px-3 py-1.5 text-xs ${active ? "bg-[#1c1612] text-[#f4ead7]" : "text-muted-foreground ring-1 ring-border"}`}
+              data-rarity={hero.rarity}
+              data-paired={paired ? "yes" : "no"}
+              className={`wm-hero-chip wm-rarity-${hero.rarity} shrink-0 rounded-full px-3 py-1.5 text-xs ${active ? "is-active" : "text-muted-foreground"}`}
             >
+              <span className="wm-rarity-dot" aria-hidden="true" />
               {hero.name}
               {row?.fielded ? " · out" : ""}
+              {paired ? " · paired" : ""}
             </button>
           );
         })}
@@ -220,15 +212,25 @@ function Company({
       {ready && record && (
         <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10" data-hero-sheet={spec.id}>
           <div className="flex gap-3">
-            <HeroPortrait spec={spec} locked={false} className="h-28 w-24 shrink-0" />
+            <HeroPortrait spec={spec} locked={false} className="w-24 shrink-0" />
             <div className="min-w-0">
-              <p className="text-[11px] tracking-[0.16em] text-[#8d6b2e] uppercase">
-                {RARITY_LABEL[spec.rarity]} · {spec.epithet}
+              <p className="flex flex-wrap items-center gap-2">
+                <RarityMark rarity={spec.rarity} />
+                <span className="text-[11px] tracking-[0.16em] text-[#8d6b2e] uppercase">{spec.epithet}</span>
               </p>
-              <p className="font-display text-2xl leading-none">{spec.name}</p>
+              <p className="wm-rarity-name mt-1 font-display text-2xl leading-none" data-rarity={spec.rarity}>
+                {spec.name}
+              </p>
               <p className="mt-2 text-sm leading-relaxed">{spec.blurb}</p>
             </div>
           </div>
+          {pairs
+            .filter((pair) => pair.id.startsWith(`${spec.id}:`))
+            .map((pair) => (
+              <p key={pair.id} className="wm-pair mt-3 text-sm leading-relaxed" data-relic-pair={pair.id}>
+                Relic paired. {pair.hero} wears the {pair.relic}. {pair.opens}
+              </p>
+            ))}
           <p className="mt-3 text-sm leading-relaxed text-[#3d4a62]">{heroEffectLine(spec)}</p>
           <div className="mt-4">
             <p className="text-[11px] tracking-[0.16em] text-[#8d6b2e] uppercase">Abilities</p>
@@ -313,9 +315,10 @@ function Company({
           </div>
           <div className="mt-3">
             {worn ? (
-              <Piece
+                <Piece
                 gear={worn}
                 action="Take off"
+                paired={pairs.some((pair) => pair.id.endsWith(`:${worn.relic}`))}
                 note={heroPieceNote(state, spec.id, worn)}
                 onAction={() => act(unequipFromHero(state, spec.id, slot))}
               />
@@ -332,6 +335,7 @@ function Company({
                   <Piece
                     gear={gear}
                     action={holderName ? `Take from ${holderName}` : "Equip"}
+                    paired={pairs.some((pair) => pair.id.endsWith(`:${gear.relic}`))}
                     note={heroPieceNote(state, spec.id, gear)}
                     onAction={() => act(equipOnHero(state, spec.id, gear.id))}
                   />
@@ -347,19 +351,34 @@ function Company({
   );
 }
 
-function Piece({ gear, action, note, onAction }: { gear: Gear; action: string; note?: string | null; onAction: () => void }) {
+function Piece({
+  gear,
+  action,
+  note,
+  paired = false,
+  onAction,
+}: {
+  gear: Gear;
+  action: string;
+  note?: string | null;
+  paired?: boolean;
+  onAction: () => void;
+}) {
   const unique = Boolean(gear.relic);
   const live = Boolean(note?.startsWith("Synergy active"));
   const equipping = action === "Equip" || action.startsWith("Take from ");
   return (
-    <div className={`flex items-start gap-3 rounded-xl px-3 py-3 ${unique ? `wm-relic ${live ? "wm-relic-live" : ""}` : "bg-background"}`}>
+    <div
+      className={`wm-gear flex items-start gap-3 px-3 py-3 ${unique ? "wm-relic" : ""} ${paired ? "wm-relic-live" : ""}`}
+      data-rarity={gear.rarity}
+      data-paired={paired ? "yes" : "no"}
+    >
       <div className="min-w-0 flex-1">
-        <p className={`text-sm font-medium ${unique ? "text-[#6a4a12]" : ""}`}>
-          {gear.name}
-        </p>
+        <p className={`text-sm font-medium ${unique ? "text-[#6a4a12]" : ""}`}>{gear.name}</p>
         <div className="mt-1 flex flex-wrap gap-1.5">
-          {unique ? <span className="rounded-full bg-[#8d6b2e] px-2 py-0.5 text-[10px] tracking-wide text-[#f4ead7] uppercase">Unique relic</span> : null}
-          {live ? <span className="rounded-full bg-[#7c2a24] px-2 py-0.5 text-[10px] tracking-wide text-[#f4ead7] uppercase">Unlock live</span> : null}
+          {unique ? <span className="wm-relic-badge">Unique relic</span> : <span className="wm-rarity-badge" data-rarity={gear.rarity}>{gear.rarity}</span>}
+          {paired ? <span className="rounded-full bg-[#7c2a24] px-2 py-0.5 text-[10px] tracking-wide text-[#f4ead7] uppercase">Unlock live</span> : null}
+          {!paired && live ? <span className="rounded-full bg-[#e6c56e] px-2 py-0.5 text-[10px] tracking-wide text-[#1c1612] uppercase">Synergy live</span> : null}
         </div>
         <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{traitText(gear)}</p>
         {note ? <p className="mt-1.5 text-xs leading-relaxed text-[#6a4a12]">{note}</p> : null}
@@ -391,7 +410,9 @@ function Missions({ state, focus }: { state: GameState; focus: HeroId }) {
               <li key={task.id} data-mission={task.id}>
                 <p className="text-sm font-medium">
                   {spec.name}
-                  <span className="ml-2 text-[10px] tracking-wide text-muted-foreground uppercase">{RARITY_LABEL[spec.rarity]}</span>
+                  <span className="ml-2 align-middle">
+                    <RarityMark rarity={spec.rarity} />
+                  </span>
                 </p>
                 <p className="text-sm">{task.title}</p>
                 <p className="text-xs text-muted-foreground">

@@ -575,7 +575,7 @@ export function openingScene(name: string, holdName: string): Cutscene {
       {
         speaker: WYRM_NAME,
         line: "Twelve dawns. The wagons are called. Feed them, or I come down that road myself. Then the valley is yours again, until I call.",
-        art: "/art/wyrm-vell.jpg",
+        art: "/art/creature-vell.jpg",
       },
       {
         speaker: name,
@@ -656,7 +656,7 @@ export function roadFind(seed: number, day: number, miles: number, dest: HoldId,
         index: 0,
         beats: [
           { speaker: WYRM_NAME, line: ire < 0 ? "Not today." : "I see the track you took.", art: "/art/wyrm-wing.jpg" },
-          { speaker: "The road", line: ire < 0 ? "The snow goes quiet." : "The gold eye stays open a little longer.", art: "/art/wyrm-vell.jpg" },
+          { speaker: "The road", line: ire < 0 ? "The snow goes quiet." : "The gold eye stays open a little longer.", art: "/art/creature-vell.jpg" },
         ],
       },
     };

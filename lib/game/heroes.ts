@@ -16,7 +16,9 @@ export interface HeroSpec {
   ford: number;
   /** Gold when a wagon call succeeds, while fielded and wearing gear. */
   wagon: number;
-  /** Silhouette treatment. */
+  /** Painterly portrait in `public/art/heroes`. Locked heroes reuse the same image as an ink outline. */
+  portrait: string;
+  /** Older silhouette mark, kept beside the portrait. */
   mark: "gate" | "pike" | "wool" | "hearth" | "moth" | "salt" | "lion" | "ship" | "barrow" | "maze" | "owl" | "raven" | "bolt";
 }
 
@@ -30,6 +32,7 @@ export const HEROES: HeroSpec[] = [
     road: 1,
     ford: 0,
     wagon: 0,
+    portrait: "/art/heroes/sela.jpg",
     mark: "gate",
   },
   {
@@ -41,6 +44,7 @@ export const HEROES: HeroSpec[] = [
     road: 1,
     ford: 1,
     wagon: 0,
+    portrait: "/art/heroes/tam.jpg",
     mark: "pike",
   },
   {
@@ -52,6 +56,7 @@ export const HEROES: HeroSpec[] = [
     road: 0,
     ford: 0,
     wagon: 1,
+    portrait: "/art/heroes/bran.jpg",
     mark: "wool",
   },
   {
@@ -63,6 +68,7 @@ export const HEROES: HeroSpec[] = [
     road: 1,
     ford: 0,
     wagon: 0,
+    portrait: "/art/heroes/dorrie.jpg",
     mark: "hearth",
   },
   {
@@ -74,6 +80,7 @@ export const HEROES: HeroSpec[] = [
     road: 2,
     ford: 1,
     wagon: 0,
+    portrait: "/art/heroes/moth.jpg",
     mark: "moth",
   },
   {
@@ -85,6 +92,7 @@ export const HEROES: HeroSpec[] = [
     road: 1,
     ford: 1,
     wagon: 1,
+    portrait: "/art/heroes/ivy.jpg",
     mark: "salt",
   },
   {
@@ -96,6 +104,7 @@ export const HEROES: HeroSpec[] = [
     road: 1,
     ford: 2,
     wagon: 2,
+    portrait: "/art/heroes/heracles.jpg",
     mark: "lion",
   },
   {
@@ -107,6 +116,7 @@ export const HEROES: HeroSpec[] = [
     road: 3,
     ford: 1,
     wagon: 1,
+    portrait: "/art/heroes/odysseus.jpg",
     mark: "ship",
   },
   {
@@ -118,6 +128,7 @@ export const HEROES: HeroSpec[] = [
     road: 1,
     ford: 3,
     wagon: 1,
+    portrait: "/art/heroes/beowulf.jpg",
     mark: "barrow",
   },
   {
@@ -129,6 +140,7 @@ export const HEROES: HeroSpec[] = [
     road: 2,
     ford: 2,
     wagon: 1,
+    portrait: "/art/heroes/theseus.jpg",
     mark: "maze",
   },
   {
@@ -140,6 +152,7 @@ export const HEROES: HeroSpec[] = [
     road: 2,
     ford: 2,
     wagon: 3,
+    portrait: "/art/heroes/athena.jpg",
     mark: "owl",
   },
   {
@@ -151,6 +164,7 @@ export const HEROES: HeroSpec[] = [
     road: 3,
     ford: 3,
     wagon: 2,
+    portrait: "/art/heroes/odin.jpg",
     mark: "raven",
   },
   {
@@ -162,6 +176,7 @@ export const HEROES: HeroSpec[] = [
     road: 2,
     ford: 2,
     wagon: 4,
+    portrait: "/art/heroes/zeus.jpg",
     mark: "bolt",
   },
 ];

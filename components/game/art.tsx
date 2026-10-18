@@ -33,11 +33,27 @@ export const OMEN_ART: Record<OmenArt, string> = {
   wing: "/art/wyrm-wing.jpg",
   antler: "/art/antler.jpg",
   serpent: "/art/serpent.jpg",
-  speaks: "/art/wyrm-speaks.jpg",
+  speaks: "/art/creature-vell.jpg",
   road: "/art/caravan.jpg",
   weather: "/art/title-valley.jpg",
   saint: "/art/hold-vesper.jpg",
   kin: "/art/portrait-nell.jpg",
+};
+
+/** Vell, shown wherever the frost dragon is a portrait rather than a wide omen. */
+export const VELL_ART = "/art/creature-vell.jpg";
+
+/** Set-out sequence beats: fork, meeting, last mile. */
+export const ROAD_ART = {
+  fork: "/art/road-fork.jpg",
+  meeting: "/art/road-meeting.jpg",
+  last: "/art/road-last-mile.jpg",
+} as const;
+
+export const ROAD_BEAT_LABEL: Record<keyof typeof ROAD_ART, string> = {
+  fork: "The fork",
+  meeting: "On the road",
+  last: "Last mile",
 };
 
 export function GoodThumb({ good, className = "size-10" }: { good: GoodId; className?: string }) {
