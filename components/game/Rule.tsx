@@ -12,8 +12,7 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { holdById } from "@/lib/game/content";
 import { chooseCrossing, choosePetition, dismissCrossing, setEdict, stockSettlement } from "@/lib/game/engine";
-import { EDICTS, modsBlurb, shownPetition } from "@/lib/game/realm";
-import { ownsRelic } from "@/lib/game/world";
+import { EDICTS, edictAvailable, modsBlurb, shownCrossing, shownPetition } from "@/lib/game/realm";
 import type { EdictId, GameState, HoldId, Result } from "@/lib/game/types";
 import { useFrame } from "./frame";
 
@@ -94,6 +93,11 @@ export function PetitionCard({ state, act }: { state: GameState; act: (result: R
           >
             <span>{choice.label}</span>
             <span className="text-xs font-normal opacity-80">{choice.aside ? `Now. ${choice.detail}` : choice.detail}</span>
+            {choice.because && (
+              <span className="text-xs font-normal text-[#8d6b2e]" data-because={choice.id}>
+                {choice.because}
+              </span>
+            )}
             {choice.aside && (
               <span className="text-xs font-normal text-[#3d4a62]">
                 {choice.branch === "alt" ? "The other outcomes. " : "The other outcome. "}
@@ -180,13 +184,14 @@ export function PeoplePanel({
             <DialogDescription>The law you set stays until you replace it.</DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-2">
-            {EDICTS.filter((edict) => edict.id !== "salt-road" || ownsRelic(state, "salt-charter") || ruling?.edict === "salt-road").map((edict) => {
+            {EDICTS.filter((edict) => edictAvailable(state, edict.id) || ruling?.edict === edict.id).map((edict) => {
               const standing = ruling?.edict === edict.id;
               return (
                 <Button
                   key={edict.id}
                   type="button"
                   variant={standing ? "secondary" : "outline"}
+                  data-edict={edict.id}
                   className="h-auto min-h-11 flex-col items-start gap-0.5 py-2 text-left whitespace-normal"
                   disabled={standing}
                   onClick={() => {
@@ -197,6 +202,11 @@ export function PeoplePanel({
                 >
                   <span>{standing ? `${edict.name} · standing` : edict.name}</span>
                   <span className="text-xs font-normal opacity-80">{edict.detail}</span>
+                  {edict.because && (
+                    <span className="text-xs font-normal text-[#8d6b2e]" data-because={edict.id}>
+                      {edict.because}
+                    </span>
+                  )}
                 </Button>
               );
             })}
@@ -209,7 +219,7 @@ export function PeoplePanel({
 
 export function CrossingDialog({ state, act }: { state: GameState; act: (result: Result) => void }) {
   const frame = useFrame();
-  const crossing = state.omen ? null : state.crossing;
+  const crossing = shownCrossing(state);
   return (
     <Dialog
       open={Boolean(crossing)}
@@ -246,6 +256,11 @@ export function CrossingDialog({ state, act }: { state: GameState; act: (result:
                   >
                     <span>{choice.gamble ? `Roll · ${choice.label}` : choice.label}</span>
                     <span className="text-xs font-normal opacity-80">{choice.aside ? `Now. ${choice.detail}` : choice.detail}</span>
+                    {choice.because && (
+                      <span className="text-xs font-normal text-[#8d6b2e]" data-because={choice.id}>
+                        {choice.because}
+                      </span>
+                    )}
                     {choice.aside && (
                       <span className="text-xs font-normal text-[#3d4a62]">
                         {choice.branch === "alt" ? "The other outcomes. " : "The other outcome. "}

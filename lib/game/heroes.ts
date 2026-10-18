@@ -1,6 +1,6 @@
 import type { GameState, Gear, HeroId, HeroRarity, HeroRecord, HeroTask, HeroTaskKind, RelicId, Result, WornSlot } from "./types";
 import { HERO_IDS } from "./types";
-import { WORN_SLOTS, isHuntGear, isSmithGear, worldRng } from "./world";
+import { WORN_SLOTS, gainRenown, isHuntGear, isSmithGear, relicSpec, worldRng } from "./world";
 
 export const FIELD_CAP = 3;
 
@@ -184,6 +184,8 @@ export interface HeroSynergy {
   relic?: RelicId;
   name: string;
   text: string;
+  /** A choice, law, or road event this pairing opens. Numeric text stays on `text`. */
+  unlock?: string;
 }
 
 const ABILITIES: Record<HeroId, HeroAbility[]> = {
@@ -300,6 +302,13 @@ const SYNERGIES: Record<HeroId, HeroSynergy[]> = {
       name: "Wool purse",
       text: "A coin piece on Bran. The call comes 1 dawn sooner again, and a successful call pays 2 more gold.",
     },
+    {
+      affinity: "relic",
+      relic: "carter-knot",
+      name: "Knot on the wool road",
+      text: "Carter's Knot on Bran. The wool road remembers the drivers.",
+      unlock: "Once, while he is out and wearing it, two grain arrive on an open call, or the next call comes one dawn sooner.",
+    },
   ],
   dorrie: [
     {
@@ -331,6 +340,7 @@ const SYNERGIES: Record<HeroId, HeroSynergy[]> = {
       relic: "salt-charter",
       name: "Charter runner",
       text: "The Salt Charter on Ivy. While she wears it, the law Salt the road does not raise Vell's anger.",
+      unlock: "She opens Brine the fords, a stronger salt law, and the Salt Widow will teach it.",
     },
   ],
   heracles: [
@@ -344,6 +354,7 @@ const SYNERGIES: Record<HeroId, HeroSynergy[]> = {
       relic: "unspoken-hem",
       name: "Hem of the labor",
       text: "The Unspoken Hem on Heracles. The bargain costs 2 less again.",
+      unlock: "The old woman at the ford offers a labor that takes no gold.",
     },
   ],
   odysseus: [
@@ -357,6 +368,7 @@ const SYNERGIES: Record<HeroId, HeroSynergy[]> = {
       relic: "ford-bell",
       name: "Bell on the long road",
       text: "The Ford Bell in Odysseus' hand. Walks teach 2 more, and a unique relic is more likely again.",
+      unlock: "The bell can call a rare hero to the road. Legendary and divine names answer it first.",
     },
   ],
   beowulf: [
@@ -370,6 +382,7 @@ const SYNERGIES: Record<HeroId, HeroSynergy[]> = {
       relic: "barrow-band",
       name: "Band in the barrow",
       text: "The Barrow Band on Beowulf. The creature grants 1 more renown, and the band cools a sworn bond by 2 instead of 4.",
+      unlock: "A border quarrel can be named into the barrow watch, a decree that stops the band from cooling a sworn bond.",
     },
   ],
   theseus: [
@@ -414,6 +427,7 @@ const SYNERGIES: Record<HeroId, HeroSynergy[]> = {
       relic: "carter-knot",
       name: "Knot under the sky",
       text: "Carter's Knot on Zeus. A successful call pays 4 more gold, and the next call comes 1 dawn sooner.",
+      unlock: "Once, while he is out and wearing it, four grain, two iron, and two salt arrive on an open call, or the next call comes two dawns sooner.",
     },
   ],
 };
@@ -805,6 +819,11 @@ function kitHas(kit: FieldKit, affinity: GearAffinity, relic?: RelicId): boolean
   return kit.gear.some((gear) => gearMatches(gear, { affinity, relic, name: "", text: "" }));
 }
 
+/** A fielded, geared hero is wearing this unique relic. */
+export function heroWearsRelic(state: GameState, heroId: HeroId, relic: RelicId): boolean {
+  return fieldKits(state).some((kit) => kit.id === heroId && kitHas(kit, "relic", relic));
+}
+
 function wornBy(state: GameState, hero: HeroRecord | undefined): Gear[] {
   if (!hero) return [];
   const gear: Gear[] = [];
@@ -993,8 +1012,10 @@ export function heroIreEase(state: GameState): number {
   return Math.min(IRE_EASE_CAP, sum);
 }
 
-/** How far the Barrow Band cools the warmest sworn bond. Beowulf softens it. */
+/** How far the Barrow Band cools the warmest sworn bond. Beowulf softens it. The barrow watch stops it. */
 export function heroBandCool(state: GameState): number {
+  const home = (state.settlements ?? []).find((item) => item.holdId === state.player.holdId);
+  if (home?.edict === "barrow-watch") return 0;
   const beowulf = fieldKits(state).find((kit) => kit.id === "beowulf");
   return beowulf && kitHas(beowulf, "relic", "barrow-band") ? 2 : 4;
 }
@@ -1013,6 +1034,7 @@ export interface SynergyRead {
   name: string;
   text: string;
   state: SynergyState;
+  unlock?: string;
 }
 
 export function heroSynergyRead(state: GameState, heroId: HeroId): SynergyRead[] {
@@ -1022,8 +1044,128 @@ export function heroSynergyRead(state: GameState, heroId: HeroId): SynergyRead[]
   return heroSynergies(heroId).map((synergy) => {
     const matched = worn.some((gear) => gearMatches(gear, synergy));
     const status: SynergyState = matched && fielded ? "active" : matched ? "ready" : "open";
-    return { name: synergy.name, text: synergy.text, state: status };
+    return { name: synergy.name, text: synergy.text, state: status, unlock: synergy.unlock };
   });
+}
+
+export interface RelicPairRead {
+  id: string;
+  hero: string;
+  relic: string;
+  opens: string;
+}
+
+/** Relic and hero pairs that are out on the road and opening a choice. */
+export function activeRelicPairs(state: GameState): RelicPairRead[] {
+  const rows: RelicPairRead[] = [];
+  for (const hero of state.heroes ?? []) {
+    if (!hero.unlocked) continue;
+    for (const synergy of heroSynergies(hero.id)) {
+      if (!synergy.unlock || !synergy.relic || !heroWearsRelic(state, hero.id, synergy.relic)) continue;
+      rows.push({
+        id: `${hero.id}:${synergy.relic}`,
+        hero: heroSpec(hero.id).name,
+        relic: relicSpec(synergy.relic)?.name ?? synergy.relic,
+        opens: synergy.unlock,
+      });
+    }
+  }
+  return rows;
+}
+
+export const KNOT_ACT = "carter-knot";
+
+export interface KnotCallRead {
+  who: "zeus" | "bran";
+  spent: boolean;
+  title: string;
+  detail: string;
+  because: string;
+}
+
+/** The one-time wagon choice Carter's Knot opens on Zeus, or the smaller one on Bran. */
+export function knotCallRead(state: GameState): KnotCallRead | null {
+  const zeus = heroWearsRelic(state, "zeus", "carter-knot");
+  const bran = !zeus && heroWearsRelic(state, "bran", "carter-knot");
+  if (!zeus && !bran) return null;
+  const called = (state.expedition?.phase ?? "called") === "called";
+  const spent = (state.relicActs ?? []).includes(KNOT_ACT);
+  if (zeus) {
+    return {
+      who: "zeus",
+      spent,
+      title: called ? "Knot the sky call" : "Bring the next call sooner",
+      detail: called
+        ? "Once. Four grain, two iron, and two salt arrive on the wagons."
+        : "Once. The next call of the wagons comes two dawns sooner.",
+      because: "Open because Zeus wears Carter's Knot.",
+    };
+  }
+  return {
+    who: "bran",
+    spent,
+    title: called ? "Knot the wool wagons" : "Bring the next call sooner",
+    detail: called ? "Once. Two grain arrive on the wagons." : "Once. The next call of the wagons comes one dawn sooner.",
+    because: "Open because Bran wears Carter's Knot.",
+  };
+}
+
+export interface BellRoadRead {
+  open: boolean;
+  heard: boolean;
+  because: string;
+  detail: string;
+}
+
+/** The Ford Bell road event, while Odysseus is out and wearing it. */
+export function bellRoadRead(state: GameState): BellRoadRead | null {
+  if (!heroWearsRelic(state, "odysseus", "ford-bell")) return null;
+  const heard = (state.creaturesSeen ?? []).includes("bell-road");
+  return {
+    open: !heard,
+    heard,
+    because: "Open because Odysseus wears the Ford Bell.",
+    detail: heard
+      ? "The bell has already called someone to this road."
+      : "A traveler who was not coming will meet you. Legendary and divine names answer it first.",
+  };
+}
+
+/** The Ford Bell calls the rarest hero still off the banner. */
+export function meetByBell(state: GameState): string {
+  const locked = (state.heroes ?? []).filter((hero) => !hero.unlocked);
+  if (locked.length === 0) {
+    gainRenown(state, 3);
+    return "The Ford Bell rang, and no one unanswered was left on the road. Renown rises by 3. This was open because Odysseus wears the Ford Bell.";
+  }
+  const roll = worldRng(((state.seed ?? 0) ^ Math.imul((state.day ?? 1) + 211, 0x9e3779b1)) >>> 0);
+  const weights = locked.map((hero) => {
+    const rarity = heroSpec(hero.id).rarity;
+    if (rarity === "divine") return 5;
+    if (rarity === "legendary") return 8;
+    if (rarity === "uncanny") return 2;
+    return 1;
+  });
+  let total = 0;
+  for (const weight of weights) total += weight;
+  let pick = Math.floor(roll() * total);
+  let chosen = locked[0];
+  for (let index = 0; index < locked.length; index += 1) {
+    pick -= weights[index];
+    if (pick < 0) {
+      chosen = locked[index];
+      break;
+    }
+  }
+  const spec = heroSpec(chosen.id);
+  chosen.unlocked = true;
+  for (const task of state.heroTasks ?? []) {
+    if (task.heroId !== chosen.id) continue;
+    task.progress = task.need;
+    task.status = "claimed";
+  }
+  const rare = spec.rarity === "legendary" || spec.rarity === "divine";
+  return `${spec.name} answers the Ford Bell.${rare ? " Such a meeting is rare." : ""} This road was open because Odysseus wears the Ford Bell.`;
 }
 
 export function heroPieceNote(state: GameState, heroId: HeroId, gear: Gear): string | null {
@@ -1046,7 +1188,8 @@ export function gearHeroNotes(state: GameState, gear: Gear): string[] {
     const hits = heroSynergies(spec.id).filter((synergy) => gearMatches(gear, synergy));
     for (const hit of hits) {
       const where = record.fielded ? "out" : "at the hold";
-      notes.push(`${spec.name} (${where}) — ${hit.name}. ${hit.text}`);
+      const opens = hit.unlock ? ` ${hit.unlock}` : "";
+      notes.push(`${spec.name} (${where}) — ${hit.name}. ${hit.text}${opens}`);
     }
   }
   return notes;
