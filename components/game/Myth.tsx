@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { MILL_COST, SHRINE_COST, STAKE_COST, WYRM_NAME, holdById } from "@/lib/game/content";
 import { chooseOmen, dismissOmen, fulfillOath, offerTribute, raiseMill, raiseShrine, raiseStake } from "@/lib/game/engine";
 import type { GameState, Result } from "@/lib/game/types";
-import { OMEN_ART } from "./art";
+import { OMEN_ART, VELL_ART } from "./art";
 import { Stat } from "./stat";
 import { useFrame } from "./frame";
 import {
@@ -22,7 +22,7 @@ export function WyrmCard({ state, act }: { state: GameState; act: (result: Resul
   return (
     <div className="overflow-hidden rounded-2xl bg-[#1c2430] text-[#f4ead7] ring-1 ring-[#e6c56e]/30">
       <div className="relative h-40">
-        <img src="/art/wyrm-vell.jpg" alt="" className="h-full w-full object-cover object-[center_20%]" />
+        <img src={VELL_ART} alt="" className="h-full w-full object-cover object-[center_20%]" />
         <div className="absolute inset-0 bg-gradient-to-t from-[#1c2430] via-[#1c2430]/20 to-transparent" />
         <div className="absolute right-3 bottom-3 left-3">
           <p className="text-[11px] tracking-[0.2em] uppercase text-[#e6c56e]">Frost dragon</p>

@@ -126,7 +126,7 @@ const CREATURES: CreatureDef[] = [
     creature: "The lantern deer",
     title: "A light at the tree-line",
     body: "A white deer stands where the road meets the wood, a lantern caught in its antlers. It is not the tall deer of the wood, and it is not Vell. Follow it, hunt it, or let the light go on.",
-    art: "/art/antler.jpg",
+    art: "/art/creature-lantern-deer.jpg",
     disposition: "kind",
     choices: [
       {
@@ -170,7 +170,7 @@ const CREATURES: CreatureDef[] = [
     creature: "The mill woman",
     title: "A woman in the river",
     body: "A woman stands in the river up to her knees, flour on her sleeves, and asks to be housed or fed. She is older than the mill.",
-    art: "/art/nix.jpg",
+    art: "/art/creature-mill-woman.jpg",
     disposition: "kind",
     choices: [
       {
@@ -508,7 +508,7 @@ const CREATURES: CreatureDef[] = [
     creature: "The old woman at the ford",
     title: "A hand on the ford",
     body: "An old woman sits the ford and counts the living who cross. She will take gold, curse a refusal, or be tricked if the bones favor you. She is not Vell. She writes to things that are.",
-    art: "/art/portrait-nell.jpg",
+    art: "/art/creature-ford-woman.jpg",
     disposition: "grim",
     choices: [
       {
@@ -574,7 +574,7 @@ const CREATURES: CreatureDef[] = [
     creature: "The grave hound",
     title: "Something at the mounds",
     body: "A hound the size of a pony scratches at a grave-mound door. Feed it, kennel it at the gate, or hunt it and let the bones decide. It does not answer to Vell.",
-    art: "/art/drake-mine.jpg",
+    art: "/art/creature-grave-hound.jpg",
     disposition: "grim",
     choices: [
       {
