@@ -187,7 +187,7 @@ const INTRO: Record<string, { eyebrow: string; title: string; lede: string }> = 
   missions: {
     eyebrow: "Heroes",
     title: "Missions",
-    lede: "Ordinary errands, longer legendary labors, and the long divine chains. Finish the open step and the hero is yours.",
+    lede: "Ordinary errands, short valley chains, longer old labors, and the long divine chains. Finish the open step and the hero is yours.",
   },
   oaths: {
     eyebrow: "Neighbors",

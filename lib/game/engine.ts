@@ -48,6 +48,7 @@ import {
   giveGearToLead,
   heroBandCool,
   heroCreatureRenown,
+  heroDawnYield,
   heroExtraTeach,
   heroFordRenown,
   heroIreEase,
@@ -179,6 +180,7 @@ export function dawnYield(state: GameState, day = state.day): number {
     const good = holdById(state.player.holdId).produces;
     if (good === "grain" || good === "iron") qty *= 2;
   }
+  qty += heroDawnYield(state);
   return qty;
 }
 
@@ -1769,7 +1771,7 @@ export function setEdict(state: GameState, holdId: HoldId, edict: EdictId): Resu
   return remembered(enactEdict(state, holdId, edict));
 }
 
-/** Spends the one-time wagon choice opened by Carter's Knot on Zeus or Bran. */
+/** Spends the one-time wagon choice opened by Carter's Knot on Zeus, Bran, or Pell. */
 export function knotTheCall(state: GameState): Result {
   const read = knotCallRead(state);
   if (!read) return fail(state, "No one on the road wears Carter's Knot.");
@@ -1786,12 +1788,21 @@ export function knotTheCall(state: GameState): Result {
       next.compact.levy.iron += 2;
       next.compact.levy.salt += 2;
       note(next, "Zeus knots the sky over the wagons. Four grain, two iron, and two salt arrive because he wears Carter's Knot.");
-    } else {
+    } else if (read.who === "bran") {
       next.compact.levy.grain += 2;
       note(next, "Bran knots the wool road. Two grain arrive on the wagons because he wears Carter's Knot.");
+    } else {
+      next.compact.levy.grain += 1;
+      note(next, "Pell knots the mill road. One grain arrives on the wagons because she wears Carter's Knot.");
     }
     considerVictory(next);
-    return ok(next, read.who === "zeus" ? "The sky knot fills the wagons." : "The wool knot puts grain on the wagons.");
+    const filled =
+      read.who === "zeus"
+        ? "The sky knot fills the wagons."
+        : read.who === "bran"
+          ? "The wool knot puts grain on the wagons."
+          : "The mill knot puts grain on the wagons.";
+    return ok(next, filled);
   }
   const exp = next.expedition;
   const cut = read.who === "zeus" ? 2 : 1;
@@ -1800,7 +1811,9 @@ export function knotTheCall(state: GameState): Result {
   const line =
     read.who === "zeus"
       ? `Zeus knots the next call. The wagons return on day ${exp.nextCallDay}, because he wears Carter's Knot.`
-      : `Bran knots the next call. The wagons return on day ${exp.nextCallDay}, because he wears Carter's Knot.`;
+      : read.who === "bran"
+        ? `Bran knots the next call. The wagons return on day ${exp.nextCallDay}, because he wears Carter's Knot.`
+        : `Pell knots the next call. The wagons return on day ${exp.nextCallDay}, because she wears Carter's Knot.`;
   note(next, line);
   return ok(next, line);
 }
