@@ -16,6 +16,7 @@ import { EDICTS, modsBlurb, shownPetition } from "@/lib/game/realm";
 import { ownsRelic } from "@/lib/game/world";
 import type { EdictId, GameState, HoldId, Result } from "@/lib/game/types";
 import { useFrame } from "./frame";
+import { Stat } from "./stat";
 
 function lawName(id: EdictId | undefined): string {
   return EDICTS.find((item) => item.id === id)?.name ?? "Leave them be";
@@ -141,7 +142,9 @@ export function PeoplePanel({
                 <>
                   <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
                     <span>Mood</span>
-                    <span className={settlement.mood < 40 ? "text-primary" : ""}>{settlement.mood}</span>
+                    <span className={`font-display text-lg leading-none ${settlement.mood < 40 ? "text-primary" : ""}`}>
+                      <Stat value={settlement.mood} />
+                    </span>
                   </div>
                   <Progress value={settlement.mood} className="mt-1 h-1.5" />
                 </>

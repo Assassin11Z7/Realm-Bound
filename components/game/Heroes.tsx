@@ -35,12 +35,14 @@ const RARITY_WASH: Record<HeroRarity, string> = {
 
 function HeroPortrait({ spec, locked, className = "h-24 w-20" }: { spec: HeroSpec; locked: boolean; className?: string }) {
   const wash = RARITY_WASH[spec.rarity];
-  const stroke = !locked && spec.rarity === "divine" ? "#e6c56e" : "#1c1612";
-  const fill = locked ? "none" : wash;
+  const stroke = locked ? "#1c1612" : spec.rarity === "divine" ? "#e6c56e" : "#1c1612";
+  const fill = locked ? "#d9d1c3" : wash;
+  const weight = locked ? 3.6 : 2.1;
   return (
-    <svg viewBox="0 0 80 96" className={className} aria-hidden="true">
-      <path d="M14 94 V60 Q40 42 66 60 V94 Z" fill={fill} stroke={stroke} strokeWidth="2.4" />
-      <circle cx="40" cy="30" r="15" fill={fill} stroke={stroke} strokeWidth="2.4" />
+    <svg viewBox="0 0 80 96" className={`wm-portrait ${className}`} aria-hidden="true">
+      {!locked && <ellipse cx="40" cy="50" rx="32" ry="40" fill={wash} opacity="0.2" />}
+      <path d="M14 94 V60 Q40 42 66 60 V94 Z" fill={fill} stroke={stroke} strokeWidth={weight} />
+      <circle cx="40" cy="30" r="15" fill={fill} stroke={stroke} strokeWidth={weight} />
       {spec.mark === "gate" && <path d="M27 18 h26 v7 h-26 z" fill="none" stroke={stroke} strokeWidth="2" />}
       {spec.mark === "pike" && <path d="M40 6 v16 M36 10 h8" fill="none" stroke={stroke} strokeWidth="2" />}
       {spec.mark === "wool" && <path d="M26 24 q14 -10 28 0" fill="none" stroke={stroke} strokeWidth="2" />}
@@ -114,7 +116,7 @@ function Roster({ state, onOpen }: { state: GameState; onOpen: (id: HeroId, unlo
             <p className="font-display text-xl">{group.title}</p>
             <p className="text-xs text-muted-foreground">{group.lede}</p>
           </div>
-          <ul className="grid grid-cols-2 gap-2">
+          <ul className="grid grid-cols-2 gap-3">
             {group.ids.map((id) => {
               const spec = heroSpec(id);
               const record = (state.heroes ?? []).find((hero) => hero.id === id);
@@ -128,13 +130,16 @@ function Roster({ state, onOpen }: { state: GameState; onOpen: (id: HeroId, unlo
                     data-unlocked={unlocked ? "yes" : "no"}
                     data-rarity={spec.rarity}
                     onClick={() => onOpen(id, unlocked)}
-                    className={`flex h-full w-full flex-col items-center rounded-2xl bg-card px-2 py-3 text-center ring-1 ring-foreground/10 ${unlocked ? "" : "bg-[#e7e1d6]"}`}
+                    className={`flex h-full w-full flex-col items-center rounded-2xl px-2 py-4 text-center ${unlocked ? "wm-hero-live" : "wm-hero-locked"}`}
                   >
                     <HeroPortrait spec={spec} locked={!unlocked} />
-                    <p className={`mt-1 text-sm font-medium ${unlocked ? "" : "text-[#1c1612]"}`}>{spec.name}</p>
-                    <p className="text-[10px] tracking-wide text-muted-foreground uppercase">
+                    <p className={`mt-1.5 text-sm font-medium ${unlocked ? "" : "tracking-wide text-[#1c1612]"}`}>{spec.name}</p>
+                    <p
+                      className="text-[10px] tracking-wide uppercase"
+                      style={{ color: unlocked ? RARITY_WASH[spec.rarity] : "#5c5146" }}
+                    >
                       {RARITY_LABEL[spec.rarity]}
-                      {record?.fielded ? " · out" : unlocked ? " · at the hold" : " · locked"}
+                      {record?.fielded ? " · out" : unlocked ? " · at the hold" : " · outline"}
                     </p>
                     {!unlocked && now && (
                       <p className="mt-1 line-clamp-3 text-[11px] leading-snug text-muted-foreground">
@@ -150,16 +155,16 @@ function Roster({ state, onOpen }: { state: GameState; onOpen: (id: HeroId, unlo
       ))}
       <section>
         <p className="font-display text-xl">Later</p>
-        <p className="text-xs text-muted-foreground">Empty chairs. They do nothing yet.</p>
-        <ul className="mt-2 grid grid-cols-2 gap-2">
+        <p className="text-xs text-muted-foreground">Chairs kept for heroes the valley has not named.</p>
+        <ul className="mt-3 grid grid-cols-2 gap-3">
           {COMING_SOON.map((slot) => (
-            <li key={slot.id} data-coming-soon={slot.id} className="relative overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/10">
-              <div className="pointer-events-none flex flex-col items-center px-2 py-3 opacity-70 blur-[2px]">
-                <HeroPortrait spec={heroSpec("sela")} locked className="h-24 w-20" />
-                <p className="mt-1 text-sm">A stranger</p>
+            <li key={slot.id} data-coming-soon={slot.id} className="wm-soon flex flex-col items-center rounded-2xl px-3 py-5 text-center">
+              <p className="text-[10px] tracking-[0.2em] text-[#8d6b2e] uppercase">Reserved</p>
+              <div className="my-3 grid size-16 place-items-center rounded-full border border-dashed border-[#1c1612]/45 bg-[#fbf6ec]/70">
+                <span className="font-display text-2xl leading-none text-[#8d6b2e]">—</span>
               </div>
-              <p className="absolute inset-x-2 top-1/2 -translate-y-1/2 text-center font-display text-lg leading-none text-[#1c1612]">Coming Soon</p>
-              <p className="px-2 pb-3 text-center text-[11px] leading-snug text-muted-foreground">{slot.line}</p>
+              <p className="font-display text-lg leading-none">Coming Soon</p>
+              <p className="mt-2 text-[11px] leading-snug text-muted-foreground">{slot.line}</p>
             </li>
           ))}
         </ul>
@@ -225,18 +230,19 @@ function Company({
             </div>
           </div>
           <p className="mt-3 text-sm leading-relaxed text-[#3d4a62]">{heroEffectLine(spec)}</p>
-          <div className="mt-3">
+          <div className="mt-4">
             <p className="text-[11px] tracking-[0.16em] text-[#8d6b2e] uppercase">Abilities</p>
             <ul className="mt-2 flex flex-col gap-2">
               {heroAbilities(spec.id).map((ability) => (
-                <li key={ability.name} data-ability={ability.name}>
-                  <p className="text-sm font-medium">{ability.name}</p>
-                  <p className="text-sm leading-relaxed text-muted-foreground">{ability.text}</p>
+                <li key={ability.name} data-ability={ability.name} className="wm-ability rounded-xl bg-background px-3 py-2.5">
+                  <p className="text-[10px] tracking-[0.16em] text-[#8d6b2e] uppercase">Ability</p>
+                  <p className="mt-1 text-sm font-medium">{ability.name}</p>
+                  <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">{ability.text}</p>
                 </li>
               ))}
             </ul>
           </div>
-          <div className="mt-3">
+          <div className="mt-4">
             <p className="text-[11px] tracking-[0.16em] text-[#8d6b2e] uppercase">Gear synergy</p>
             <ul className="mt-2 flex flex-col gap-2">
               {heroSynergyRead(state, spec.id).map((synergy) => (
@@ -246,15 +252,27 @@ function Company({
                   data-synergy-state={synergy.state}
                   className={
                     synergy.state === "active"
-                      ? "rounded-xl bg-[#f6ead0] px-3 py-2 ring-1 ring-[#8d6b2e]"
-                      : "text-sm leading-relaxed text-muted-foreground"
+                      ? "rounded-xl bg-[#f6ead0] px-3 py-2.5 ring-1 ring-[#8d6b2e]"
+                      : "rounded-xl bg-background px-3 py-2.5"
                   }
                 >
-                  <p className={`text-sm font-medium ${synergy.state === "active" ? "text-[#6a4a12]" : ""}`}>
-                    {synergy.state === "active" ? "Synergy active · " : synergy.state === "ready" ? "Synergy ready · " : ""}
-                    {synergy.name}
+                  <div className="flex items-start justify-between gap-2">
+                    <p className={`text-sm font-medium ${synergy.state === "active" ? "text-[#6a4a12]" : ""}`}>{synergy.name}</p>
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] tracking-wide uppercase ${
+                        synergy.state === "active"
+                          ? "bg-[#7c2a24] text-[#f4ead7]"
+                          : synergy.state === "ready"
+                            ? "bg-[#e6c56e] text-[#1c1612]"
+                            : "bg-[#e7dcc6] text-[#5c5146]"
+                      }`}
+                    >
+                      {synergy.state === "active" ? "Live" : synergy.state === "ready" ? "Ready" : "Open"}
+                    </span>
+                  </div>
+                  <p className={`mt-1 text-sm leading-relaxed ${synergy.state === "active" ? "text-[#6a4a12]" : "text-muted-foreground"}`}>
+                    {synergy.text}
                   </p>
-                  <p className={`text-sm leading-relaxed ${synergy.state === "active" ? "text-[#6a4a12]" : ""}`}>{synergy.text}</p>
                 </li>
               ))}
             </ul>
@@ -321,17 +339,23 @@ function Company({
 }
 
 function Piece({ gear, action, note, onAction }: { gear: Gear; action: string; note?: string | null; onAction: () => void }) {
+  const unique = Boolean(gear.relic);
+  const live = Boolean(note?.startsWith("Synergy active"));
+  const equipping = action === "Equip" || action.startsWith("Take from ");
   return (
-    <div className="flex items-start gap-2 rounded-xl bg-background px-3 py-2">
+    <div className={`flex items-start gap-3 rounded-xl px-3 py-3 ${unique ? `wm-relic ${live ? "wm-relic-live" : ""}` : "bg-background"}`}>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium">
+        <p className={`text-sm font-medium ${unique ? "text-[#6a4a12]" : ""}`}>
           {gear.name}
-          {gear.relic ? <span className="ml-2 text-[10px] tracking-wide text-[#8d6b2e] uppercase">Unique relic</span> : null}
         </p>
-        <p className="text-xs leading-relaxed text-muted-foreground">{traitText(gear)}</p>
-        {note ? <p className="mt-1 text-xs leading-relaxed text-[#6a4a12]">{note}</p> : null}
+        <div className="mt-1 flex flex-wrap gap-1.5">
+          {unique ? <span className="rounded-full bg-[#8d6b2e] px-2 py-0.5 text-[10px] tracking-wide text-[#f4ead7] uppercase">Unique relic</span> : null}
+          {live ? <span className="rounded-full bg-[#7c2a24] px-2 py-0.5 text-[10px] tracking-wide text-[#f4ead7] uppercase">Unlock live</span> : null}
+        </div>
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{traitText(gear)}</p>
+        {note ? <p className="mt-1.5 text-xs leading-relaxed text-[#6a4a12]">{note}</p> : null}
       </div>
-      <Button type="button" variant="outline" className="h-9 shrink-0" onClick={onAction}>
+      <Button type="button" variant={equipping ? "default" : "outline"} className="h-9 shrink-0" onClick={onAction}>
         {action}
       </Button>
     </div>

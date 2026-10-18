@@ -74,6 +74,7 @@ import { FateRoll, OathRow, OmenDialog, WorksCard, WyrmCard } from "./Myth";
 import { CrossingDialog, MarksCard, PeoplePanel, PetitionCard } from "./Rule";
 import { peopleTrouble } from "@/lib/game/realm";
 import { HoldBrief, RealmMap } from "./RealmMap";
+import { Metric, Stat } from "./stat";
 
 type Tab = "realm" | "hold" | "heroes" | "compact" | "road";
 type Amount = 1 | 5 | "all";
@@ -405,7 +406,10 @@ export function PlaySeason({
             </p>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-1.5">
-            <p className="font-display text-xl leading-none text-[#e6c56e]">{state.player.gold}g</p>
+            <p className="font-display text-[1.65rem] leading-none text-[#e6c56e]">
+              <Stat value={state.player.gold} />
+              <span className="text-sm">g</span>
+            </p>
             <div className="flex gap-1.5">
               <IconButton label="Chronicle" onClick={() => setChronicle(true)} tone="night">
                 <BookOpen className="size-4" />
@@ -421,7 +425,7 @@ export function PlaySeason({
         </div>
       </header>
 
-      <div role="tablist" aria-label={`${TABS.find((item) => item.id === tab)?.label} sections`} className="flex shrink-0 gap-1.5 overflow-x-auto border-b border-border/80 bg-[#fbf6ec] px-4 py-2.5 [scrollbar-width:thin]">
+      <div role="tablist" aria-label={`${TABS.find((item) => item.id === tab)?.label} sections`} className="flex shrink-0 gap-2 overflow-x-auto border-b border-border/80 bg-[#fbf6ec] px-5 py-3 [scrollbar-width:thin]">
         {SECTIONS[tab].map((item) => {
           const active = section === item.id;
           const alert = sectionAlert(state, tab, item.id);
@@ -442,12 +446,12 @@ export function PlaySeason({
       </div>
 
       <div className="relative min-h-0 flex-1">
-        <div ref={mainRef} role="tabpanel" aria-label={intro.title} className="wm-scroll h-full overflow-y-auto overscroll-y-contain px-4 py-4">
-          <div key={`${tab}-${section}`} className="wm-tab flex flex-col gap-4 pb-8">
-            <header>
+        <div ref={mainRef} role="tabpanel" aria-label={intro.title} className="wm-scroll h-full overflow-y-auto overscroll-y-contain px-5 py-6">
+          <div key={`${tab}-${section}`} className="wm-tab flex flex-col gap-6 pb-12">
+            <header className="pb-1">
               <p className="text-[11px] tracking-[0.18em] text-[#8d6b2e] uppercase">{intro.eyebrow}</p>
-              <h2 className="mt-1 font-display text-[1.7rem] leading-none">{intro.title}</h2>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{section === "explore" ? seasonNote(state.day) : intro.lede}</p>
+              <h2 className="mt-1.5 font-display text-[2rem] leading-none">{intro.title}</h2>
+              <p className="mt-2.5 max-w-[34rem] text-sm leading-relaxed text-muted-foreground">{section === "explore" ? seasonNote(state.day) : intro.lede}</p>
             </header>
             {tab === "realm" && section === "map" && (
               <>
@@ -547,7 +551,7 @@ export function PlaySeason({
         </p>
       )}
       <div className="shrink-0 px-4 pt-2">
-        <Button type="button" data-coach="seal" className="h-12 w-full text-base" onClick={onSeal}>
+        <Button type="button" data-coach="seal" className="wm-seal h-12 w-full text-base" onClick={onSeal}>
           {wagonsOpen(state) && state.day === expeditionDue(state) ? "Seal the expedition's last dawn" : "Seal the day"}
         </Button>
       </div>
@@ -836,58 +840,68 @@ function StatusPanel({
   const called = wagonsOpen(state);
   const due = expeditionDue(state);
   const verdict = state.expedition?.lastVerdict;
+  const clock = called ? dawnsLeftLabel(state.day, due) : `Day ${state.expedition?.nextCallDay ?? "—"}`;
   return (
     <>
-      <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10" data-coach="wagons">
-        <div className="flex items-baseline justify-between gap-2">
-          <p className="font-display text-xl">{called ? "Wagon expedition" : "Wagons off the road"}</p>
-          <p className="text-xs tracking-wide text-[#8d6b2e] uppercase">
-            {called ? dawnsLeftLabel(state.day, due) : `Day ${state.expedition?.nextCallDay ?? "—"}`}
-          </p>
+      <div className="wm-event overflow-hidden rounded-2xl ring-1 ring-[#8d6b2e]/45" data-coach="wagons">
+        <div className="relative h-28">
+          <img src="/art/caravan.jpg" alt="" className="h-full w-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#1c1612] via-[#1c1612]/35 to-transparent" />
+          <div className="absolute inset-x-4 bottom-3 text-[#f4ead7]">
+            <p className="wm-kicker">{called ? "Expedition" : "Between calls"}</p>
+            <p className="mt-2 font-display text-2xl leading-none">{called ? "Wagon expedition" : "Wagons off the road"}</p>
+          </div>
         </div>
+        <div className="p-5">
+          <p className="font-display text-3xl leading-none text-[#6a4a12]">
+            <Stat value={clock} />
+          </p>
         {called ? (
           <>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
               Call {state.expedition?.cycle ?? 1}. Grain, iron, and salt by day {due}. Then the wagons leave and the realm stays.
             </p>
-            <div className="mt-3 flex flex-col gap-3">
+            <div className="mt-4 flex flex-col gap-4">
               {LEVY_GOODS.map((item) => {
                 const have = state.compact.levy[item];
                 const target = LEVY_TARGET[item];
                 return (
                   <div key={item}>
-                    <div className="flex justify-between text-sm">
-                      <span>{GOOD_LABEL[item]}</span>
-                      <span>
-                        {have}/{target}
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="text-sm">{GOOD_LABEL[item]}</span>
+                      <span className="font-display text-xl leading-none">
+                        <Stat value={`${have}/${target}`} />
                       </span>
                     </div>
-                    <Progress value={Math.min(100, (have / target) * 100)} className="mt-1 h-1.5" />
+                    <Progress value={Math.min(100, (have / target) * 100)} className="mt-2 h-2" />
                   </div>
                 );
               })}
             </div>
           </>
         ) : (
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
             The last call {verdict === "held" || verdict === "held-late" ? "was met" : verdict === "lost" ? "was lost" : "has gone"}. The wagons return on day{" "}
             {state.expedition?.nextCallDay ?? "—"}. Until then, grow the hold and keep the oaths.
             {(state.campaign?.realmWorks ?? []).some((work) => work.id === "border") ? " A cleared border path brings them two dawns sooner." : ""}
           </p>
         )}
+        </div>
       </div>
       <div data-coach="anger">
         <WyrmCard state={state} act={act} />
       </div>
-      <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+      <div className="rounded-2xl bg-card p-5 ring-1 ring-foreground/10">
         <p className="text-[11px] tracking-[0.16em] text-[#8d6b2e] uppercase">Banner</p>
-        <p className="mt-1 font-display text-2xl leading-none">
-          Level {level} · {powerOf(state)} power
-        </p>
-        <Progress value={Math.min(100, ((state.campaign?.xp ?? 0) / xpNeed(level)) * 100)} className="mt-3 h-1.5" />
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <Metric label="Level" value={level} />
+          <Metric label="Power" value={powerOf(state)} />
+        </div>
+        <Progress value={Math.min(100, ((state.campaign?.xp ?? 0) / xpNeed(level)) * 100)} className="mt-4 h-2" />
         <p className="mt-3 text-sm text-muted-foreground">
-          {renownTitle(state.player.renown)} · fame {state.player.renown}
-          {home ? ` · ${home.souls} people, mood ${home.mood}` : ""}
+          {renownTitle(state.player.renown)} · fame <Stat value={state.player.renown} className="text-base text-foreground" />
+          {home ? ` · ${home.souls} people, mood ` : ""}
+          {home ? <Stat value={home.mood} className="text-base text-foreground" /> : null}
         </p>
       </div>
       <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
@@ -920,7 +934,7 @@ function HoldYield({ state, act }: { state: GameState; act: (result: Result) => 
       </div>
       <div className="p-4">
         <p className="text-sm leading-relaxed">
-          Sealing the day brings {dawnYield(state)} {GOOD_LABEL[hold.produces].toLowerCase()}.
+          Sealing the day brings <Stat value={dawnYield(state)} className="text-lg text-foreground" /> {GOOD_LABEL[hold.produces].toLowerCase()}.
           {state.works.mill ? " The mill is in that count." : ""} {faction.bonus}
         </p>
         {bandYieldNote(state) && <p className="mt-2 text-sm leading-relaxed text-[#6a4a12]">{bandYieldNote(state)}</p>}
@@ -945,19 +959,21 @@ function LoyaltyPanel({ state }: { state: GameState }) {
   const funded = (state.campaign?.realmWorks ?? []).some((work) => work.id === "hall");
   return (
     <>
-      <section className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+      <section className="rounded-2xl bg-card p-5 ring-1 ring-foreground/10">
         <p className="text-[11px] tracking-[0.16em] text-[#8d6b2e] uppercase">Loyalty</p>
-        <p className="mt-1 font-display text-4xl leading-none">{home?.mood ?? "—"}</p>
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+        <p className="mt-2 font-display text-5xl leading-none">
+          <Stat value={home?.mood ?? "—"} />
+        </p>
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
           Your hold&apos;s mood. It thins when food or firewood runs out. Feed them under People.
           {funded ? " The funded hall recovers 2 loyalty here each dawn." : ""}
         </p>
-        <Progress value={home?.mood ?? 0} className="mt-3 h-2" />
+        <Progress value={home?.mood ?? 0} className="mt-4 h-2" />
       </section>
-      <section className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+      <section className="rounded-2xl bg-card p-5 ring-1 ring-foreground/10">
         <p className="text-[11px] tracking-[0.16em] text-[#8d6b2e] uppercase">Influence</p>
-        <p className="mt-1 font-display text-4xl leading-none">
-          {state.player.renown}
+        <p className="mt-2 font-display text-5xl leading-none">
+          <Stat value={state.player.renown} />
           <span className="text-lg text-muted-foreground">/{cap}</span>
         </p>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
@@ -971,9 +987,12 @@ function LoyaltyPanel({ state }: { state: GameState }) {
           <div key={member.id} className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
             <div className="flex items-baseline justify-between gap-2">
               <p className="font-display text-lg leading-tight">{member.name}</p>
-              <p className="text-sm">{contentWord(member.contentment, member.inCompact)}</p>
+              <p className="font-display text-3xl leading-none">
+                <Stat value={member.contentment} />
+              </p>
             </div>
-            <Progress value={member.contentment} className="mt-2 h-1.5" />
+            <p className="mt-1 text-xs tracking-wide text-muted-foreground uppercase">{contentWord(member.contentment, member.inCompact)}</p>
+            <Progress value={member.contentment} className="mt-2 h-2" />
           </div>
         ))}
       </section>
@@ -1048,7 +1067,12 @@ function OathPanel({
             <div className="flex items-start gap-3">
               <Portrait holdId={member.holdId} className="size-12" />
               <div className="min-w-0 flex-1">
-                <p className="font-display text-xl leading-tight">{member.name}</p>
+                <div className="flex items-baseline justify-between gap-2">
+                  <p className="font-display text-xl leading-tight">{member.name}</p>
+                  <p className="font-display text-2xl leading-none">
+                    <Stat value={member.contentment} />
+                  </p>
+                </div>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {home.name} · {PERSONALITY_LABEL[member.personality]} · {contentWord(member.contentment, member.inCompact)}
                 </p>
@@ -1165,7 +1189,9 @@ function TradePanel({
             <button type="button" className="flex min-h-12 w-full items-center gap-3 px-3 text-left" aria-pressed={hallGood === item} onClick={() => setHallGood(item)}>
               <GoodThumb good={item} />
               <span className="flex-1 text-sm">Shared {GOOD_LABEL[item].toLowerCase()}</span>
-              <span className="font-display text-xl">{state.compact.hall[item]}</span>
+                <span className="font-display text-2xl leading-none">
+                  <Stat value={state.compact.hall[item]} />
+                </span>
             </button>
             {hallGood === item && (
               <div className="flex flex-wrap gap-2 px-3 pb-3">
@@ -1300,7 +1326,9 @@ function BagPanel({
             <button type="button" className="flex min-h-12 w-full items-center gap-3 px-3 text-left" onClick={() => setGood(item)} aria-pressed={good === item}>
               <GoodThumb good={item} />
               <span className="flex-1 text-sm">{GOOD_LABEL[item]}</span>
-              <span className="font-display text-xl">{state.player.stash[item]}</span>
+              <span className="font-display text-2xl leading-none">
+                <Stat value={state.player.stash[item]} />
+              </span>
             </button>
             {good === item && (
               <div className="flex flex-wrap gap-2 px-3 pb-3">

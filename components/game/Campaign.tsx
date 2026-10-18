@@ -30,6 +30,7 @@ import {
 } from "@/lib/game/progress";
 import { borderPathRead } from "@/lib/game/heroes";
 import type { CaptainOrder, GameState, HoldId, RealmBench, RealmProjectId, Result, SkillId } from "@/lib/game/types";
+import { Stat } from "./stat";
 
 const ORDERS: { id: CaptainOrder; label: string }[] = [
   { id: "oath", label: "Stay" },
@@ -102,7 +103,7 @@ export function HoldWorks({ state, act }: { state: GameState; act: (result: Resu
               ) : level >= 5 ? (
                 <p className="mt-2 text-xs tracking-wide text-muted-foreground uppercase">As high as the ridge</p>
               ) : (
-                <Button type="button" variant="outline" className="mt-2 h-10" onClick={() => act(startProject(state, spec.id))}>
+                <Button type="button" className="mt-2 h-11" onClick={() => act(startProject(state, spec.id))}>
                   Raise · {cost.gold}g, {cost.qty} {cost.good}
                 </Button>
               )}
@@ -131,12 +132,12 @@ export function RealmProjects({ state, act }: { state: GameState; act: (result: 
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       {notice && (
-        <div className="overflow-hidden rounded-2xl bg-card ring-2 ring-[#e6c56e]">
-          <img src={realmProjectArt(noticeWork ?? { id: "hall" })} alt="" className="h-32 w-full object-cover" />
-          <div className="p-4">
-            <p className="text-[11px] tracking-[0.18em] text-[#8d6b2e] uppercase">The work stands</p>
+        <div className="wm-event overflow-hidden rounded-2xl ring-2 ring-[#e6c56e]">
+          <img src={realmProjectArt(noticeWork ?? { id: "hall" })} alt="" className="h-36 w-full object-cover" />
+          <div className="p-5">
+            <p className="wm-kicker">The work stands</p>
             <p className="mt-1 font-display text-2xl leading-tight">{noticeWork ? realmLaborTitle(noticeWork) : "A project"}</p>
             <p className="mt-2 text-sm leading-relaxed">{notice}</p>
             <Button type="button" className="mt-3 h-11 w-full" onClick={() => act(dismissRealmNotice(state))}>
@@ -146,19 +147,28 @@ export function RealmProjects({ state, act }: { state: GameState; act: (result: 
         </div>
       )}
       {labor && (
-        <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/10">
-          <img src={realmProjectArt(labor)} alt="" className="h-28 w-full object-cover" />
-          <div className="p-4">
-            <p className="text-[11px] tracking-[0.18em] text-moss uppercase">Rising</p>
-            <p className="mt-1 font-display text-2xl leading-tight">{realmLaborTitle(labor)}</p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Dawn {labor.spent} of {realmProjectDawns(labor.id)}
+        <div className="wm-event overflow-hidden rounded-2xl ring-1 ring-[#8d6b2e]/45">
+          <div className="relative h-32">
+            <img src={realmProjectArt(labor)} alt="" className="h-full w-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#1c1612]/80 to-transparent" />
+            <p className="wm-kicker absolute bottom-3 left-4">Rising</p>
+          </div>
+          <div className="p-5">
+            <p className="font-display text-2xl leading-tight">{realmLaborTitle(labor)}</p>
+            <p className="mt-3 font-display text-5xl leading-none text-[#6a4a12]">
+              <Stat value={realmProjectDawns(labor.id) - labor.spent} />
+              <span className="ml-2 align-middle font-sans text-sm font-medium tracking-normal text-muted-foreground">
+                {realmProjectDawns(labor.id) - labor.spent === 1 ? "dawn left" : "dawns left"}
+              </span>
             </p>
-            <Progress value={(labor.spent / realmProjectDawns(labor.id)) * 100} className="mt-2 h-1.5" />
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            <p className="mt-2 text-sm text-muted-foreground">
+              Dawn <Stat value={labor.spent} className="text-base text-foreground" /> of {realmProjectDawns(labor.id)}
+            </p>
+            <Progress value={(labor.spent / realmProjectDawns(labor.id)) * 100} className="mt-3 h-2" />
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
               {labor.spent === 0
                 ? "Seal the day to sink the first dawn of labor. The cost is already paid."
-                : `${realmProjectDawns(labor.id) - labor.spent === 1 ? "1 dawn of labor remains." : `${realmProjectDawns(labor.id) - labor.spent} dawns of labor remain.`} It keeps going while the wagons are away.`}
+                : "It keeps going while the wagons are away."}
             </p>
             {labor.id === "border" && <BorderAsk state={state} />}
           </div>
@@ -216,7 +226,7 @@ export function RealmProjects({ state, act }: { state: GameState; act: (result: 
                     {picking && (
                       <div className="mt-2 flex flex-col gap-2">
                         {sworn.map((member) => (
-                          <Button key={member.id} type="button" variant="secondary" className="h-10" onClick={() => begin("border", member.holdId)}>
+                          <Button key={member.id} type="button" className="h-11" onClick={() => begin("border", member.holdId)}>
                             {holdById(member.holdId).name} · {realmProjectCost(state, "border").gold}g, {realmProjectCost(state, "border").qty} timber
                           </Button>
                         ))}
@@ -273,7 +283,7 @@ function StartButton({
   const spec = REALM_PROJECTS.find((item) => item.id === id);
   const cost = realmProjectCost(state, id, bench);
   return (
-    <Button type="button" variant="outline" className="mt-2 h-10" onClick={onStart}>
+    <Button type="button" className="mt-2 h-11" onClick={onStart}>
       {label ?? spec?.name ?? "Begin"} · {cost.gold}g, {cost.qty} {cost.good}
     </Button>
   );
