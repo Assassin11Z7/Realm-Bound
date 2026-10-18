@@ -19,7 +19,7 @@ export interface HeroSpec {
   /** Painterly portrait in `public/art/heroes`. Locked heroes reuse the same image as an ink outline. */
   portrait: string;
   /** Older silhouette mark, kept beside the portrait. */
-  mark: "gate" | "pike" | "wool" | "hearth" | "moth" | "salt" | "lion" | "ship" | "barrow" | "maze" | "owl" | "raven" | "bolt";
+  mark: "gate" | "pike" | "wool" | "hearth" | "moth" | "salt" | "wheel" | "keel" | "lion" | "ship" | "barrow" | "maze" | "mound" | "ledger" | "owl" | "raven" | "bolt";
 }
 
 export const HEROES: HeroSpec[] = [
@@ -96,6 +96,30 @@ export const HEROES: HeroSpec[] = [
     mark: "salt",
   },
   {
+    id: "pell",
+    name: "Pell Ash",
+    epithet: "millwright",
+    rarity: "uncanny",
+    blurb: "She kept the mill race before the banner asked for grain. Geared, a walk teaches one more and a successful call pays 1 more gold.",
+    road: 1,
+    ford: 0,
+    wagon: 1,
+    portrait: "/art/heroes/pell.jpg",
+    mark: "wheel",
+  },
+  {
+    id: "ness",
+    name: "Ness Keel",
+    epithet: "river captain",
+    rarity: "uncanny",
+    blurb: "She kept a keel on the green river before any charter named the fords. Geared, a walk teaches one more and an answered creature leaves a little more renown.",
+    road: 1,
+    ford: 1,
+    wagon: 0,
+    portrait: "/art/heroes/ness.jpg",
+    mark: "keel",
+  },
+  {
     id: "heracles",
     name: "Heracles",
     epithet: "the laborer",
@@ -142,6 +166,30 @@ export const HEROES: HeroSpec[] = [
     wagon: 1,
     portrait: "/art/heroes/theseus.jpg",
     mark: "maze",
+  },
+  {
+    id: "wynn",
+    name: "Wynn of the Mound",
+    epithet: "barrow warden",
+    rarity: "legendary",
+    blurb: "She kept the mounds before any hall-cleaner came down the wagon road. Geared, an answered creature grants 2 renown.",
+    road: 0,
+    ford: 2,
+    wagon: 0,
+    portrait: "/art/heroes/wynn.jpg",
+    mark: "mound",
+  },
+  {
+    id: "corin",
+    name: "Corin Hale",
+    epithet: "salt-road trader",
+    rarity: "legendary",
+    blurb: "He bought salt where the road was still a rumor. Geared, a successful call pays 2 more gold.",
+    road: 0,
+    ford: 0,
+    wagon: 2,
+    portrait: "/art/heroes/corin.jpg",
+    mark: "ledger",
   },
   {
     id: "athena",
@@ -240,6 +288,26 @@ const ABILITIES: Record<HeroId, HeroAbility[]> = {
       text: "While she is out and wearing gear, goods sell for 1 more gold.",
     },
   ],
+  pell: [
+    {
+      name: "Mill race",
+      text: "While she is out and wearing gear, the hold yields one more at dawn.",
+    },
+    {
+      name: "Wheel on the works",
+      text: "While she is out and wearing gear, the hall and the watchtower each advance an extra dawn.",
+    },
+  ],
+  ness: [
+    {
+      name: "Keel price",
+      text: "While she is out and wearing gear, a creature bargain that costs gold costs 1 less.",
+    },
+    {
+      name: "River eye",
+      text: "While she is out and wearing gear, a walk is a little more likely to meet a hero who was not on a mission.",
+    },
+  ],
   heracles: [
     {
       name: "Laborer's price",
@@ -262,6 +330,26 @@ const ABILITIES: Record<HeroId, HeroAbility[]> = {
     {
       name: "Stone hall",
       text: "While he is out and wearing gear, a hall or a border path advances an extra dawn. A cleared border path warms that bond by 2 more each dawn.",
+    },
+  ],
+  wynn: [
+    {
+      name: "Mound watch",
+      text: "While she is out and wearing gear, an answered creature grants 1 more renown.",
+    },
+    {
+      name: "Quiet mound",
+      text: "While she is out and wearing gear, Vell's anger climbs more slowly.",
+    },
+  ],
+  corin: [
+    {
+      name: "Salt ledger",
+      text: "While he is out and wearing gear, goods sell for 1 more gold.",
+    },
+    {
+      name: "Early wagons",
+      text: "While he is out and wearing gear, the next call of the wagons comes 1 dawn sooner.",
     },
   ],
   athena: [
@@ -358,6 +446,34 @@ const SYNERGIES: Record<HeroId, HeroSynergy[]> = {
       unlock: "She opens Brine the fords, a stronger salt law, and the Salt Widow will teach it.",
     },
   ],
+  pell: [
+    {
+      affinity: "smith",
+      name: "Smith on the wheel",
+      text: "A smith piece on Pell. The hold yields one more at dawn again, and a forge project advances an extra dawn.",
+    },
+    {
+      affinity: "relic",
+      relic: "carter-knot",
+      name: "Knot at the mill",
+      text: "Carter's Knot on Pell. A successful call pays 1 more gold, and the next call comes 1 dawn sooner.",
+      unlock: "Once, while she is out and wearing it, one grain arrives on an open call, or the next call comes one dawn sooner.",
+    },
+  ],
+  ness: [
+    {
+      affinity: "ward",
+      name: "Ward on the keel",
+      text: "A ward piece on Ness. The bargain costs 1 less again, and the crossing grants 1 more renown.",
+    },
+    {
+      affinity: "relic",
+      relic: "salt-charter",
+      name: "Charter on the keel",
+      text: "The Salt Charter on Ness. Goods sell for 1 more gold.",
+      unlock: "While she is out and wearing it, the law Salt the road does not raise Vell's anger.",
+    },
+  ],
   heracles: [
     {
       affinity: "hand",
@@ -405,6 +521,34 @@ const SYNERGIES: Record<HeroId, HeroSynergy[]> = {
       affinity: "lore",
       name: "Founder's learning",
       text: "A learning piece on Theseus. Walks teach 1 more.",
+    },
+  ],
+  wynn: [
+    {
+      affinity: "ward",
+      name: "Ward on the mound",
+      text: "A ward piece on Wynn. The creature grants 1 more renown, and Vell's anger climbs more slowly again.",
+    },
+    {
+      affinity: "relic",
+      relic: "barrow-band",
+      name: "Band on the warden",
+      text: "The Barrow Band on Wynn. The creature grants 1 more renown, and the band cools a sworn bond by 3 instead of 4.",
+      unlock: "The border quarrel can be set into her watch, warmer than an ordinary stand in the yard.",
+    },
+  ],
+  corin: [
+    {
+      affinity: "purse",
+      name: "Trader's purse",
+      text: "A coin piece on Corin. Goods sell for 1 more gold again, and a successful call pays 2 more gold.",
+    },
+    {
+      affinity: "relic",
+      relic: "salt-charter",
+      name: "Charter on the ledger",
+      text: "The Salt Charter on Corin. Goods sell for 1 more gold.",
+      unlock: "While he is out and wearing it, the law Salt the road does not raise Vell's anger.",
     },
   ],
   athena: [
@@ -500,6 +644,9 @@ export function blankHeroTasks(): HeroTask[] {
     task("moth-walk", "moth", 1, "Two quiet miles", "Walk twice, so the timber road knows the banner.", "miles", 2),
     task("moth-mark", "moth", 2, "Answer what walks", "Strike a bargain with a creature. Letting them pass does not count.", "marks", 1),
     task("ivy-call", "ivy", 1, "One wagon home", "Finish one successful call of the wagons.", "triumphs", 1),
+    task("pell-walk", "pell", 1, "Three turns of the wheel", "Walk three times. The mill road is short.", "miles", 3),
+    task("pell-work", "pell", 2, "One work for the mill", "Finish any realm project. It completes when you seal the day.", "build-count", 1),
+    task("ness-ford", "ness", 1, "Name the river", "Strike a bargain with a creature. Letting them pass does not count.", "marks", 1),
     task("heracles-calls", "heracles", 1, "Two labors of the wagons", "Finish two successful calls of the wagons.", "triumphs", 2),
     task("odysseus-miles", "odysseus", 1, "The long walk", "Walk six roads.", "miles", 6),
     task("odysseus-call", "odysseus", 2, "A call survived", "Finish one successful call of the wagons.", "triumphs", 1),
@@ -508,6 +655,10 @@ export function blankHeroTasks(): HeroTask[] {
     task("beowulf-calls", "beowulf", 2, "The hall still standing", "Finish two successful calls of the wagons.", "triumphs", 2),
     task("theseus-works", "theseus", 1, "Two halls begun", "Finish two different realm projects.", "build-count", 2),
     task("theseus-name", "theseus", 2, "A founder's name", "Reach 16 renown.", "renown", 16),
+    task("wynn-mark", "wynn", 1, "One mound answered", "Strike a bargain with a creature. Passing by does not count.", "marks", 1),
+    task("wynn-work", "wynn", 2, "A work beside the mounds", "Finish any realm project.", "build-count", 1),
+    task("corin-call", "corin", 1, "One salt wagon", "Finish one successful call of the wagons.", "triumphs", 1),
+    task("corin-work", "corin", 2, "A work on the salt road", "Finish any realm project.", "build-count", 1),
     task("athena-calls", "athena", 1, "Three calls answered", "Finish three successful calls of the wagons.", "triumphs", 3),
     task("athena-works", "athena", 2, "Works worth counting", "Raise six levels of realm projects, in any mix.", "build-sum", 6),
     task("athena-name", "athena", 3, "A name she will hear", "Reach 24 renown.", "renown", 24),
@@ -829,10 +980,10 @@ function nameList(names: string[]): string {
 }
 
 function martialRead(state: GameState): PoliticalRead {
-  const gate: HeroGate = { ids: ["beowulf", "heracles", "theseus"] };
+  const gate: HeroGate = { ids: ["beowulf", "heracles", "theseus", "wynn"] };
   const posture = heroPosture(state, gate);
   const who = heroPostureWho(state, gate);
-  const wait = "The joint watch is ready to close, and it waits. Beowulf, Heracles, or Theseus must be fielded and wearing gear.";
+  const wait = "The joint watch is ready to close, and it waits. Beowulf, Heracles, Theseus, or Wynn must be fielded and wearing gear.";
   if ((posture === "ready" || posture === "best") && who) {
     return {
       met: true,
@@ -863,7 +1014,7 @@ function martialRead(state: GameState): PoliticalRead {
     met: false,
     who: null,
     wait,
-    line: "Needs Beowulf, Heracles, or Theseus fielded and wearing gear on the last dawn. None of them is out and geared now.",
+    line: "Needs Beowulf, Heracles, Theseus, or Wynn fielded and wearing gear on the last dawn. None of them is out and geared now.",
   };
 }
 
@@ -907,10 +1058,10 @@ function counselRead(state: GameState): PoliticalRead {
 }
 
 function charterRead(state: GameState): PoliticalRead {
-  const gate: HeroGate = { ids: [], best: ["bran", "zeus"], company: true };
+  const gate: HeroGate = { ids: [], best: ["bran", "zeus", "corin"], company: true };
   const posture = heroPosture(state, gate);
   const who = heroPostureWho(state, gate);
-  const wait = "The drivers' charter is ready to close, and it waits. Bran, Zeus, or any geared company must be on the road.";
+  const wait = "The drivers' charter is ready to close, and it waits. Bran, Corin, Zeus, or any geared company must be on the road.";
   if ((posture === "best" || posture === "ready") && who) {
     return {
       met: true,
@@ -919,10 +1070,10 @@ function charterRead(state: GameState): PoliticalRead {
       line:
         posture === "best"
           ? `Ready. ${who} is out and wearing gear, so the charter can close on its last dawn.`
-          : `Ready. ${who} is out and wearing gear. Any geared company can close the charter. Bran or Zeus would be named on it.`,
+          : `Ready. ${who} is out and wearing gear. Any geared company can close the charter. Bran, Corin, or Zeus would be named on it.`,
     };
   }
-  const held = (["bran", "zeus"] as const).find((id) => heroWhere(state, id) === "hold");
+  const held = (["bran", "zeus", "corin"] as const).find((id) => heroWhere(state, id) === "hold");
   if (held) {
     return {
       met: false,
@@ -944,7 +1095,7 @@ function charterRead(state: GameState): PoliticalRead {
     met: false,
     who: null,
     wait,
-    line: "Needs Bran, Zeus, or any hero fielded and wearing gear on the last dawn. No geared company is on the road.",
+    line: "Needs Bran, Corin, Zeus, or any hero fielded and wearing gear on the last dawn. No geared company is on the road.",
   };
 }
 
@@ -1055,6 +1206,8 @@ export function heroProjectExtra(state: GameState, labor: { id: string; bench?: 
     if (kit.id === "athena") extra += 1 + (kitHas(kit, "lore") ? 1 : 0);
     if (kit.id === "theseus" && (labor.id === "hall" || labor.id === "border")) extra += 1;
     if (kit.id === "moth" && labor.id === "bench" && labor.bench === "forge" && kitHas(kit, "smith")) extra += 1;
+    if (kit.id === "pell" && (labor.id === "hall" || labor.id === "watchtower")) extra += 1;
+    if (kit.id === "pell" && labor.id === "bench" && labor.bench === "forge" && kitHas(kit, "smith")) extra += 1;
   }
   return Math.min(PROJECT_EXTRA_CAP, extra);
 }
@@ -1067,6 +1220,8 @@ export function heroProjectLine(state: GameState, labor: { id: string; bench?: s
     if (kit.id === "athena") names.push(heroSpec(kit.id).name);
     if (kit.id === "theseus" && (labor.id === "hall" || labor.id === "border")) names.push(heroSpec(kit.id).name);
     if (kit.id === "moth" && labor.id === "bench" && labor.bench === "forge" && kitHas(kit, "smith")) names.push(heroSpec(kit.id).name);
+    if (kit.id === "pell" && (labor.id === "hall" || labor.id === "watchtower")) names.push(heroSpec(kit.id).name);
+    if (kit.id === "pell" && labor.id === "bench" && labor.bench === "forge" && kitHas(kit, "smith")) names.push(heroSpec(kit.id).name);
   }
   if (names.length === 0) return null;
   return `${names.join(" and ")} ${names.length === 1 ? "hurries" : "hurry"} the work by ${extra}.`;
@@ -1080,6 +1235,7 @@ export function heroBargainRelief(state: GameState): number {
   let sum = 0;
   for (const kit of fieldKits(state)) {
     if (kit.id === "tam") sum += 1 + (kitHas(kit, "ward") ? 1 : 0);
+    if (kit.id === "ness") sum += 1 + (kitHas(kit, "ward") ? 1 : 0);
     if (kit.id === "heracles") {
       sum += 2;
       if (kitHas(kit, "hand")) sum += 2;
@@ -1091,7 +1247,7 @@ export function heroBargainRelief(state: GameState): number {
 
 export function heroBargainLine(state: GameState, saved: number): string {
   const names = fieldKits(state)
-    .filter((kit) => kit.id === "tam" || kit.id === "heracles")
+    .filter((kit) => kit.id === "tam" || kit.id === "ness" || kit.id === "heracles")
     .map((kit) => heroSpec(kit.id).name);
   const who = names.length > 0 ? names.join(" and ") : "A hero";
   return `${who} cheapens the bargain by ${saved} gold.`;
@@ -1100,10 +1256,16 @@ export function heroBargainLine(state: GameState, saved: number): string {
 export function heroCreatureRenown(state: GameState): number {
   let sum = 0;
   for (const kit of fieldKits(state)) {
-    if (kit.id !== "beowulf") continue;
-    sum += 2;
-    if (kitHas(kit, "hunt-or-ward")) sum += 2;
-    if (kitHas(kit, "relic", "barrow-band")) sum += 1;
+    if (kit.id === "beowulf") {
+      sum += 2;
+      if (kitHas(kit, "hunt-or-ward")) sum += 2;
+      if (kitHas(kit, "relic", "barrow-band")) sum += 1;
+    }
+    if (kit.id === "wynn") {
+      sum += 1;
+      if (kitHas(kit, "ward")) sum += 1;
+      if (kitHas(kit, "relic", "barrow-band")) sum += 1;
+    }
   }
   return Math.min(CREATURE_RENOWN_CAP, sum);
 }
@@ -1113,6 +1275,7 @@ export function heroStrengthRenown(state: GameState): number {
   for (const kit of fieldKits(state)) {
     if (kit.id === "heracles" && kitHas(kit, "hand")) sum += 2;
     if (kit.id === "tam" && kitHas(kit, "ward")) sum += 1;
+    if (kit.id === "ness" && kitHas(kit, "ward")) sum += 1;
   }
   return Math.min(STRENGTH_RENOWN_CAP, sum);
 }
@@ -1150,6 +1313,7 @@ export function heroMeetingBonus(state: GameState, source: "walk" | "crossing" |
   let sum = 0;
   for (const kit of fieldKits(state)) {
     if (kit.id === "moth" && source === "walk") sum += 0.03 + (kitHas(kit, "hunt") ? 0.04 : 0);
+    if (kit.id === "ness" && source === "walk") sum += 0.02;
     if (kit.id === "odin") sum += 0.04;
   }
   return Math.min(0.12, sum);
@@ -1158,9 +1322,16 @@ export function heroMeetingBonus(state: GameState, source: "walk" | "crossing" |
 export function heroSaleBonus(state: GameState): number {
   let sum = 0;
   for (const kit of fieldKits(state)) {
-    if (kit.id !== "ivy") continue;
-    sum += 1;
-    if (kitHas(kit, "purse")) sum += 1;
+    if (kit.id === "ivy") {
+      sum += 1;
+      if (kitHas(kit, "purse")) sum += 1;
+    }
+    if (kit.id === "corin") {
+      sum += 1;
+      if (kitHas(kit, "purse")) sum += 1;
+      if (kitHas(kit, "relic", "salt-charter")) sum += 1;
+    }
+    if (kit.id === "ness" && kitHas(kit, "relic", "salt-charter")) sum += 1;
   }
   return Math.min(SALE_CAP, sum);
 }
@@ -1169,7 +1340,9 @@ export function heroCallSooner(state: GameState): number {
   let sum = 0;
   for (const kit of fieldKits(state)) {
     if (kit.id === "bran") sum += 1 + (kitHas(kit, "purse") ? 1 : 0);
+    if (kit.id === "corin") sum += 1;
     if (kit.id === "zeus" && kitHas(kit, "relic", "carter-knot")) sum += 1;
+    if (kit.id === "pell" && kitHas(kit, "relic", "carter-knot")) sum += 1;
   }
   return Math.min(SOONER_CAP, sum);
 }
@@ -1178,6 +1351,8 @@ export function heroWagonExtra(state: GameState): number {
   let sum = 0;
   for (const kit of fieldKits(state)) {
     if (kit.id === "bran" && kitHas(kit, "purse")) sum += 2;
+    if (kit.id === "corin" && kitHas(kit, "purse")) sum += 2;
+    if (kit.id === "pell" && kitHas(kit, "relic", "carter-knot")) sum += 1;
     if (kit.id === "zeus") {
       sum += 3;
       if (kitHas(kit, "purse")) sum += 2;
@@ -1191,6 +1366,7 @@ export function heroIreEase(state: GameState): number {
   let sum = 0;
   for (const kit of fieldKits(state)) {
     if (kit.id === "beowulf" && kitHas(kit, "hunt-or-ward")) sum += 1;
+    if (kit.id === "wynn") sum += 1 + (kitHas(kit, "ward") ? 1 : 0);
     if (kit.id === "odin" && kitHas(kit, "ward")) sum += 1;
     if (kit.id === "zeus") sum += 1 + (kitHas(kit, "ward") ? 1 : 0);
   }
@@ -1202,7 +1378,28 @@ export function heroBandCool(state: GameState): number {
   const home = (state.settlements ?? []).find((item) => item.holdId === state.player.holdId);
   if (home?.edict === "barrow-watch") return 0;
   const beowulf = fieldKits(state).find((kit) => kit.id === "beowulf");
-  return beowulf && kitHas(beowulf, "relic", "barrow-band") ? 2 : 4;
+  if (beowulf && kitHas(beowulf, "relic", "barrow-band")) return 2;
+  const wynn = fieldKits(state).find((kit) => kit.id === "wynn");
+  if (wynn && kitHas(wynn, "relic", "barrow-band")) return 3;
+  return 4;
+}
+
+/** The Salt Charter on Ness or Corin keeps Salt the road from waking Vell. Brine the fords stays Ivy's. */
+export function heroCharterQuiet(state: GameState): boolean {
+  return fieldKits(state).some(
+    (kit) => (kit.id === "ness" || kit.id === "corin") && kitHas(kit, "relic", "salt-charter"),
+  );
+}
+
+/** Extra dawn yield while Pell is out and wearing gear. A smith piece adds one more. */
+export function heroDawnYield(state: GameState): number {
+  let sum = 0;
+  for (const kit of fieldKits(state)) {
+    if (kit.id !== "pell") continue;
+    sum += 1;
+    if (kitHas(kit, "smith")) sum += 1;
+  }
+  return Math.min(2, sum);
 }
 
 export function heroSaltQuiet(state: GameState): boolean {
@@ -1261,18 +1458,19 @@ export function activeRelicPairs(state: GameState): RelicPairRead[] {
 export const KNOT_ACT = "carter-knot";
 
 export interface KnotCallRead {
-  who: "zeus" | "bran";
+  who: "zeus" | "bran" | "pell";
   spent: boolean;
   title: string;
   detail: string;
   because: string;
 }
 
-/** The one-time wagon choice Carter's Knot opens on Zeus, or the smaller one on Bran. */
+/** The one-time wagon choice Carter's Knot opens on Zeus, the wool one on Bran, or the mill one on Pell. */
 export function knotCallRead(state: GameState): KnotCallRead | null {
   const zeus = heroWearsRelic(state, "zeus", "carter-knot");
   const bran = !zeus && heroWearsRelic(state, "bran", "carter-knot");
-  if (!zeus && !bran) return null;
+  const pell = !zeus && !bran && heroWearsRelic(state, "pell", "carter-knot");
+  if (!zeus && !bran && !pell) return null;
   const called = (state.expedition?.phase ?? "called") === "called";
   const spent = (state.relicActs ?? []).includes(KNOT_ACT);
   if (zeus) {
@@ -1286,12 +1484,21 @@ export function knotCallRead(state: GameState): KnotCallRead | null {
       because: "Open because Zeus wears Carter's Knot.",
     };
   }
+  if (bran) {
+    return {
+      who: "bran",
+      spent,
+      title: called ? "Knot the wool wagons" : "Bring the next call sooner",
+      detail: called ? "Once. Two grain arrive on the wagons." : "Once. The next call of the wagons comes one dawn sooner.",
+      because: "Open because Bran wears Carter's Knot.",
+    };
+  }
   return {
-    who: "bran",
+    who: "pell",
     spent,
-    title: called ? "Knot the wool wagons" : "Bring the next call sooner",
-    detail: called ? "Once. Two grain arrive on the wagons." : "Once. The next call of the wagons comes one dawn sooner.",
-    because: "Open because Bran wears Carter's Knot.",
+    title: called ? "Knot the mill wagons" : "Bring the next call sooner",
+    detail: called ? "Once. One grain arrives on the wagons." : "Once. The next call of the wagons comes one dawn sooner.",
+    because: "Open because Pell wears Carter's Knot.",
   };
 }
 

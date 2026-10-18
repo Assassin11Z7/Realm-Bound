@@ -56,7 +56,7 @@ function rarityGroups(): { title: string; lede: string; ids: HeroId[] }[] {
     },
     {
       title: "Legendary",
-      lede: "Old heroes. The missions are longer.",
+      lede: "Old names, and valley legends whose missions stop short of the gods.",
       ids: HEROES.filter((hero) => hero.rarity === "legendary").map((hero) => hero.id),
     },
     {

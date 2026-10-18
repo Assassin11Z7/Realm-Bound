@@ -51,10 +51,13 @@ import {
 import {
   gearHeroNotes,
   heroAllLoyalty,
+  heroBandCool,
   borderPathRead,
   heroBargainRelief,
   heroBorderSeal,
   heroCallSooner,
+  heroCharterQuiet,
+  heroDawnYield,
   heroCreatureRenown,
   heroExtraTeach,
   heroFordRenown,
@@ -1700,7 +1703,7 @@ test("political projects ask for heroes and leave a lasting mark", () => {
   const charterWait = sealDay(charterStarted.state).state;
   assert.equal(charterWait.campaign.realmLabor?.id, "charter");
   assert.equal(charterWait.campaign.realmLabor?.spent, 2);
-  assert.ok(charterWait.chronicle.some((entry) => /Bran, Zeus, or any geared company/.test(entry.text)));
+  assert.ok(charterWait.chronicle.some((entry) => /Bran, Corin, Zeus, or any geared company/.test(entry.text)));
   const chartered = gearOut(charterWait, "bran", "Salt cloak", "charter-bran");
   chartered.politics.conflictHeat = 20;
   chartered.expedition.phase = "idle";
@@ -1982,3 +1985,134 @@ test("relic and hero pairs open choices the season did not have", () => {
 function bellRoadReady(state: GameState) {
   return availableCreatureIds(state).includes("bell-road") && !(state.creaturesSeen ?? []).includes("bell-road");
 }
+
+test("valley heroes unlock on short chains and wake their gear", () => {
+  const fresh = createGame(setup());
+  assert.equal(fresh.heroes.find((hero) => hero.id === "pell")?.unlocked, false);
+  assert.equal(fresh.heroes.find((hero) => hero.id === "ness")?.unlocked, false);
+  assert.equal(fresh.heroes.find((hero) => hero.id === "wynn")?.unlocked, false);
+  assert.equal(fresh.heroes.find((hero) => hero.id === "corin")?.unlocked, false);
+  assert.equal(fresh.heroTasks.find((task) => task.id === "ness-ford")?.status, "open");
+  assert.equal(fresh.heroTasks.find((task) => task.id === "pell-work")?.status, "open");
+  assert.equal(fresh.heroTasks.find((task) => task.id === "wynn-work")?.status, "open");
+  assert.equal(fresh.heroTasks.find((task) => task.id === "corin-work")?.status, "open");
+
+  let mill = createGame(setup());
+  mill.miles = 3;
+  mill = sealDay(mill).state;
+  assert.equal(mill.heroes.find((hero) => hero.id === "pell")?.unlocked, false);
+  assert.equal(mill.heroTasks.find((task) => task.id === "pell-walk")?.status, "claimed");
+  mill.campaign.buildings.yard = 1;
+  mill = sealDay(mill).state;
+  assert.equal(mill.heroes.find((hero) => hero.id === "pell")?.unlocked, true);
+  assert.equal(mill.heroes.find((hero) => hero.id === "athena")?.unlocked, false);
+
+  let river = createGame(setup());
+  river.marks.push({
+    id: "toll-hag:pay",
+    creature: "The old woman at the ford",
+    choice: "pay",
+    day: 1,
+    summary: "Paid the ford.",
+    lasting: {},
+  });
+  river = sealDay(river).state;
+  assert.equal(river.heroes.find((hero) => hero.id === "ness")?.unlocked, true);
+  assert.equal(river.heroes.find((hero) => hero.id === "wynn")?.unlocked, false);
+
+  let mound = createGame(setup());
+  mound.marks.push({
+    id: "barrow-hound:feed",
+    creature: "The grave hound",
+    choice: "feed",
+    day: 1,
+    summary: "Fed the hound.",
+    lasting: {},
+  });
+  mound.campaign.buildings.yard = 1;
+  mound = sealDay(mound).state;
+  assert.equal(mound.heroes.find((hero) => hero.id === "wynn")?.unlocked, true);
+  assert.equal(mound.heroes.find((hero) => hero.id === "odin")?.unlocked, false);
+
+  let trader = createGame(setup());
+  trader.triumphs = 1;
+  trader = sealDay(trader).state;
+  assert.equal(trader.heroes.find((hero) => hero.id === "corin")?.unlocked, false);
+  assert.equal(trader.heroTasks.find((task) => task.id === "corin-call")?.status, "claimed");
+  assert.equal(trader.heroes.find((hero) => hero.id === "ivy")?.unlocked, true);
+  trader.campaign.buildings.yard = 1;
+  trader = sealDay(trader).state;
+  assert.equal(trader.heroes.find((hero) => hero.id === "corin")?.unlocked, true);
+  assert.equal(trader.heroes.find((hero) => hero.id === "zeus")?.unlocked, false);
+
+  const baseYield = dawnYield(createGame(setup()));
+  const miller = wake(createGame(setup()), "pell");
+  const peg = makePiece("Road knife", "common", "pell-peg");
+  assert.ok(peg);
+  miller.pack.push(peg);
+  const turning = sendHeroOut(equipOnHero(miller, "pell", peg.id).state, "pell");
+  assert.equal(heroDawnYield(turning.state), 2);
+  assert.equal(dawnYield(turning.state), baseYield + 2);
+  assert.equal(heroProjectExtra(turning.state, { id: "hall" }), 1);
+  assert.equal(heroProjectExtra(turning.state, { id: "watchtower" }), 1);
+  assert.equal(heroProjectExtra(turning.state, { id: "bench", bench: "forge" }), 1);
+  assert.equal(heroSynergyRead(turning.state, "pell").find((row) => row.name === "Smith on the wheel")?.state, "active");
+
+  const knotted = sendHeroOut(wearRelic("pell", "carter-knot", "pell-knot"), "pell").state;
+  assert.equal(knotCallRead(knotted)?.who, "pell");
+  assert.match(knotCallRead(knotted)?.because ?? "", /Pell wears Carter's Knot/);
+  const milled = knotTheCall(knotted);
+  assert.equal(milled.error, undefined);
+  assert.equal(milled.state.compact.levy.grain, knotted.compact.levy.grain + 1);
+  assert.match(milled.state.chronicle.map((entry) => entry.text).join(" "), /Pell knots the mill road/);
+
+  const captain = wake(createGame(setup()), "ness");
+  const ward = makePiece("Ford cloak", "uncanny", "ness-ward");
+  assert.ok(ward);
+  captain.pack.push(ward);
+  const keeled = sendHeroOut(equipOnHero(captain, "ness", ward.id).state, "ness");
+  assert.equal(heroBargainRelief(keeled.state), 2);
+  assert.equal(heroStrengthRenown(keeled.state), 1);
+  assert.ok(Math.abs(heroMeetingBonus(keeled.state, "walk") - 0.02) < 1e-9);
+
+  const chartered = sendHeroOut(wearRelic("ness", "salt-charter", "ness-salt"), "ness").state;
+  assert.equal(heroCharterQuiet(chartered), true);
+  assert.equal(edictAvailable(chartered, "brine-fords"), false);
+  const named = setEdict(chartered, "greenmere", "salt-road").state;
+  const hushed = sealDay(named).state;
+  const shouted = sealDay(restHeroAtHold(named, "ness").state).state;
+  assert.equal(hushed.wyrm.ire, shouted.wyrm.ire - 1);
+
+  const warden = wake(createGame(setup()), "wynn");
+  const wool = makePiece("Wool cloak", "common", "wynn-wool");
+  assert.ok(wool);
+  warden.pack.push(wool);
+  const watching = sendHeroOut(equipOnHero(warden, "wynn", wool.id).state, "wynn");
+  assert.equal(heroCreatureRenown(watching.state), 1);
+  assert.equal(heroIreEase(watching.state), 1);
+  assert.equal(politicalRead(watching.state, "compact")?.met, true);
+  assert.match(politicalRead(watching.state, "compact")?.line ?? "", /Wynn/);
+
+  const banded = sendHeroOut(wearRelic("wynn", "barrow-band", "wynn-band"), "wynn").state;
+  assert.equal(heroBandCool(banded), 3);
+  const quarrel = shownPetition(forcePetition(banded, "border-quarrel"));
+  assert.equal(quarrel?.choices.some((choice) => choice.id === "barrow"), false);
+  assert.match(quarrel?.choices.find((choice) => choice.id === "warden")?.because ?? "", /Wynn wears the Barrow Band/);
+  const before = banded.compact.members.map((member) => member.contentment);
+  const settled = choosePetition(forcePetition(banded, "border-quarrel"), "warden");
+  assert.equal(settled.error, undefined);
+  assert.ok(settled.state.compact.members.some((member, index) => member.contentment === before[index] + 8));
+
+  const ledger = wake(createGame(setup()), "corin");
+  const ring = makePiece("Salt ring", "common", "corin-ring");
+  assert.ok(ring);
+  ledger.pack.push(ring);
+  const trading = sendHeroOut(equipOnHero(ledger, "corin", ring.id).state, "corin");
+  assert.equal(heroSaleBonus(trading.state), 2);
+  assert.equal(heroCallSooner(trading.state), 1);
+  assert.equal(heroWagonExtra(trading.state), 2);
+  assert.equal(heroWagonGold(trading.state), 2);
+  assert.equal(politicalRead(trading.state, "charter")?.met, true);
+  assert.match(politicalRead(trading.state, "charter")?.who ?? "", /Corin/);
+  assert.equal(shownPetition(forcePetition(trading.state, "wagon-oath"))?.choices.find((choice) => choice.id === "send")?.branch, "best");
+});

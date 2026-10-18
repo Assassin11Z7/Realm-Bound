@@ -17,6 +17,7 @@ import {
   heroAllLoyalty,
   heroBargainLine,
   heroBargainRelief,
+  heroCharterQuiet,
   heroHearthSave,
   heroHomeLoyalty,
   heroPosture,
@@ -982,10 +983,10 @@ const CREATURES: CreatureDef[] = [
   },
 ];
 
-const QUARREL_GATE: HeroGate = { ids: ["tam", "heracles"], best: ["beowulf"] };
+const QUARREL_GATE: HeroGate = { ids: ["tam", "heracles", "wynn"], best: ["beowulf"] };
 const COURT_GATE: HeroGate = { ids: ["theseus"], best: ["athena"], stationed: ["athena"] };
 const PARLEY_GATE: HeroGate = { ids: ["odysseus"] };
-const WAGON_GATE: HeroGate = { ids: [], best: ["bran", "heracles", "zeus"], company: true };
+const WAGON_GATE: HeroGate = { ids: [], best: ["bran", "heracles", "zeus", "corin"], company: true };
 
 function quarrelStanding(state: GameState): string {
   const posture = heroPosture(state, QUARREL_GATE);
@@ -997,6 +998,7 @@ function quarrelStanding(state: GameState): string {
   if (heroWhere(state, "tam") === "bare" || heroWhere(state, "heracles") === "bare") {
     return "Tam or Heracles is here, but wears nothing. Gear them and send them out, or standing in the yard fails.";
   }
+  if (heroWhere(state, "wynn") === "bare") return "Wynn wears nothing. Gear her and send her out, or standing in the yard fails.";
   return "No martial hero is out and wearing gear. Standing in the yard fails.";
 }
 
@@ -1021,7 +1023,7 @@ function wagonStanding(state: GameState): string {
   const posture = heroPosture(state, WAGON_GATE);
   const who = heroPostureWho(state, WAGON_GATE);
   if (posture === "best" && who) return `${who} is out and wearing gear. The drivers will swear, and the oath pays.`;
-  if (posture === "ready" && who) return `${who} is out and wearing gear. The drivers will swear. Bran, Heracles, or Zeus would make the oath pay.`;
+  if (posture === "ready" && who) return `${who} is out and wearing gear. The drivers will swear. Bran, Heracles, Corin, or Zeus would make the oath pay.`;
   return "No hero is out and wearing gear. Sending a company fails.";
 }
 
@@ -1292,6 +1294,20 @@ const PETITIONS: {
           summary: "Beowulf named the barrow. The quarrel became the barrow watch, a sworn bond warmed, and the band will not cool an oath while that law stands.",
         },
       },
+      {
+        id: "warden",
+        label: "Set the warden",
+        detail: "Wynn sets the quarrel into the mounds. One sworn bond warms by 8, loyalty rises by 4, and renown rises by 1. While she wears the band, it cools a sworn bond by 3 instead of 4.",
+        because: "Open because Wynn wears the Barrow Band.",
+        unlock: (state) => heroWearsRelic(state, "wynn", "barrow-band"),
+        effect: {
+          bond: 8,
+          mood: 4,
+          renown: 1,
+          bondNote: "Wynn set her watch on this oath.",
+          summary: "Wynn set her watch on the quarrel. A sworn bond warmed, and the band cools an oath by less while she wears it.",
+        },
+      },
     ],
   },
   {
@@ -1379,7 +1395,7 @@ const PETITIONS: {
   {
     id: "wagon-oath",
     title: "The drivers' oath",
-    ask: "Wants a hero fielded and wearing gear. Bran, Heracles, or Zeus makes the drivers' oath pay. With no geared company, sending them fails.",
+    ask: "Wants a hero fielded and wearing gear. Bran, Heracles, Corin, or Zeus makes the drivers' oath pay. With no geared company, sending them fails.",
     standing: wagonStanding,
     body: (place) => `The wagon drivers at ${place} will not swear the next call until they see who walks with the banner.`,
     choices: [
@@ -2101,7 +2117,7 @@ export function tickSettlements(state: GameState): string[] {
     state.player.gold = Math.max(0, state.player.gold + mods.goldDawn);
     lines.push(mods.goldDawn > 0 ? `${mods.goldDawn} gold finds you at dawn.` : `${-mods.goldDawn} gold leaves at dawn.`);
   }
-  if ((state.settlements ?? []).some((item) => item.edict === "salt-road") && !heroSaltQuiet(state)) {
+  if ((state.settlements ?? []).some((item) => item.edict === "salt-road") && !heroSaltQuiet(state) && !heroCharterQuiet(state)) {
     state.wyrm.ire = clamp(state.wyrm.ire + 1, 0, 100);
     lines.push("Salt on the road keeps the frost interested. Vell's anger climbs.");
   }
