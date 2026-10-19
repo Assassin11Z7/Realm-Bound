@@ -91,16 +91,21 @@ function SeasonShell() {
           The old save could not be read. Begin a new season.
         </p>
       )}
-      <div className="flex flex-col gap-2">
+      <div className="wm-title-bar">
         {game && (
-          <Button type="button" className="h-12 text-base" onClick={() => setScreen("play")}>
+          <Button type="button" variant="default" className="wm-title-btn h-12 text-base" onClick={() => setScreen("play")}>
             Continue the realm
           </Button>
         )}
-        <Button type="button" variant={game ? "outline" : "default"} className={`h-12 text-base ${game ? "border-white/30 bg-black/30 text-[#f4ead7] hover:bg-black/50" : ""}`} onClick={begin}>
+        <Button
+          type="button"
+          variant={game ? "outline" : "default"}
+          className={`wm-title-btn h-12 text-base ${game ? "wm-title-btn-outline" : ""}`}
+          onClick={begin}
+        >
           Begin a realm
         </Button>
-        <Button type="button" variant="ghost" className="h-11 text-[#f4ead7] hover:bg-white/10 hover:text-[#f4ead7]" onClick={() => setHelp(true)}>
+        <Button type="button" variant="ghost" className="wm-title-btn wm-title-btn-ghost h-11" onClick={() => setHelp(true)}>
           How the realm works
         </Button>
       </div>
