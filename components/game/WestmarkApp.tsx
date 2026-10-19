@@ -14,10 +14,11 @@ import { RULES } from "@/lib/game/content";
 import { createGame } from "@/lib/game/engine";
 import { getGameSnapshot, getServerGameSnapshot, saveGame, subscribeGame } from "@/lib/game/storage";
 import type { GameState, NewGameSetup } from "@/lib/game/types";
-import { VELL_ART } from "./art";
 import { CreateSeason } from "./CreateSeason";
 import { PhoneFrame, useFrame } from "./frame";
 import { PlaySeason } from "./PlaySeason";
+
+const titleAction = "h-auto min-h-12 w-full max-w-full whitespace-normal px-4 py-3 text-base leading-snug";
 
 export function WestmarkApp() {
   return (
@@ -77,38 +78,54 @@ function SeasonShell() {
     <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
       <img src="/art/title-valley.jpg" alt="" className="wm-drift absolute inset-0 h-full w-full object-cover" />
       <div className="absolute inset-0 bg-gradient-to-b from-[#14110e]/40 via-[#14110e]/20 to-[#14110e]/92" />
-      <div className="relative flex min-h-0 flex-1 flex-col px-5 pt-8 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-      <div className="flex flex-1 flex-col items-center justify-end pb-6 text-center text-[#f4ead7]">
-        <img src={VELL_ART} alt="" className="wm-breathe size-24 rounded-full object-cover ring-2 ring-[#e6c56e] shadow-[0_12px_40px_rgba(0,0,0,0.45)]" />
-        <p className="mt-5 text-xs tracking-[0.28em] text-[#e6c56e] uppercase">A pocket realm</p>
-        <h1 className="mt-2 font-display text-5xl leading-none">Westmark</h1>
-        <p className="mt-3 max-w-xs text-base leading-relaxed text-[#f4ead7]/90">
-          Rule the valley. The wagons roll every so often, and Vell watches that road. The holds, the oaths, and the empty seats are the work that stays.
-        </p>
-      </div>
-      {loaded.corrupt && (
-        <p className="mb-3 rounded-xl bg-primary px-3 py-2 text-sm text-primary-foreground">
-          The old save could not be read. Begin a new season.
-        </p>
-      )}
-      <div className="wm-title-bar">
-        {game && (
-          <Button type="button" variant="default" className="wm-title-btn h-12 text-base" onClick={() => setScreen("play")}>
-            Continue the realm
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-y-contain px-4 pt-6 text-center text-[#f4ead7] sm:px-5">
+          <div className="mt-auto flex w-full min-w-0 flex-col items-center pb-4">
+            <div
+              aria-hidden
+              className="grid size-9 shrink-0 place-items-center rounded-full bg-[#7c2a24] font-display text-lg leading-none text-[#f4ead7] ring-2 ring-[#e6c56e] shadow-[0_8px_22px_rgba(0,0,0,0.45)]"
+            >
+              W
+            </div>
+            <p className="mt-4 max-w-full text-balance text-[0.7rem] leading-snug tracking-[0.16em] text-[#e6c56e] uppercase min-[380px]:tracking-[0.22em]">
+              A pocket realm
+            </p>
+            <h1 className="mt-2 max-w-full font-display text-[clamp(2.15rem,10.5vw,3rem)] leading-[1.08] text-balance">
+              Westmark
+            </h1>
+            <p className="mt-3 w-full max-w-sm text-pretty text-sm leading-relaxed text-[#f4ead7]/90 min-[400px]:text-base">
+              Rule the valley. The wagons roll every so often, and Vell watches that road. The holds, the oaths, and the empty seats are the work that stays.
+            </p>
+          </div>
+        </div>
+        <div className="wm-title-bar sticky bottom-0 z-10 flex w-full shrink-0 flex-col gap-3 bg-gradient-to-t from-[#14110e] via-[#14110e]/92 to-transparent px-4 pt-6 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-5">
+          {loaded.corrupt && (
+            <p className="rounded-xl bg-primary px-3 py-2 text-sm leading-snug text-pretty text-primary-foreground">
+              The old save could not be read. Begin a new season.
+            </p>
+          )}
+          {game && (
+            <Button type="button" variant="default" className={`wm-title-btn ${titleAction}`} onClick={() => setScreen("play")}>
+              Continue the realm
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant={game ? "outline" : "default"}
+            className={`wm-title-btn ${titleAction} ${game ? "wm-title-btn-outline" : ""}`}
+            onClick={begin}
+          >
+            Begin a realm
           </Button>
-        )}
-        <Button
-          type="button"
-          variant={game ? "outline" : "default"}
-          className={`wm-title-btn h-12 text-base ${game ? "wm-title-btn-outline" : ""}`}
-          onClick={begin}
-        >
-          Begin a realm
-        </Button>
-        <Button type="button" variant="ghost" className="wm-title-btn wm-title-btn-ghost h-11" onClick={() => setHelp(true)}>
-          How the realm works
-        </Button>
-      </div>
+          <Button
+            type="button"
+            variant="ghost"
+            className={`wm-title-btn wm-title-btn-quiet ${titleAction}`}
+            onClick={() => setHelp(true)}
+          >
+            How the realm works
+          </Button>
+        </div>
       </div>
       <Dialog open={help} onOpenChange={setHelp}>
         <DialogContent container={frame} className="max-h-[80%] overflow-y-auto">
