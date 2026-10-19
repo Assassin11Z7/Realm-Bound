@@ -98,21 +98,21 @@ function SeasonShell() {
             </p>
           </div>
         </div>
-        <div className="sticky bottom-0 z-10 flex w-full shrink-0 flex-col gap-3 bg-gradient-to-t from-[#14110e] via-[#14110e]/92 to-transparent px-4 pt-6 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-5">
+        <div className="wm-title-bar sticky bottom-0 z-10 flex w-full shrink-0 flex-col gap-3 bg-gradient-to-t from-[#14110e] via-[#14110e]/92 to-transparent px-4 pt-6 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-5">
           {loaded.corrupt && (
             <p className="rounded-xl bg-primary px-3 py-2 text-sm leading-snug text-pretty text-primary-foreground">
               The old save could not be read. Begin a new season.
             </p>
           )}
           {game && (
-            <Button type="button" className={titleAction} onClick={() => setScreen("play")}>
+            <Button type="button" variant="default" className={`wm-title-btn ${titleAction}`} onClick={() => setScreen("play")}>
               Continue the realm
             </Button>
           )}
           <Button
             type="button"
             variant={game ? "outline" : "default"}
-            className={`${titleAction} ${game ? "border-white/30 bg-black/30 text-[#f4ead7] hover:bg-black/50" : ""}`}
+            className={`wm-title-btn ${titleAction} ${game ? "wm-title-btn-outline" : ""}`}
             onClick={begin}
           >
             Begin a realm
@@ -120,7 +120,7 @@ function SeasonShell() {
           <Button
             type="button"
             variant="ghost"
-            className={`${titleAction} border border-white/25 bg-black/30 text-[#f4ead7] hover:bg-white/10 hover:text-[#f4ead7]`}
+            className={`wm-title-btn wm-title-btn-quiet ${titleAction}`}
             onClick={() => setHelp(true)}
           >
             How the realm works

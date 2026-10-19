@@ -141,6 +141,99 @@
   font-optical-sizing: auto;
 }
 
+/* Title actions sit outside Tailwind layers so wax/outline paint even when
+   button variant utilities do not apply on narrow mobile browsers. */
+.wm-title-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  flex-shrink: 0;
+  gap: 0;
+  box-sizing: border-box;
+  padding: 1.5rem 1rem max(1rem, env(safe-area-inset-bottom));
+  background: linear-gradient(to top, #14110e, rgba(20, 17, 14, 0.92), transparent);
+}
+
+@media (min-width: 640px) {
+  .wm-title-bar {
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+}
+
+.wm-title-bar > p {
+  margin: 0 0 0.75rem;
+}
+
+button.wm-title-btn.wm-title-btn {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 3rem;
+  margin: 0 0 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid transparent;
+  background: #7c2a24;
+  background-color: #7c2a24;
+  color: #f8f1e4;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: normal;
+  text-align: center;
+  white-space: normal;
+  box-shadow: 0 8px 16px rgba(124, 42, 36, 0.22);
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+button.wm-title-btn.wm-title-btn:last-child {
+  margin-bottom: 0;
+}
+
+button.wm-title-btn.wm-title-btn:hover {
+  background: #6e2520;
+  background-color: #6e2520;
+  color: #f8f1e4;
+}
+
+button.wm-title-btn.wm-title-btn.wm-title-btn-outline {
+  background: rgba(0, 0, 0, 0.3);
+  background-color: rgba(0, 0, 0, 0.3);
+  color: #f4ead7;
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: none;
+  font-weight: 500;
+}
+
+button.wm-title-btn.wm-title-btn.wm-title-btn-outline:hover {
+  background: rgba(0, 0, 0, 0.5);
+  background-color: rgba(0, 0, 0, 0.5);
+  color: #f4ead7;
+}
+
+button.wm-title-btn.wm-title-btn.wm-title-btn-quiet {
+  background: rgba(0, 0, 0, 0.3);
+  background-color: rgba(0, 0, 0, 0.3);
+  color: #f4ead7;
+  border-color: rgba(255, 255, 255, 0.25);
+  box-shadow: none;
+  font-weight: 500;
+}
+
+button.wm-title-btn.wm-title-btn.wm-title-btn-quiet:hover {
+  background: rgba(255, 255, 255, 0.1);
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #f4ead7;
+}
+
 .realm-night {
   background:
     radial-gradient(ellipse at 50% 0%, #3a2a22 0%, transparent 58%),
