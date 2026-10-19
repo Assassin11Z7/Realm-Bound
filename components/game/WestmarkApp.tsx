@@ -18,8 +18,6 @@ import { CreateSeason } from "./CreateSeason";
 import { PhoneFrame, useFrame } from "./frame";
 import { PlaySeason } from "./PlaySeason";
 
-const titleAction = "h-auto min-h-12 w-full max-w-full whitespace-normal px-4 py-3 text-base leading-snug";
-
 export function WestmarkApp() {
   return (
     <PhoneFrame>
@@ -98,21 +96,21 @@ function SeasonShell() {
             </p>
           </div>
         </div>
-        <div className="wm-title-bar sticky bottom-0 z-10 flex w-full shrink-0 flex-col gap-3 bg-gradient-to-t from-[#14110e] via-[#14110e]/92 to-transparent px-4 pt-6 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-5">
+        <div className="wm-title-bar">
           {loaded.corrupt && (
             <p className="rounded-xl bg-primary px-3 py-2 text-sm leading-snug text-pretty text-primary-foreground">
               The old save could not be read. Begin a new season.
             </p>
           )}
           {game && (
-            <Button type="button" variant="default" className={`wm-title-btn ${titleAction}`} onClick={() => setScreen("play")}>
+            <Button type="button" variant="default" className="wm-title-btn" onClick={() => setScreen("play")}>
               Continue the realm
             </Button>
           )}
           <Button
             type="button"
             variant={game ? "outline" : "default"}
-            className={`wm-title-btn ${titleAction} ${game ? "wm-title-btn-outline" : ""}`}
+            className={game ? "wm-title-btn wm-title-btn-outline" : "wm-title-btn"}
             onClick={begin}
           >
             Begin a realm
@@ -120,7 +118,7 @@ function SeasonShell() {
           <Button
             type="button"
             variant="ghost"
-            className={`wm-title-btn wm-title-btn-quiet ${titleAction}`}
+            className="wm-title-btn wm-title-btn-quiet"
             onClick={() => setHelp(true)}
           >
             How the realm works
@@ -150,12 +148,12 @@ function SeasonShell() {
             <DialogDescription>Planting a new banner erases the realm saved on this device.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button type="button" variant="outline" className="h-11" onClick={() => setConfirmNew(false)}>
+            <Button type="button" variant="outline" className="wm-action wm-action-line" onClick={() => setConfirmNew(false)}>
               Keep it
             </Button>
             <Button
               type="button"
-              className="h-11"
+              className="wm-action"
               onClick={() => {
                 setConfirmNew(false);
                 setScreen("create");
