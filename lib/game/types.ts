@@ -239,9 +239,15 @@ export interface RoadChoice {
   /** Why a hero or a piece opened or improved this choice. */
   because?: string;
   /** A kit effect that still applies when the road is settled. */
-  boon?: "hunt" | "bell" | "ward" | "lore" | "weather";
+  boon?: "hunt" | "bell" | "ward" | "lore" | "weather" | "ford" | "rumor" | "path" | "ask" | "spoor" | "shelter";
   /** Gold a bargain choice asks for. Short gold turns the road into a setback. */
   pay?: number;
+}
+
+/** One row on the finished-road card. */
+export interface RoadMark {
+  label: string;
+  value: string;
 }
 
 export interface RoadBeat {
@@ -255,11 +261,16 @@ export interface RoadOutcome {
   tone: RoadTone;
   title: string;
   line: string;
-  /** Ordinary find, if it went into the pack. Treasures use the hoard slot. */
+  /** Ordinary find. Treasures use the hoard slot. Left on the road when `gearKept` is false. */
   gearName?: string;
   gearSlot?: GearSlot;
-  /** Unique relic, if one came back in the pack. */
+  /** Unique relic, if one was found. `relicKept` false means the bag could not take it. */
   relicName?: string;
+  /** False when the named gear was left on the road. Absent means it was packed. */
+  gearKept?: boolean;
+  relicKept?: boolean;
+  /** Outcome, gold, gear, Vell, teaching, and any bond or loyalty shift. */
+  marks?: RoadMark[];
 }
 
 /** A journey in progress. Choices are fixed when the company sets out. */

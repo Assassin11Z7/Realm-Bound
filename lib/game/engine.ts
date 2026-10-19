@@ -83,7 +83,7 @@ import {
   tickSettlements,
 } from "./realm";
 import { blankExpedition, blankPolitics, CHARTER_PAY, EXPEDITION_GRACE, expeditionDue, markCalled, markDeparted, takeExpeditionPrize, wagonsOpen } from "./expedition";
-import { PLAIN_TUNE, describeRoad, judgeRoad, roadBeats, type RoadTune } from "./road";
+import { PLAIN_TUNE, describeRoad, judgeRoad, roadBeats, roadLedger, type RoadTune } from "./road";
 import {
   WATCH_FIND_LUCK,
   WATCH_RELIC_BIAS,
@@ -1498,7 +1498,15 @@ function applyRoad(
   holdId: HoldId,
   tune: RoadTune,
   narrate: boolean,
-): { message: string; gearName?: string; gearSlot?: GameState["pack"][number]["slot"]; relicName?: string } {
+): {
+  message: string;
+  gearName?: string;
+  gearSlot?: GameState["pack"][number]["slot"];
+  gearKept: boolean;
+  relicName?: string;
+  relicKept: boolean;
+  taught: number;
+} {
   const watch = (next.campaign?.realmWorks ?? []).some((work) => work.id === "watchtower");
   const relicBias = (watch ? WATCH_RELIC_BIAS : 0) + tune.relicBias;
   const found = roadFind(
@@ -1516,28 +1524,31 @@ function applyRoad(
   next.wyrm.ire = Math.max(0, Math.min(100, next.wyrm.ire + found.ire + tune.ireDelta));
   let gearName: string | undefined;
   let gearSlot: GameState["pack"][number]["slot"] | undefined;
+  let gearKept = false;
   let triedGear = false;
   if (found.gear && tune.keepGear) {
     triedGear = true;
-    if (packRoadGear(next, found.gear)) {
-      gearName = found.gear.name;
-      gearSlot = found.gear.slot;
-    }
+    gearName = found.gear.name;
+    gearSlot = found.gear.slot;
+    gearKept = packRoadGear(next, found.gear);
   } else if (found.gear) {
+    gearName = found.gear.name;
+    gearSlot = found.gear.slot;
     note(next, `The company leaves ${found.gear.name} in the mud outside ${holdById(holdId).name}.`);
   }
   if (tune.forceGear && tune.keepGear && !triedGear) {
     const extra = rollGear(next.seed ?? 0, next.day, (next.miles ?? 0) + 120, relicBias);
-    if (packRoadGear(next, extra)) {
-      gearName = extra.name;
-      gearSlot = extra.slot;
-    }
+    gearName = extra.name;
+    gearSlot = extra.slot;
+    gearKept = packRoadGear(next, extra);
   }
   if ((next.tonics?.luck ?? 0) > 0) next.tonics.luck -= 1;
   const relic = awardUniqueRelic(next, "walk", heroRelicBonus(next, "walk") + tune.relicBonus);
   let relicName: string | undefined;
+  let relicKept = false;
   if (relic?.packed) {
     relicName = relic.gear.name;
+    relicKept = true;
     if (narrate) {
       const blurb = relic.gear.relic ? relicSpec(relic.gear.relic)?.blurb : "";
       const spoken = blurb ? `${blurb.charAt(0).toUpperCase()}${blurb.slice(1)}` : "";
@@ -1549,6 +1560,7 @@ function applyRoad(
     }
     note(next, `The walk left ${relic.gear.name}. ${relic.gear.line}`);
   } else if (relic) {
+    relicName = relic.gear.name;
     note(next, `${relic.gear.name} lay on the track, and the bag could not take it.`);
   }
   bumpQuest(next, "visit", holdId, 1);
@@ -1560,7 +1572,15 @@ function applyRoad(
   const met = maybeRecruit(next, "walk", tune.meetingBonus);
   if (met) note(next, met);
   const walked = relic?.packed ? `${found.line} ${relic.gear.name} came with you.` : found.line;
-  return { message: met ? `${walked} ${met}` : walked, gearName, gearSlot, relicName };
+  return { message: met ? `${walked} ${met}` : walked, gearName, gearSlot, gearKept, relicName, relicKept, taught: teach };
+}
+
+function bondTotal(state: GameState): number {
+  return (state.compact?.members ?? []).filter((member) => member.inCompact).reduce((sum, member) => sum + member.contentment, 0);
+}
+
+function loyaltyTotal(state: GameState): number {
+  return (state.settlements ?? []).reduce((sum, place) => sum + place.mood, 0);
 }
 
 export function travel(state: GameState, holdId: HoldId): Result {
@@ -1599,9 +1619,30 @@ export function chooseRoad(state: GameState, choiceId: string): Result {
     const label = beat.choices.find((choice) => choice.id === choiceId)?.label ?? "The company goes on.";
     return ok(next, label);
   }
+  const beforeGold = next.player.gold;
+  const beforeIre = next.wyrm.ire;
+  const beforeBond = bondTotal(next);
+  const beforeLoyalty = loyaltyTotal(next);
+  const beforeGoods = { ...next.player.stash };
   const judged = judgeRoad(journey, next.player.gold);
   const applied = applyRoad(next, journey.dest, judged.tune, false);
   const outcome = describeRoad(judged, holdById(journey.dest).name, applied.gearName, applied.relicName, applied.gearSlot);
+  outcome.gearKept = applied.gearName ? applied.gearKept : undefined;
+  outcome.relicKept = applied.relicName ? applied.relicKept : undefined;
+  outcome.marks = roadLedger({
+    title: outcome.title,
+    gold: next.player.gold - beforeGold,
+    ire: next.wyrm.ire - beforeIre,
+    taught: applied.taught,
+    bond: bondTotal(next) - beforeBond,
+    loyalty: loyaltyTotal(next) - beforeLoyalty,
+    goods: GOODS.map((good) => ({ label: GOOD_LABEL[good], delta: next.player.stash[good] - beforeGoods[good] })),
+    gearName: applied.gearName,
+    gearKept: applied.gearKept,
+    gearSlot: applied.gearSlot,
+    relicName: applied.relicName,
+    relicKept: applied.relicKept,
+  });
   journey.outcome = outcome;
   note(next, outcome.line);
   return ok(next, outcome.line);

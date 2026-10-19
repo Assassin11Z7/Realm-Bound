@@ -727,6 +727,61 @@ test("setting out asks three beats, then pays the pack", () => {
   assert.match(paid.road?.outcome?.line ?? "", /pays 6 gold/);
   assert.ok(paid.player.gold <= before - 6 + 12);
   assert.equal(paid.scene, null);
+  const ledger = paid.road?.outcome?.marks ?? [];
+  assert.ok(ledger.some((mark) => mark.label === "Outcome" && /bargain/i.test(mark.value)));
+  assert.ok(ledger.some((mark) => mark.label === "Gold"));
+  assert.ok(ledger.some((mark) => mark.label === "Vell"));
+});
+
+test("the road changes with the hold, the season, and who is out", () => {
+  const fresh = () => {
+    let state = createGame(setup());
+    while (state.scene) state = advanceScene(state).state;
+    return state;
+  };
+  const start = fresh();
+  const ash = beginRoad(start, "ashfold").state.road;
+  const salt = beginRoad(start, "saltmere").state.road;
+  assert.ok(ash);
+  assert.ok(salt);
+  assert.equal(ash.beats.length, 3);
+  assert.ok(ash.beats.every((beat) => beat.choices.length >= 2 && beat.choices.length <= 3));
+  assert.ok(ash.beats[0].choices.some((choice) => choice.id === "path"));
+  assert.ok(ash.beats[1].choices.some((choice) => choice.id === "ask"));
+  assert.ok(salt.beats[0].choices.some((choice) => choice.id === "ford"));
+  assert.notEqual(ash.beats[0].title, salt.beats[0].title);
+  assert.notEqual(ash.beats[1].title, salt.beats[1].title);
+  assert.notEqual(
+    ash.beats[0].choices.find((choice) => choice.id === "ridge")?.label,
+    salt.beats[0].choices.find((choice) => choice.id === "ridge")?.label,
+  );
+
+  const winter = beginRoad({ ...fresh(), day: 11 }, "highbarrow").state.road;
+  assert.equal(seasonOf(11), "frost");
+  assert.ok(winter?.beats[2].choices.some((choice) => choice.id === "white"));
+  assert.notEqual(winter?.beats[0].title, ash.beats[0].title);
+  assert.notEqual(winter?.beats[2].title, ash.beats[2].title);
+
+  const rumor = beginRoad(gearOut(fresh(), "odysseus"), "vesper").state.road?.beats[1].choices.find((choice) => choice.id === "rumor");
+  assert.ok(rumor);
+  assert.match(rumor?.because ?? "", /Odysseus/);
+
+  const spoor = beginRoad(gearOut(fresh(), "beowulf"), "highbarrow").state.road?.beats[2].choices.find((choice) => choice.id === "spoor");
+  assert.ok(spoor);
+  assert.match(spoor?.because ?? "", /Beowulf/);
+
+  const ford = beginRoad(gearOut(fresh(), "ness"), "ashfold").state.road?.beats[0].choices.find((choice) => choice.id === "ford");
+  assert.ok(ford);
+  assert.match(ford?.because ?? "", /Ness/);
+  assert.equal(ford?.tone, "clean");
+
+  let walked = beginRoad(fresh(), "ashfold").state;
+  for (const id of ["ridge", "pass", "press"]) walked = chooseRoad(walked, id).state;
+  const marks = walked.road?.outcome?.marks ?? [];
+  assert.equal(walked.road?.outcome?.tone, "clean");
+  assert.ok(marks.some((mark) => mark.label === "Outcome" && /clean road/i.test(mark.value)));
+  assert.ok(marks.some((mark) => mark.label === "Teaching"));
+  assert.ok(marks.some((mark) => mark.label === "Vell"));
 });
 
 test("treasures have their own names, and a hoard piece can be sold", () => {
