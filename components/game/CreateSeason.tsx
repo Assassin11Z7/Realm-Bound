@@ -87,7 +87,7 @@ export function CreateSeason({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="wm-create flex min-h-0 flex-1 flex-col">
       <header className="flex items-center justify-between px-4 pt-4 pb-2">
         <button type="button" className="text-sm text-muted-foreground" onClick={step === 0 ? onBack : () => setStep(step - 1)}>
           {step === 0 ? "Back" : "Previous"}
@@ -97,9 +97,9 @@ export function CreateSeason({
         </p>
         <BannerMark banner={banner} className="h-10 w-8" title="Your banner" />
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+      <div className="wm-create-body min-h-0 flex-1 overflow-y-auto px-4 pb-4">
         {step === 0 && (
-          <div className="flex flex-col gap-4">
+          <div className="wm-stack flex flex-col gap-4">
             <div>
               <h2 className="font-display text-3xl leading-tight">What are you called?</h2>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
@@ -120,14 +120,14 @@ export function CreateSeason({
                 className="h-11 bg-card text-base"
               />
             </label>
-            <div className="flex flex-wrap gap-2">
+            <div className="wm-choice-row wm-choice-inline">
               {TITLES.map((item) => (
                 <button
                   key={item}
                   type="button"
                   aria-pressed={title === item}
                   onClick={() => setTitle(item)}
-                  className={`min-h-11 rounded-full px-4 text-sm ring-1 ${title === item ? "bg-primary text-primary-foreground ring-primary" : "bg-card ring-border"}`}
+                  className="wm-choice wm-choice-chip"
                 >
                   {item}
                 </button>
@@ -137,7 +137,7 @@ export function CreateSeason({
         )}
 
         {step === 1 && (
-          <div className="flex flex-col gap-3">
+          <div className="wm-stack flex flex-col gap-3">
             <h2 className="font-display text-3xl leading-tight">Who do you stand with?</h2>
             <p className="text-sm text-muted-foreground">Each side bends the season in one direction. Pick the pressure you want.</p>
             {FACTIONS.map((faction) => {
@@ -148,7 +148,7 @@ export function CreateSeason({
                   type="button"
                   aria-pressed={selected}
                   onClick={() => chooseFaction(faction.id)}
-                  className={`rounded-2xl p-4 text-left ring-1 ${selected ? "bg-accent ring-gold" : "bg-card ring-foreground/10"}`}
+                  className="wm-choice wm-choice-card"
                 >
                   <span className="font-display text-xl">{faction.name}</span>
                   <span className="mt-1 block text-sm italic text-muted-foreground">{faction.motto}</span>
@@ -160,7 +160,7 @@ export function CreateSeason({
         )}
 
         {step === 2 && (
-          <div className="flex flex-col gap-3">
+          <div className="wm-stack flex flex-col gap-3">
             <h2 className="font-display text-3xl leading-tight">Where do you plant it?</h2>
             <p className="text-sm leading-relaxed text-muted-foreground">
               Greenmere is the clearest first hold: you can put grain on the wagons yourself. Woolford and Vesper must trade for almost everything. Each land keeps a creature of its own.
@@ -173,7 +173,7 @@ export function CreateSeason({
                   type="button"
                   aria-pressed={selected}
                   onClick={() => chooseHold(hold.id)}
-                  className={`overflow-hidden rounded-2xl text-left ring-1 ${selected ? "bg-accent ring-gold" : "bg-card ring-foreground/10"}`}
+                  className="wm-choice wm-choice-card wm-choice-hold"
                 >
                   <img src={`/art/hold-${hold.id}.jpg`} alt="" className="h-24 w-full object-cover" />
                   <span className="block p-4">
@@ -193,7 +193,7 @@ export function CreateSeason({
         )}
 
         {step === 3 && (
-          <div className="flex flex-col gap-4">
+          <div className="wm-stack flex flex-col gap-4">
             <div className="flex items-center gap-4">
               <BannerMark banner={banner} className="h-28 w-24" title="Banner preview" />
               <div>
@@ -217,14 +217,14 @@ export function CreateSeason({
             />
             <div>
               <p className="mb-2 text-sm">Symbol</p>
-              <div className="flex flex-wrap gap-2">
+              <div className="wm-choice-row wm-choice-inline">
                 {SIGILS.map((sigil) => (
                   <button
                     key={sigil}
                     type="button"
                     aria-pressed={banner.sigil === sigil}
                     onClick={() => paint({ ...banner, sigil: sigil as SigilId })}
-                    className={`min-h-11 rounded-full px-3 text-sm ring-1 ${banner.sigil === sigil ? "bg-primary text-primary-foreground ring-primary" : "bg-card ring-border"}`}
+                    className="wm-choice wm-choice-chip"
                   >
                     {SIGIL_LABEL[sigil]}
                   </button>
@@ -233,14 +233,14 @@ export function CreateSeason({
             </div>
             <div>
               <p className="mb-2 text-sm">Pattern</p>
-              <div className="flex flex-wrap gap-2">
+              <div className="wm-choice-row wm-choice-inline">
                 {DIVISIONS.map((division) => (
                   <button
                     key={division}
                     type="button"
                     aria-pressed={banner.division === division}
                     onClick={() => paint({ ...banner, division: division as Division })}
-                    className={`min-h-11 rounded-full px-3 text-sm ring-1 ${banner.division === division ? "bg-primary text-primary-foreground ring-primary" : "bg-card ring-border"}`}
+                    className="wm-choice wm-choice-chip"
                   >
                     {DIVISION_LABEL[division]}
                   </button>
@@ -276,8 +276,8 @@ export function CreateSeason({
         )}
         {error && <p className="mt-3 text-sm text-wax">{error}</p>}
       </div>
-      <div className="px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <Button type="button" className="h-12 w-full text-base" onClick={goNext}>
+      <div className="wm-action-bar">
+        <Button type="button" className="wm-action" onClick={goNext}>
           {step === 3 ? "Plant your banner" : "Continue"}
         </Button>
       </div>
@@ -299,7 +299,7 @@ function Swatches({
   return (
     <div>
       <p className="mb-2 text-sm">{label}</p>
-      <div className="flex flex-wrap gap-2">
+      <div className="wm-swatch-row">
         {colors.map((color) => (
           <button
             key={color.id}
@@ -307,7 +307,7 @@ function Swatches({
             aria-label={color.name}
             aria-pressed={selected === color.hex}
             onClick={() => onPick(color.hex)}
-            className={`size-11 rounded-full ring-2 ring-offset-2 ring-offset-background ${selected === color.hex ? "ring-ink" : "ring-transparent"}`}
+            className="wm-swatch"
             style={{ background: color.hex }}
           />
         ))}
