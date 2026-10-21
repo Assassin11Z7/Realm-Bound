@@ -30,6 +30,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${outfit.variable} ${fraunces.variable} h-full antialiased`}
     >
+      <head>
+        <link rel="stylesheet" href="/fallback.css" />
+      </head>
       <body className={`${outfit.className} min-h-full`}>{children}</body>
     </html>
   );
